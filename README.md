@@ -1,1 +1,3 @@
-# nsp
+# RPCN
+
+Server for emulated matchmaking.

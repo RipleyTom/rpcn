@@ -1,0 +1,14 @@
+[package]
+name = "rpcn"
+version = "0.0.1"
+authors = ["RipleyTom <RipleyTom@users.noreply.github.com>"]
+edition = "2018"
+
+[dependencies]
+clap = "2.33.0"
+num-traits = "0.2.8"
+num-derive = "0.3.0"
+rand = "0.7.2"
+rusqlite = "0.20.0"
+rust-argon2 = "0.5.1"
+flatbuffers = "0.6.0"
