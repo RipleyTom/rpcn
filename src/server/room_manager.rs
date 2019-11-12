@@ -30,7 +30,7 @@ impl RoomBinAttr {
         let id = fb.id();
         let mut attr: Vec<u8> = Vec::new();
         if let Some(fb_attr) = fb.data() {
-            for i in 0..attr.len() {
+            for i in 0..fb_attr.len() {
                 attr.push(fb_attr[i]);
             }
         }
