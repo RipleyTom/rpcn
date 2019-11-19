@@ -386,178 +386,109 @@ impl Client {
         }
     }
     fn join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
-        if let Ok(create_req) = data.get_flatbuffer::<JoinRoomRequest>() {
-            let resp = self.room_manager.write().unwrap().join_room(&create_req, &self.client_info);
+        let mut room_manager = self.room_manager.write().unwrap();
+        if let Ok(join_req) = data.get_flatbuffer::<JoinRoomRequest>() {
+            let resp = room_manager.join_room(&join_req, &self.client_info);
             if let Err(e) = resp {
                 reply.push(e);
             } else {
-                let resp = resp.unwrap();
+                let (member_id, resp) = resp.unwrap();
                 reply.push(ErrorType::NoError as u8);
                 reply.extend(&(resp.len() as u32).to_le_bytes());
                 reply.extend(resp);
+
+                // Notif other room users a new user has joined
+                let mut n_msg: Vec<u8> = Vec::new();
+                n_msg.push(PacketType::Notification as u8);
+                n_msg.extend(&(NotificationType::UserJoinedRoom as u16).to_le_bytes());
+                n_msg.extend(&(0 as u16).to_le_bytes());
+                let room_id = join_req.roomId();
+                n_msg.extend(&room_id.to_le_bytes());
+                let up_info = room_manager.get_room_member_update_info(room_id, member_id, 0, &join_req.optData().unwrap());
+                n_msg.extend(&(up_info.len() as u32).to_le_bytes());
+                n_msg.extend(up_info);
+                let len = n_msg.len() as u16;
+                n_msg[3..5].clone_from_slice(&len.to_le_bytes());
+                let users = room_manager.get_room_users(room_id);
+                {
+                    let mut dasocks = self.sockets_list.lock().unwrap();
+
+                    for uid in &users {
+                        let entry = dasocks.get_mut(&uid.1);
+
+                        if let Some(s) = entry {
+                            let _ = s.write(&n_msg);
+                        }
+                    }
+                }
+
+                // Notifies other room members than p2p connection was established
+                // Note that this is for the mesh format
+                let cur_user_addr = self.stream.peer_addr().unwrap().ip();
+
+                let cur_addr_bytes;
+                if let IpAddr::V4(ip4addr) = cur_user_addr {
+                    cur_addr_bytes = ip4addr.octets();
+                    println!("{:?}", cur_addr_bytes);
+                } else {
+                    panic!("An IPV6 got in here!");
+                }
+
+                let mut s_msg: Vec<u8> = Vec::new();
+                s_msg.push(PacketType::Notification as u8); // 0..1
+                s_msg.extend(&(NotificationType::SignalP2PEstablished as u16).to_le_bytes()); // 1..3
+                s_msg.extend(&(0 as u16).to_le_bytes()); // 3..5
+                s_msg.extend(&room_id.to_le_bytes()); // 5..13
+                s_msg.extend(&member_id.to_le_bytes()); // 13..15
+                s_msg.extend(&cur_addr_bytes); // 15..19
+                let len = s_msg.len() as u16;
+                s_msg[3..5].clone_from_slice(&len.to_le_bytes());
+
+                self.dump_packet(&s_msg, "Signaling message");
+
+                {
+                    let mut dasocks = self.sockets_list.lock().unwrap();
+
+                    for uid in &users {
+                        let entry = dasocks.get_mut(&uid.1);
+
+                        if let Some(s) = entry {
+                            let _ = s.write(&s_msg);
+                        }
+                    }
+                }
+
+                // Notifies user that connection has been established with all other occupants
+                {
+                    let mut dasocks = self.sockets_list.lock().unwrap();
+
+                    for uid in &users {
+                        let entry = dasocks.get_mut(&uid.1);
+                        s_msg[13..15].clone_from_slice(&uid.0.to_le_bytes());
+
+                        if let Some(s) = entry {
+                            let user_addr = s.peer_addr().unwrap().ip();
+
+                            let addr_bytes;
+                            if let IpAddr::V4(ip4addr) = user_addr {
+                                addr_bytes = ip4addr.octets();
+                            } else {
+                                panic!("An IPV6 got in here!");
+                            }
+
+                            s_msg[15..19].clone_from_slice(&addr_bytes);
+
+                            let _ = self.stream.write(&s_msg);
+                        }
+                    }
+                }
             }
-            true
         } else {
             self.log("Error while extracting data from JoinRoom command");
             reply.push(ErrorType::Malformed as u8);
-            false
+            return false;
         }
-
-        // if data.error() {
-        //     self.log("Error while extracting data from JoinRoom command");
-        //     reply.push(ErrorType::Malformed as u8);
-        //     return false;
-        // }
-
-        // let serv_id: u16;
-        // let room_info;
-        // let users_list;
-        // let user_ids_list;
-        // let member_id;
-        // {
-        //     // Lock the db for a little while as we require atomic listing of users
-        //     let mut dadb = self.db.lock().unwrap();
-
-        //     let r_user_ids_list = dadb.get_room_user_ids(room_id as i64);
-        //     if r_user_ids_list.is_err() {
-        //         reply.push(ErrorType::Empty as u8);
-        //         return false;
-        //     }
-        //     user_ids_list = r_user_ids_list.unwrap();
-
-        //     let r_member_id = dadb.join_room(self.user_id, room_id as i64, false);
-        //     if r_member_id.is_err() {
-        //         reply.push(ErrorType::DbFail as u8);
-        //         return false;
-        //     }
-        //     member_id = r_member_id.unwrap();
-
-        //     let r_room_info = dadb.get_room_info(room_id as i64);
-        //     if r_room_info.is_err() {
-        //         reply.push(ErrorType::DbFail as u8);
-        //         return false;
-        //     }
-        //     room_info = r_room_info.unwrap();
-        //     serv_id = dadb.get_corresponding_server(room_info.world_id);
-
-        //     let r_users_list = dadb.get_room_users(room_id as i64);
-        //     if r_users_list.is_err() {
-        //         reply.push(ErrorType::DbFail as u8);
-        //         return false;
-        //     }
-        //     users_list = r_users_list.unwrap();
-        // }
-
-        // reply.push(ErrorType::NoError as u8);
-        // reply.extend(&serv_id.to_le_bytes());
-        // reply.extend(&room_info.world_id.to_le_bytes());
-        // reply.extend(&room_info.lobby_id.to_le_bytes());
-        // reply.extend(&room_info.max_slot.to_le_bytes());
-        // reply.extend(&room_info.owner_id.to_le_bytes());
-        // reply.extend(&(users_list.len() as u16).to_le_bytes());
-        // for user in users_list {
-        //     reply.extend(&user.member_id.to_le_bytes());
-        //     reply.extend(user.npid.as_bytes());
-        //     reply.push(0);
-        //     reply.extend(user.psn_name.as_bytes());
-        //     reply.push(0);
-        //     reply.extend(user.avatar_url.as_bytes());
-        //     reply.push(0);
-        // }
-
-        // // Send notifications that a user joined
-        // let mut n_msg: Vec<u8> = Vec::new();
-        // n_msg.push(PacketType::Notification as u8);
-        // n_msg.extend(&(NotificationType::UserJoinedRoom as u16).to_le_bytes());
-        // n_msg.extend(&(0 as u16).to_le_bytes());
-        // n_msg.extend(&room_id.to_le_bytes());
-        // n_msg.extend(&member_id.to_le_bytes());
-        // n_msg.extend(self.npid.as_bytes());
-        // n_msg.push(0);
-        // n_msg.extend(self.psn_name.as_bytes());
-        // n_msg.push(0);
-        // n_msg.extend(self.avatar_url.as_bytes());
-        // n_msg.push(0);
-        // let len = n_msg.len() as u16;
-        // n_msg[3..5].clone_from_slice(&len.to_le_bytes());
-
-        // self.dump_packet(&n_msg, "Notification User Joined");
-
-        // // Notifies other room member than a new member joined the room
-        // {
-        //     let mut dasocks = self.sockets_list.lock().unwrap();
-
-        //     for uid in &user_ids_list {
-        //         let entry = dasocks.get_mut(&uid.user_id);
-
-        //         if let Some(s) = entry {
-        //             let _ = s.write(&n_msg);
-        //         }
-        //     }
-        // }
-
-        // // Notifies other room members than p2p connection was established
-        // // Note that this is for the mesh format
-        // let cur_user_addr = self.stream.peer_addr().unwrap().ip();
-
-        // let cur_addr_bytes;
-        // if let IpAddr::V4(ip4addr) = cur_user_addr {
-        //     cur_addr_bytes = ip4addr.octets();
-        //     println!("{:?}", cur_addr_bytes);
-        // } else {
-        //     panic!("An IPV6 got in here!");
-        // }
-
-        // let mut s_msg: Vec<u8> = Vec::new();
-        // s_msg.push(PacketType::Notification as u8); // 0..1
-        // s_msg.extend(&(NotificationType::SignalP2PEstablished as u16).to_le_bytes()); // 1..3
-        // s_msg.extend(&(0 as u16).to_le_bytes()); // 3..5
-        // s_msg.extend(&room_id.to_le_bytes()); // 5..13
-        // s_msg.extend(&member_id.to_le_bytes()); // 13..15
-        // s_msg.extend(&cur_addr_bytes); // 15..19
-        // let len = s_msg.len() as u16;
-        // s_msg[3..5].clone_from_slice(&len.to_le_bytes());
-
-        // self.dump_packet(&s_msg, "Signaling message");
-
-        // {
-        //     let mut dasocks = self.sockets_list.lock().unwrap();
-
-        //     for uid in &user_ids_list {
-        //         let entry = dasocks.get_mut(&uid.user_id);
-
-        //         if let Some(s) = entry {
-        //             let _ = s.write(&s_msg);
-        //         }
-        //     }
-        // }
-
-        // // Notifies user that connection has been established with all other occupants
-        // {
-        //     let mut dasocks = self.sockets_list.lock().unwrap();
-
-        //     for uid in &user_ids_list {
-        //         let entry = dasocks.get_mut(&uid.user_id);
-        //         s_msg[13..15].clone_from_slice(&uid.member_id.to_le_bytes());
-
-        //         if let Some(s) = entry {
-        //             let user_addr = s.peer_addr().unwrap().ip();
-
-        //             let addr_bytes;
-        //             if let IpAddr::V4(ip4addr) = user_addr {
-        //                 addr_bytes = ip4addr.octets();
-        //             } else {
-        //                 panic!("An IPV6 got in here!");
-        //             }
-
-        //             s_msg[15..19].clone_from_slice(&addr_bytes);
-
-        //             let _ = self.stream.write(&s_msg);
-        //         }
-        //     }
-        // }
-
-        // true
+        true
     }
     fn search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(search_req) = data.get_flatbuffer::<SearchRoomRequest>() {

@@ -704,7 +704,7 @@ impl RoomManager {
         builder.finished_data().to_vec()
     }
 
-    pub fn join_room(&mut self, req: &JoinRoomRequest, cinfo: &ClientInfo) -> Result<Vec<u8>, u8> {
+    pub fn join_room(&mut self, req: &JoinRoomRequest, cinfo: &ClientInfo) -> Result<(u16, Vec<u8>), u8> {
         if !self.room_exist(req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
@@ -726,7 +726,7 @@ impl RoomManager {
         let room_data = room.to_RoomDataInternal(&mut builder);
 
         builder.finish(room_data, None);
-        Ok(builder.finished_data().to_vec())
+        Ok((room.user_cnt, builder.finished_data().to_vec()))
     }
 
     pub fn search_room(&self, req: &SearchRoomRequest) -> Vec<u8> {
@@ -855,5 +855,48 @@ impl RoomManager {
         room.owner_succession = succession_list;
 
         Ok(())
+    }
+    pub fn get_room_member_update_info(&self, room_id: u64, member_id: u16, event_cause: u8, user_opt_data: &PresenceOptionData) -> Vec<u8> {
+        assert!(self.rooms.contains_key(&room_id));
+        let room = self.get_room(room_id);
+
+        assert!(room.users.contains_key(&member_id));
+        let user = room.users.get(&member_id).unwrap();
+
+        // Builds flatbuffer
+        let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
+
+        let member_internal = user.to_RoomMemberDataInternal(&mut builder);
+
+        let mut opt_data_vec: Vec<u8> = Vec::new();
+        for i in 0..16 {
+            opt_data_vec.push(*user_opt_data.data().unwrap().get(i).unwrap());
+        }
+        let opt_data_vec = builder.create_vector(&opt_data_vec);
+
+        let opt_data = PresenceOptionData::create(&mut builder, &PresenceOptionDataArgs {
+            len: user_opt_data.len(),
+            data: Some(opt_data_vec),
+        });
+
+        let up_info = RoomMemberUpdateInfo::create(&mut builder, &RoomMemberUpdateInfoArgs {
+            roomMemberDataInternal: Some(member_internal),
+            eventCause: event_cause,
+            optData: Some(opt_data),
+        });
+        
+        builder.finish(up_info, None);
+        builder.finished_data().to_vec()
+    }
+    pub fn get_room_users(&self, room_id: u64) -> Vec<(u16, i64)> {
+        assert!(self.rooms.contains_key(&room_id));
+        let room = self.get_room(room_id);
+
+        let mut users_vec = Vec::new();
+        for user in &room.users {
+            users_vec.push((user.0.clone(), user.1.user_id));
+        }
+
+        users_vec
     }
 }

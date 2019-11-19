@@ -2844,3 +2844,103 @@ impl<'a: 'b, 'b> GetRoomDataInternalRequestBuilder<'a, 'b> {
   }
 }
 
+pub enum RoomMemberUpdateInfoOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+pub struct RoomMemberUpdateInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for RoomMemberUpdateInfo<'a> {
+    type Inner = RoomMemberUpdateInfo<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> RoomMemberUpdateInfo<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        RoomMemberUpdateInfo {
+            _tab: table,
+        }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args RoomMemberUpdateInfoArgs<'args>) -> flatbuffers::WIPOffset<RoomMemberUpdateInfo<'bldr>> {
+      let mut builder = RoomMemberUpdateInfoBuilder::new(_fbb);
+      if let Some(x) = args.optData { builder.add_optData(x); }
+      if let Some(x) = args.roomMemberDataInternal { builder.add_roomMemberDataInternal(x); }
+      builder.add_eventCause(args.eventCause);
+      builder.finish()
+    }
+
+    pub const VT_ROOMMEMBERDATAINTERNAL: flatbuffers::VOffsetT = 4;
+    pub const VT_EVENTCAUSE: flatbuffers::VOffsetT = 6;
+    pub const VT_OPTDATA: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub fn roomMemberDataInternal(&self) -> Option<RoomMemberDataInternal<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<RoomMemberDataInternal<'a>>>(RoomMemberUpdateInfo::VT_ROOMMEMBERDATAINTERNAL, None)
+  }
+  #[inline]
+  pub fn eventCause(&self) -> u8 {
+    self._tab.get::<u8>(RoomMemberUpdateInfo::VT_EVENTCAUSE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn optData(&self) -> Option<PresenceOptionData<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData<'a>>>(RoomMemberUpdateInfo::VT_OPTDATA, None)
+  }
+}
+
+pub struct RoomMemberUpdateInfoArgs<'a> {
+    pub roomMemberDataInternal: Option<flatbuffers::WIPOffset<RoomMemberDataInternal<'a >>>,
+    pub eventCause: u8,
+    pub optData: Option<flatbuffers::WIPOffset<PresenceOptionData<'a >>>,
+}
+impl<'a> Default for RoomMemberUpdateInfoArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        RoomMemberUpdateInfoArgs {
+            roomMemberDataInternal: None,
+            eventCause: 0,
+            optData: None,
+        }
+    }
+}
+pub struct RoomMemberUpdateInfoBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> RoomMemberUpdateInfoBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_roomMemberDataInternal(&mut self, roomMemberDataInternal: flatbuffers::WIPOffset<RoomMemberDataInternal<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<RoomMemberDataInternal>>(RoomMemberUpdateInfo::VT_ROOMMEMBERDATAINTERNAL, roomMemberDataInternal);
+  }
+  #[inline]
+  pub fn add_eventCause(&mut self, eventCause: u8) {
+    self.fbb_.push_slot::<u8>(RoomMemberUpdateInfo::VT_EVENTCAUSE, eventCause, 0);
+  }
+  #[inline]
+  pub fn add_optData(&mut self, optData: flatbuffers::WIPOffset<PresenceOptionData<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<PresenceOptionData>>(RoomMemberUpdateInfo::VT_OPTDATA, optData);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomMemberUpdateInfoBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    RoomMemberUpdateInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<RoomMemberUpdateInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+

@@ -184,3 +184,8 @@ table GetRoomDataInternalRequest {
     attrId:[uint16];
 }
 
+table RoomMemberUpdateInfo {
+    roomMemberDataInternal:RoomMemberDataInternal;
+    eventCause:uint8;
+    optData:PresenceOptionData;
+}
