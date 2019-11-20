@@ -659,7 +659,7 @@ impl RoomManager {
         self.log_manager.lock().unwrap().write(&format!("RoomManager: {}", s));
     }
 
-    pub fn room_exist(&self, room_id: u64) -> bool {
+    pub fn room_exists(&self, room_id: u64) -> bool {
         return self.rooms.contains_key(&room_id);
     }
     pub fn get_room(&self, room_id: u64) -> &Room {
@@ -667,6 +667,13 @@ impl RoomManager {
     }
     pub fn get_mut_room(&mut self, room_id: u64) -> &mut Room {
         return self.rooms.get_mut(&room_id).unwrap();
+    }
+
+    pub fn get_corresponding_world(&self, room_id: u64) -> Result<u32, u8> {
+        if !self.room_exists(room_id) {
+            return Err(ErrorType::NotFound as u8);
+        }
+        Ok(self.get_room(room_id).world_id)
     }
 
     pub fn create_room(&mut self, req: &CreateJoinRoomRequest, cinfo: &ClientInfo, server_id: u16) -> Vec<u8> {
@@ -705,7 +712,7 @@ impl RoomManager {
     }
 
     pub fn join_room(&mut self, req: &JoinRoomRequest, cinfo: &ClientInfo) -> Result<(u16, Vec<u8>), u8> {
-        if !self.room_exist(req.roomId()) {
+        if !self.room_exists(req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
 
@@ -782,7 +789,7 @@ impl RoomManager {
         builder.finished_data().to_vec()
     }
     pub fn set_roomdata_external(&mut self, req: &SetRoomDataExternalRequest) -> Result<(), u8> {
-        if !self.rooms.contains_key(&req.roomId()) {
+        if !self.room_exists(req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
         let room = self.get_mut_room(req.roomId());
@@ -814,7 +821,7 @@ impl RoomManager {
         Ok(())
     }
     pub fn get_roomdata_internal(&self, req: &GetRoomDataInternalRequest) -> Result<Vec<u8>, u8> {
-        if !self.rooms.contains_key(&req.roomId()) {
+        if !self.room_exists(req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
         let room = self.get_room(req.roomId());
@@ -829,7 +836,7 @@ impl RoomManager {
         Ok(builder.finished_data().to_vec())
     }
     pub fn set_roomdata_internal(&mut self, req: &SetRoomDataInternalRequest) -> Result<(), u8> {
-        if !self.rooms.contains_key(&req.roomId()) {
+        if !self.room_exists(req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
         let room = self.get_mut_room(req.roomId());
@@ -857,7 +864,7 @@ impl RoomManager {
         Ok(())
     }
     pub fn get_room_member_update_info(&self, room_id: u64, member_id: u16, event_cause: u8, user_opt_data: &PresenceOptionData) -> Vec<u8> {
-        assert!(self.rooms.contains_key(&room_id));
+        assert!(self.room_exists(room_id));
         let room = self.get_room(room_id);
 
         assert!(room.users.contains_key(&member_id));
@@ -889,7 +896,7 @@ impl RoomManager {
         builder.finished_data().to_vec()
     }
     pub fn get_room_users(&self, room_id: u64) -> Vec<(u16, i64)> {
-        assert!(self.rooms.contains_key(&room_id));
+        assert!(self.room_exists(room_id));
         let room = self.get_room(room_id);
 
         let mut users_vec = Vec::new();

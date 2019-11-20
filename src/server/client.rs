@@ -53,6 +53,7 @@ enum CommandType {
     SetRoomDataExternal,
     GetRoomDataInternal,
     SetRoomDataInternal,
+    PingRoomOwner,
 }
 
 #[repr(u16)]
@@ -258,6 +259,7 @@ impl Client {
             CommandType::SetRoomDataExternal => return self.set_roomdata_external(data, reply),
             CommandType::GetRoomDataInternal => return self.get_roomdata_internal(data, reply),
             CommandType::SetRoomDataInternal => return self.set_roomdata_internal(data, reply),
+            CommandType::PingRoomOwner => return self.ping_room_owner(data, reply),
             _ => {
                 reply.push(ErrorType::Invalid as u8);
                 return false;
@@ -429,7 +431,7 @@ impl Client {
                 let cur_addr_bytes;
                 if let IpAddr::V4(ip4addr) = cur_user_addr {
                     cur_addr_bytes = ip4addr.octets();
-                    println!("{:?}", cur_addr_bytes);
+                    //println!("{:?}", cur_addr_bytes);
                 } else {
                     panic!("An IPV6 got in here!");
                 }
@@ -450,6 +452,9 @@ impl Client {
                     let mut dasocks = self.sockets_list.lock().unwrap();
 
                     for uid in &users {
+                        if uid.1 == self.client_info.user_id {
+                            continue;
+                        }
                         let entry = dasocks.get_mut(&uid.1);
 
                         if let Some(s) = entry {
@@ -463,6 +468,9 @@ impl Client {
                     let mut dasocks = self.sockets_list.lock().unwrap();
 
                     for uid in &users {
+                        if uid.1 == self.client_info.user_id {
+                            continue;
+                        }
                         let entry = dasocks.get_mut(&uid.1);
                         s_msg[13..15].clone_from_slice(&uid.0.to_le_bytes());
 
@@ -520,7 +528,7 @@ impl Client {
     }
     fn get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(setdata_req) = data.get_flatbuffer::<GetRoomDataInternalRequest>() {
-            let resp = self.room_manager.write().unwrap().get_roomdata_internal(&setdata_req);
+            let resp = self.room_manager.read().unwrap().get_roomdata_internal(&setdata_req);
             if let Err(e) = resp {
                 reply.push(e);
             } else {
@@ -549,5 +557,38 @@ impl Client {
             reply.push(ErrorType::Malformed as u8);
             false
         }
+    }
+    fn ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+        let room_id = data.get::<u64>();
+        if data.error() {
+            self.log("Error while extracting data from PingRoomOwner command");
+            reply.push(ErrorType::Malformed as u8);
+            return false;
+        }
+
+        let world_id = self.room_manager.read().unwrap().get_corresponding_world(room_id);
+        if let Err(e) = world_id {
+            reply.push(e);
+            return true;
+        }
+        let world_id = world_id.unwrap();
+        let server_id = self.db.lock().unwrap().get_corresponding_server(world_id);
+
+        let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
+        let resp = GetPingInfoResponse::create(&mut builder, &GetPingInfoResponseArgs {
+            serverId: server_id,
+            worldId: world_id,
+            roomId: room_id,
+            rtt: 20000,
+        });
+
+        builder.finish(resp, None);
+        let finished_data = builder.finished_data().to_vec();
+
+        reply.push(ErrorType::NoError as u8);
+        reply.extend(&(finished_data.len() as u32).to_le_bytes());
+        reply.extend(finished_data);
+
+        true
     }
 }

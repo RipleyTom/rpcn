@@ -2944,3 +2944,115 @@ impl<'a: 'b, 'b> RoomMemberUpdateInfoBuilder<'a, 'b> {
   }
 }
 
+pub enum GetPingInfoResponseOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+pub struct GetPingInfoResponse<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for GetPingInfoResponse<'a> {
+    type Inner = GetPingInfoResponse<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> GetPingInfoResponse<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        GetPingInfoResponse {
+            _tab: table,
+        }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args GetPingInfoResponseArgs) -> flatbuffers::WIPOffset<GetPingInfoResponse<'bldr>> {
+      let mut builder = GetPingInfoResponseBuilder::new(_fbb);
+      builder.add_roomId(args.roomId);
+      builder.add_rtt(args.rtt);
+      builder.add_worldId(args.worldId);
+      builder.add_serverId(args.serverId);
+      builder.finish()
+    }
+
+    pub const VT_SERVERID: flatbuffers::VOffsetT = 4;
+    pub const VT_WORLDID: flatbuffers::VOffsetT = 6;
+    pub const VT_ROOMID: flatbuffers::VOffsetT = 8;
+    pub const VT_RTT: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub fn serverId(&self) -> u16 {
+    self._tab.get::<u16>(GetPingInfoResponse::VT_SERVERID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn worldId(&self) -> u32 {
+    self._tab.get::<u32>(GetPingInfoResponse::VT_WORLDID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn roomId(&self) -> u64 {
+    self._tab.get::<u64>(GetPingInfoResponse::VT_ROOMID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn rtt(&self) -> u32 {
+    self._tab.get::<u32>(GetPingInfoResponse::VT_RTT, Some(0)).unwrap()
+  }
+}
+
+pub struct GetPingInfoResponseArgs {
+    pub serverId: u16,
+    pub worldId: u32,
+    pub roomId: u64,
+    pub rtt: u32,
+}
+impl<'a> Default for GetPingInfoResponseArgs {
+    #[inline]
+    fn default() -> Self {
+        GetPingInfoResponseArgs {
+            serverId: 0,
+            worldId: 0,
+            roomId: 0,
+            rtt: 0,
+        }
+    }
+}
+pub struct GetPingInfoResponseBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> GetPingInfoResponseBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_serverId(&mut self, serverId: u16) {
+    self.fbb_.push_slot::<u16>(GetPingInfoResponse::VT_SERVERID, serverId, 0);
+  }
+  #[inline]
+  pub fn add_worldId(&mut self, worldId: u32) {
+    self.fbb_.push_slot::<u32>(GetPingInfoResponse::VT_WORLDID, worldId, 0);
+  }
+  #[inline]
+  pub fn add_roomId(&mut self, roomId: u64) {
+    self.fbb_.push_slot::<u64>(GetPingInfoResponse::VT_ROOMID, roomId, 0);
+  }
+  #[inline]
+  pub fn add_rtt(&mut self, rtt: u32) {
+    self.fbb_.push_slot::<u32>(GetPingInfoResponse::VT_RTT, rtt, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetPingInfoResponseBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    GetPingInfoResponseBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<GetPingInfoResponse<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+

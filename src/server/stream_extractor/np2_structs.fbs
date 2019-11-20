@@ -189,3 +189,10 @@ table RoomMemberUpdateInfo {
     eventCause:uint8;
     optData:PresenceOptionData;
 }
+
+table GetPingInfoResponse {
+    serverId:uint16;
+    worldId:uint32;
+    roomId:uint64;
+    rtt:uint32;
+}
