@@ -66,7 +66,6 @@ fn main() {
         Config::set_verbose(true);
     }
 
-
     let mut host = "0.0.0.0:31313";
 
     if let Some(p_host) = matches.value_of("host") {

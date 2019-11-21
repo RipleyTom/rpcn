@@ -292,6 +292,18 @@ impl Client {
             reply.extend(user_data.avatar_url.as_bytes());
             reply.push(0);
 
+            let cur_user_addr = self.stream.peer_addr().unwrap().ip();
+
+            let cur_addr_bytes;
+            if let IpAddr::V4(ip4addr) = cur_user_addr {
+                cur_addr_bytes = ip4addr.octets();
+            //println!("{:?}", cur_addr_bytes);
+            } else {
+                panic!("An IPV6 got in here!");
+            }
+
+            reply.extend(&cur_addr_bytes);
+
             self.log("Authentified");
 
             self.sockets_list.lock().unwrap().insert(self.client_info.user_id, self.stream.try_clone().unwrap());
@@ -431,7 +443,7 @@ impl Client {
                 let cur_addr_bytes;
                 if let IpAddr::V4(ip4addr) = cur_user_addr {
                     cur_addr_bytes = ip4addr.octets();
-                    //println!("{:?}", cur_addr_bytes);
+                //println!("{:?}", cur_addr_bytes);
                 } else {
                     panic!("An IPV6 got in here!");
                 }
@@ -575,12 +587,15 @@ impl Client {
         let server_id = self.db.lock().unwrap().get_corresponding_server(world_id);
 
         let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
-        let resp = GetPingInfoResponse::create(&mut builder, &GetPingInfoResponseArgs {
-            serverId: server_id,
-            worldId: world_id,
-            roomId: room_id,
-            rtt: 20000,
-        });
+        let resp = GetPingInfoResponse::create(
+            &mut builder,
+            &GetPingInfoResponseArgs {
+                serverId: server_id,
+                worldId: world_id,
+                roomId: room_id,
+                rtt: 20000,
+            },
+        );
 
         builder.finish(resp, None);
         let finished_data = builder.finished_data().to_vec();
