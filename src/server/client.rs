@@ -1,6 +1,7 @@
 use crate::server::database::DatabaseManager;
 use crate::server::log::LogManager;
-use crate::server::room_manager::{Room, RoomBinAttr, RoomManager, RoomUser};
+use crate::server::room_manager::{RoomManager, SignalParam, SignalingType};
+use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::stream_extractor::StreamExtractor;
 use crate::Config;
@@ -8,7 +9,7 @@ use crate::Config;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::net::{IpAddr, TcpStream};
 use std::sync::{Arc, Mutex, RwLock};
@@ -49,6 +50,7 @@ enum CommandType {
     GetWorldList,
     CreateRoom,
     JoinRoom,
+    LeaveRoom,
     SearchRoom,
     SetRoomDataExternal,
     GetRoomDataInternal,
@@ -59,9 +61,27 @@ enum CommandType {
 #[repr(u16)]
 enum NotificationType {
     UserJoinedRoom,
-    _UserLeftRoom,
+    UserLeftRoom,
+    RoomDestroyed,
     SignalP2PEstablished,
     _SignalP2PDisconnected,
+}
+
+#[repr(u8)]
+#[derive(Clone)]
+pub enum EventCause {
+    None,
+    LeaveAction,
+    KickoutAction,
+    GrantOwnerAction,
+    ServerOperation,
+    MemberDisappeared,
+    ServerInternal,
+    ConnectionError,
+    NpSignedOut,
+    SystemError,
+    ContextError,
+    ContextAction,
 }
 
 #[repr(u8)]
@@ -251,15 +271,16 @@ impl Client {
         }
 
         match command {
-            CommandType::GetServerList => return self.get_server_list(data, reply),
-            CommandType::GetWorldList => return self.get_world_list(data, reply),
-            CommandType::CreateRoom => return self.create_room(data, reply),
-            CommandType::JoinRoom => return self.join_room(data, reply),
-            CommandType::SearchRoom => return self.search_room(data, reply),
-            CommandType::SetRoomDataExternal => return self.set_roomdata_external(data, reply),
-            CommandType::GetRoomDataInternal => return self.get_roomdata_internal(data, reply),
-            CommandType::SetRoomDataInternal => return self.set_roomdata_internal(data, reply),
-            CommandType::PingRoomOwner => return self.ping_room_owner(data, reply),
+            CommandType::GetServerList => return self.req_get_server_list(data, reply),
+            CommandType::GetWorldList => return self.req_get_world_list(data, reply),
+            CommandType::CreateRoom => return self.req_create_room(data, reply),
+            CommandType::JoinRoom => return self.req_join_room(data, reply),
+            CommandType::LeaveRoom => return self.req_leave_room(data, reply),
+            CommandType::SearchRoom => return self.req_search_room(data, reply),
+            CommandType::SetRoomDataExternal => return self.req_set_roomdata_external(data, reply),
+            CommandType::GetRoomDataInternal => return self.req_get_roomdata_internal(data, reply),
+            CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply),
+            CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
             _ => {
                 reply.push(ErrorType::Invalid as u8);
                 return false;
@@ -316,9 +337,91 @@ impl Client {
         false
     }
 
+    ///// Helper functions
+    fn create_notification(n_type: NotificationType, data: &Vec<u8>) -> Vec<u8> {
+        let final_size = data.len() + 5;
+
+        let mut final_vec = Vec::with_capacity(final_size);
+        final_vec.push(PacketType::Notification as u8);
+        final_vec.extend(&(n_type as u16).to_le_bytes());
+        final_vec.extend(&(final_size as u16).to_le_bytes());
+        final_vec.extend(data);
+
+        final_vec
+    }
+    fn send_notification(&self, notif: &Vec<u8>, user_list: &HashSet<i64>) {
+        let mut dasocks = self.sockets_list.lock().unwrap();
+
+        for user_id in user_list {
+            let entry = dasocks.get_mut(user_id);
+
+            if let Some(s) = entry {
+                let _ = s.write(&notif);
+            }
+        }
+    }
+    fn signal_connections(&self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_info: Option<SignalParam>) {
+        if let None = sig_info {
+            return;
+        }
+        let sig_info = sig_info.unwrap();
+        if !sig_info.should_signal() {
+            return;
+        }
+
+        match sig_info.get_type() {
+            SignalingType::SignalingMesh => {
+                // Notifies other room members than p2p connection was established
+                let cur_user_addr = self.stream.peer_addr().unwrap().ip();
+
+                let cur_addr_bytes;
+                if let IpAddr::V4(ip4addr) = cur_user_addr {
+                    cur_addr_bytes = ip4addr.octets();
+                } else {
+                    panic!("An IPV6 got in here!");
+                }
+
+                let user_ids : HashSet<i64> = to.iter().map(|x| x.1.clone()).collect();
+                let self_id : HashSet<i64> = [from.1].iter().cloned().collect();
+
+                let mut s_msg: Vec<u8> = Vec::new();
+                s_msg.extend(&room_id.to_le_bytes()); // 5..13
+                s_msg.extend(&from.0.to_le_bytes()); // 13..15
+                s_msg.extend(&cur_addr_bytes); // 15..19
+                let mut s_notif = Client::create_notification(NotificationType::SignalP2PEstablished, &s_msg);
+                self.send_notification(&s_notif, &user_ids);
+
+                // Notifies user that connection has been established with all other occupants
+                {
+                    let mut dasocks = self.sockets_list.lock().unwrap();
+
+                    for user in &to {
+                        let entry = dasocks.get_mut(&user.1);
+                        s_notif[13..15].clone_from_slice(&user.0.to_le_bytes());
+
+                        if let Some(s) = entry {
+                            let user_addr = s.peer_addr().unwrap().ip();
+
+                            let addr_bytes;
+                            if let IpAddr::V4(ip4addr) = user_addr {
+                                addr_bytes = ip4addr.octets();
+                            } else {
+                                panic!("An IPV6 got in here!");
+                            }
+
+                            s_notif[15..19].clone_from_slice(&addr_bytes);
+                            self.send_notification(&s_notif, &self_id);
+                        }
+                    }
+                }
+            }
+            _ => panic!("Unimplemented SignalingType({:?})", sig_info.get_type()),
+        }
+    }
+
     ///// Server/world retrieval
 
-    fn get_server_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_get_server_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         // Expecting 10(communicationId)
         let com_id = data.get_string(false);
 
@@ -352,7 +455,7 @@ impl Client {
 
         true
     }
-    fn get_world_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_get_world_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         // Expecting 2(serverId)
         let server_id = data.get::<u16>();
 
@@ -384,7 +487,7 @@ impl Client {
 
     ///// Room commands
 
-    fn create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(create_req) = data.get_flatbuffer::<CreateJoinRoomRequest>() {
             let server_id = self.db.lock().unwrap().get_corresponding_server(create_req.worldId());
 
@@ -399,110 +502,48 @@ impl Client {
             false
         }
     }
-    fn join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         let mut room_manager = self.room_manager.write().unwrap();
         if let Ok(join_req) = data.get_flatbuffer::<JoinRoomRequest>() {
+            let room_id = join_req.roomId();
+            if !room_manager.room_exists(room_id) {
+                reply.push(ErrorType::NotFound as u8);
+                return true;
+            }
+
+            let (users, siginfo);
+            {
+                let room = room_manager.get_room(room_id.clone());
+                users = room.get_room_users();
+                siginfo = room.get_signaling_info();
+            }
+
             let resp = room_manager.join_room(&join_req, &self.client_info);
             if let Err(e) = resp {
                 reply.push(e);
-            } else {
-                let (member_id, resp) = resp.unwrap();
-                reply.push(ErrorType::NoError as u8);
-                reply.extend(&(resp.len() as u32).to_le_bytes());
-                reply.extend(resp);
-
-                // Notif other room users a new user has joined
-                let mut n_msg: Vec<u8> = Vec::new();
-                n_msg.push(PacketType::Notification as u8);
-                n_msg.extend(&(NotificationType::UserJoinedRoom as u16).to_le_bytes());
-                n_msg.extend(&(0 as u16).to_le_bytes());
-                let room_id = join_req.roomId();
-                n_msg.extend(&room_id.to_le_bytes());
-                let up_info = room_manager.get_room_member_update_info(room_id, member_id, 0, &join_req.optData().unwrap());
-                n_msg.extend(&(up_info.len() as u32).to_le_bytes());
-                n_msg.extend(up_info);
-                let len = n_msg.len() as u16;
-                n_msg[3..5].clone_from_slice(&len.to_le_bytes());
-                let users = room_manager.get_room_users(room_id);
-                {
-                    let mut dasocks = self.sockets_list.lock().unwrap();
-
-                    for uid in &users {
-                        let entry = dasocks.get_mut(&uid.1);
-
-                        if let Some(s) = entry {
-                            let _ = s.write(&n_msg);
-                        }
-                    }
-                }
-
-                // Notifies other room members than p2p connection was established
-                // Note that this is for the mesh format
-                let cur_user_addr = self.stream.peer_addr().unwrap().ip();
-
-                let cur_addr_bytes;
-                if let IpAddr::V4(ip4addr) = cur_user_addr {
-                    cur_addr_bytes = ip4addr.octets();
-                //println!("{:?}", cur_addr_bytes);
-                } else {
-                    panic!("An IPV6 got in here!");
-                }
-
-                let mut s_msg: Vec<u8> = Vec::new();
-                s_msg.push(PacketType::Notification as u8); // 0..1
-                s_msg.extend(&(NotificationType::SignalP2PEstablished as u16).to_le_bytes()); // 1..3
-                s_msg.extend(&(0 as u16).to_le_bytes()); // 3..5
-                s_msg.extend(&room_id.to_le_bytes()); // 5..13
-                s_msg.extend(&member_id.to_le_bytes()); // 13..15
-                s_msg.extend(&cur_addr_bytes); // 15..19
-                let len = s_msg.len() as u16;
-                s_msg[3..5].clone_from_slice(&len.to_le_bytes());
-
-                self.dump_packet(&s_msg, "Signaling message");
-
-                {
-                    let mut dasocks = self.sockets_list.lock().unwrap();
-
-                    for uid in &users {
-                        if uid.1 == self.client_info.user_id {
-                            continue;
-                        }
-                        let entry = dasocks.get_mut(&uid.1);
-
-                        if let Some(s) = entry {
-                            let _ = s.write(&s_msg);
-                        }
-                    }
-                }
-
-                // Notifies user that connection has been established with all other occupants
-                {
-                    let mut dasocks = self.sockets_list.lock().unwrap();
-
-                    for uid in &users {
-                        if uid.1 == self.client_info.user_id {
-                            continue;
-                        }
-                        let entry = dasocks.get_mut(&uid.1);
-                        s_msg[13..15].clone_from_slice(&uid.0.to_le_bytes());
-
-                        if let Some(s) = entry {
-                            let user_addr = s.peer_addr().unwrap().ip();
-
-                            let addr_bytes;
-                            if let IpAddr::V4(ip4addr) = user_addr {
-                                addr_bytes = ip4addr.octets();
-                            } else {
-                                panic!("An IPV6 got in here!");
-                            }
-
-                            s_msg[15..19].clone_from_slice(&addr_bytes);
-
-                            let _ = self.stream.write(&s_msg);
-                        }
-                    }
-                }
+                return true;
             }
+
+            let (member_id, resp) = resp.unwrap();
+            reply.push(ErrorType::NoError as u8);
+            reply.extend(&(resp.len() as u32).to_le_bytes());
+            reply.extend(resp);
+
+            let user_ids : HashSet<i64> = users.iter().map(|x| x.1.clone()).collect();
+
+            // Notif other room users a new user has joined
+            let mut n_msg: Vec<u8> = Vec::new();
+            n_msg.extend(&room_id.to_le_bytes());
+            let up_info = room_manager
+                .get_room(room_id)
+                .get_room_member_update_info(member_id, EventCause::None, Some(&join_req.optData().unwrap()));
+            n_msg.extend(&(up_info.len() as u32).to_le_bytes());
+            n_msg.extend(up_info);
+            let notif = Client::create_notification(NotificationType::UserJoinedRoom, &n_msg);
+            self.send_notification(&notif, &user_ids);
+
+            // Send signaling stuff if any
+            self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo);
         } else {
             self.log("Error while extracting data from JoinRoom command");
             reply.push(ErrorType::Malformed as u8);
@@ -510,7 +551,75 @@ impl Client {
         }
         true
     }
-    fn search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn leave_room(&self, room_manager: &mut RoomManager, room_id: u64, opt_data: Option<&PresenceOptionData>, event_cause: EventCause) -> u8 {
+        if !room_manager.room_exists(room_id) {
+            return ErrorType::NotFound as u8;
+        }
+
+        let room = room_manager.get_room(room_id);
+        let member_id = room.get_member_id(self.client_info.user_id);
+        if let Err(e) = member_id {
+            return e;
+        }
+
+        // We get this in advance in case the room is not destroyed
+        let user_data = room.get_room_member_update_info(member_id.unwrap(), event_cause.clone(), opt_data);
+
+        let res = room_manager.leave_room(room_id, self.client_info.user_id.clone());
+        if let Err(e) = res {
+            return e;
+        }
+        let (destroyed, users) = res.unwrap();
+
+        if destroyed {
+            // Notify other room users that the room has been destroyed
+            let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
+            let opt_data = dc_opt_data(&mut builder, opt_data);
+            let room_update = RoomUpdateInfo::create(
+                &mut builder,
+                &RoomUpdateInfoArgs {
+                    eventCause: event_cause as u8,
+                    errorCode: 0,
+                    optData: Some(opt_data),
+                },
+            );
+            builder.finish(room_update, None);
+            let room_update_data = builder.finished_data().to_vec();
+
+            let mut n_msg: Vec<u8> = Vec::new();
+            n_msg.extend(&room_id.to_le_bytes());
+            n_msg.extend(&(room_update_data.len() as u32).to_le_bytes());
+            n_msg.extend(&room_update_data);
+
+            let notif = Client::create_notification(NotificationType::RoomDestroyed, &n_msg);
+            self.send_notification(&notif, &users);
+        } else {
+            // Notify other room users that someone left the room
+            let mut n_msg: Vec<u8> = Vec::new();
+            n_msg.extend(&room_id.to_le_bytes());
+            n_msg.push(event_cause.clone() as u8);
+            n_msg.extend(&(user_data.len() as u32).to_le_bytes());
+            n_msg.extend(&user_data);
+
+            let notif = Client::create_notification(NotificationType::UserLeftRoom, &n_msg);
+            self.send_notification(&notif, &users);
+        }
+
+        ErrorType::NoError as u8
+    }
+
+    fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+        let mut room_manager = self.room_manager.write().unwrap();
+        if let Ok(leave_req) = data.get_flatbuffer::<LeaveRoomRequest>() {
+            reply.push(self.leave_room(&mut room_manager, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction));
+            true
+        } else {
+            self.log("Error while extracting data from SearchRoom command");
+            reply.push(ErrorType::Malformed as u8);
+            false
+        }
+    }
+    fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(search_req) = data.get_flatbuffer::<SearchRoomRequest>() {
             let resp = self.room_manager.read().unwrap().search_room(&search_req);
 
@@ -524,7 +633,7 @@ impl Client {
             false
         }
     }
-    fn set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataExternalRequest>() {
             if let Err(e) = self.room_manager.write().unwrap().set_roomdata_external(&setdata_req) {
                 reply.push(e);
@@ -538,7 +647,7 @@ impl Client {
             false
         }
     }
-    fn get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(setdata_req) = data.get_flatbuffer::<GetRoomDataInternalRequest>() {
             let resp = self.room_manager.read().unwrap().get_roomdata_internal(&setdata_req);
             if let Err(e) = resp {
@@ -556,7 +665,7 @@ impl Client {
             false
         }
     }
-    fn set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataInternalRequest>() {
             if let Err(e) = self.room_manager.write().unwrap().set_roomdata_internal(&setdata_req) {
                 reply.push(e);
@@ -570,7 +679,7 @@ impl Client {
             false
         }
     }
-    fn ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         let room_id = data.get::<u64>();
         if data.error() {
             self.log("Error while extracting data from PingRoomOwner command");

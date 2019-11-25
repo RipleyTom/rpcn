@@ -162,6 +162,11 @@ table JoinRoomRequest {
     teamId:uint8;
 }
 
+table LeaveRoomRequest {
+    roomId:uint64;
+    optData:PresenceOptionData;
+}
+
 table SetRoomDataExternalRequest {
     roomId:uint64;
     roomSearchableIntAttrExternal:[IntAttr];
@@ -187,6 +192,12 @@ table GetRoomDataInternalRequest {
 table RoomMemberUpdateInfo {
     roomMemberDataInternal:RoomMemberDataInternal;
     eventCause:uint8;
+    optData:PresenceOptionData;
+}
+
+table RoomUpdateInfo {
+    eventCause:uint8;
+    errorCode:int32;
     optData:PresenceOptionData;
 }
 

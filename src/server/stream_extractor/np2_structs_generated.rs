@@ -2496,6 +2496,94 @@ impl<'a: 'b, 'b> JoinRoomRequestBuilder<'a, 'b> {
   }
 }
 
+pub enum LeaveRoomRequestOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+pub struct LeaveRoomRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for LeaveRoomRequest<'a> {
+    type Inner = LeaveRoomRequest<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> LeaveRoomRequest<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        LeaveRoomRequest {
+            _tab: table,
+        }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args LeaveRoomRequestArgs<'args>) -> flatbuffers::WIPOffset<LeaveRoomRequest<'bldr>> {
+      let mut builder = LeaveRoomRequestBuilder::new(_fbb);
+      builder.add_roomId(args.roomId);
+      if let Some(x) = args.optData { builder.add_optData(x); }
+      builder.finish()
+    }
+
+    pub const VT_ROOMID: flatbuffers::VOffsetT = 4;
+    pub const VT_OPTDATA: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn roomId(&self) -> u64 {
+    self._tab.get::<u64>(LeaveRoomRequest::VT_ROOMID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn optData(&self) -> Option<PresenceOptionData<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData<'a>>>(LeaveRoomRequest::VT_OPTDATA, None)
+  }
+}
+
+pub struct LeaveRoomRequestArgs<'a> {
+    pub roomId: u64,
+    pub optData: Option<flatbuffers::WIPOffset<PresenceOptionData<'a >>>,
+}
+impl<'a> Default for LeaveRoomRequestArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        LeaveRoomRequestArgs {
+            roomId: 0,
+            optData: None,
+        }
+    }
+}
+pub struct LeaveRoomRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> LeaveRoomRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_roomId(&mut self, roomId: u64) {
+    self.fbb_.push_slot::<u64>(LeaveRoomRequest::VT_ROOMID, roomId, 0);
+  }
+  #[inline]
+  pub fn add_optData(&mut self, optData: flatbuffers::WIPOffset<PresenceOptionData<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<PresenceOptionData>>(LeaveRoomRequest::VT_OPTDATA, optData);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> LeaveRoomRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    LeaveRoomRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<LeaveRoomRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
 pub enum SetRoomDataExternalRequestOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
@@ -2939,6 +3027,106 @@ impl<'a: 'b, 'b> RoomMemberUpdateInfoBuilder<'a, 'b> {
   }
   #[inline]
   pub fn finish(self) -> flatbuffers::WIPOffset<RoomMemberUpdateInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+pub enum RoomUpdateInfoOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+pub struct RoomUpdateInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for RoomUpdateInfo<'a> {
+    type Inner = RoomUpdateInfo<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> RoomUpdateInfo<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        RoomUpdateInfo {
+            _tab: table,
+        }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args RoomUpdateInfoArgs<'args>) -> flatbuffers::WIPOffset<RoomUpdateInfo<'bldr>> {
+      let mut builder = RoomUpdateInfoBuilder::new(_fbb);
+      if let Some(x) = args.optData { builder.add_optData(x); }
+      builder.add_errorCode(args.errorCode);
+      builder.add_eventCause(args.eventCause);
+      builder.finish()
+    }
+
+    pub const VT_EVENTCAUSE: flatbuffers::VOffsetT = 4;
+    pub const VT_ERRORCODE: flatbuffers::VOffsetT = 6;
+    pub const VT_OPTDATA: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub fn eventCause(&self) -> u8 {
+    self._tab.get::<u8>(RoomUpdateInfo::VT_EVENTCAUSE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn errorCode(&self) -> i32 {
+    self._tab.get::<i32>(RoomUpdateInfo::VT_ERRORCODE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn optData(&self) -> Option<PresenceOptionData<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData<'a>>>(RoomUpdateInfo::VT_OPTDATA, None)
+  }
+}
+
+pub struct RoomUpdateInfoArgs<'a> {
+    pub eventCause: u8,
+    pub errorCode: i32,
+    pub optData: Option<flatbuffers::WIPOffset<PresenceOptionData<'a >>>,
+}
+impl<'a> Default for RoomUpdateInfoArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        RoomUpdateInfoArgs {
+            eventCause: 0,
+            errorCode: 0,
+            optData: None,
+        }
+    }
+}
+pub struct RoomUpdateInfoBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> RoomUpdateInfoBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_eventCause(&mut self, eventCause: u8) {
+    self.fbb_.push_slot::<u8>(RoomUpdateInfo::VT_EVENTCAUSE, eventCause, 0);
+  }
+  #[inline]
+  pub fn add_errorCode(&mut self, errorCode: i32) {
+    self.fbb_.push_slot::<i32>(RoomUpdateInfo::VT_ERRORCODE, errorCode, 0);
+  }
+  #[inline]
+  pub fn add_optData(&mut self, optData: flatbuffers::WIPOffset<PresenceOptionData<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<PresenceOptionData>>(RoomUpdateInfo::VT_OPTDATA, optData);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomUpdateInfoBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    RoomUpdateInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<RoomUpdateInfo<'a>> {
     let o = self.fbb_.end_table(self.start_);
     flatbuffers::WIPOffset::new(o.value())
   }

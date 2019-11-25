@@ -4,6 +4,8 @@ use std::mem;
 pub mod np2_structs_generated;
 use np2_structs_generated::*;
 
+pub mod fb_helpers;
+
 pub struct StreamExtractor {
     vec: Vec<u8>,
     i: usize,
