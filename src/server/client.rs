@@ -201,7 +201,7 @@ impl Client {
         let mut data = vec![0; to_read as usize];
         match self.stream.read_exact(&mut data) {
             Ok(_) => {
-                self.dump_packet(&data, "input");
+                //self.dump_packet(&data, "input");
 
                 let mut reply = Vec::with_capacity(1000);
 
@@ -216,7 +216,7 @@ impl Client {
                 let len = reply.len() as u16;
                 reply[3..5].clone_from_slice(&len.to_le_bytes());
 
-                self.dump_packet(&reply, "output");
+                //self.dump_packet(&reply, "output");
 
                 match self.stream.write(&reply) {
                     Ok(nb) => {
@@ -318,7 +318,6 @@ impl Client {
             let cur_addr_bytes;
             if let IpAddr::V4(ip4addr) = cur_user_addr {
                 cur_addr_bytes = ip4addr.octets();
-            //println!("{:?}", cur_addr_bytes);
             } else {
                 panic!("An IPV6 got in here!");
             }
@@ -381,8 +380,10 @@ impl Client {
                     panic!("An IPV6 got in here!");
                 }
 
-                let user_ids : HashSet<i64> = to.iter().map(|x| x.1.clone()).collect();
-                let self_id : HashSet<i64> = [from.1].iter().cloned().collect();
+                let user_ids: HashSet<i64> = to.iter().map(|x| x.1.clone()).collect();
+                //let self_id : HashSet<i64> = [from.1].iter().cloned().collect();
+                let mut self_id = HashSet::new();
+                self_id.insert(from.1);
 
                 let mut s_msg: Vec<u8> = Vec::new();
                 s_msg.extend(&room_id.to_le_bytes()); // 5..13
@@ -393,23 +394,29 @@ impl Client {
 
                 // Notifies user that connection has been established with all other occupants
                 {
-                    let mut dasocks = self.sockets_list.lock().unwrap();
-
                     for user in &to {
-                        let entry = dasocks.get_mut(&user.1);
-                        s_notif[13..15].clone_from_slice(&user.0.to_le_bytes());
+                        let mut tosend = false;
+                        {
+                            let mut dasocks = self.sockets_list.lock().unwrap();
+                            let entry = dasocks.get_mut(&user.1);
 
-                        if let Some(s) = entry {
-                            let user_addr = s.peer_addr().unwrap().ip();
+                            if let Some(s) = entry {
+                                let user_addr = s.peer_addr().unwrap().ip();
 
-                            let addr_bytes;
-                            if let IpAddr::V4(ip4addr) = user_addr {
-                                addr_bytes = ip4addr.octets();
-                            } else {
-                                panic!("An IPV6 got in here!");
+                                let addr_bytes;
+                                if let IpAddr::V4(ip4addr) = user_addr {
+                                    addr_bytes = ip4addr.octets();
+                                } else {
+                                    panic!("An IPV6 got in here!");
+                                }
+
+                                s_notif[13..15].clone_from_slice(&user.0.to_le_bytes());
+                                s_notif[15..19].clone_from_slice(&addr_bytes);
+
+                                tosend = true;
                             }
-
-                            s_notif[15..19].clone_from_slice(&addr_bytes);
+                        }
+                        if tosend {
                             self.send_notification(&s_notif, &self_id);
                         }
                     }
@@ -529,7 +536,7 @@ impl Client {
             reply.extend(&(resp.len() as u32).to_le_bytes());
             reply.extend(resp);
 
-            let user_ids : HashSet<i64> = users.iter().map(|x| x.1.clone()).collect();
+            let user_ids: HashSet<i64> = users.iter().map(|x| x.1.clone()).collect();
 
             // Notif other room users a new user has joined
             let mut n_msg: Vec<u8> = Vec::new();
@@ -597,7 +604,6 @@ impl Client {
             // Notify other room users that someone left the room
             let mut n_msg: Vec<u8> = Vec::new();
             n_msg.extend(&room_id.to_le_bytes());
-            n_msg.push(event_cause.clone() as u8);
             n_msg.extend(&(user_data.len() as u32).to_le_bytes());
             n_msg.extend(&user_data);
 
