@@ -14,6 +14,9 @@ use std::collections::HashMap;
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
+use std::io::Write;
+
+const PROTOCOL_VERSION: u32 = 2;
 
 pub struct Server {
     host: String,
@@ -58,12 +61,14 @@ impl Server {
 
         for stream in listener.incoming() {
             match stream {
-                Ok(stream) => {
+                Ok(mut stream) => {
                     self.log(&format!("New client from {}", stream.peer_addr().unwrap()));
                     let db_client = self.db.clone();
                     let room_client = self.room_manager.clone();
                     let log_client = self.log_manager.clone();
                     let sockets_list = self.sockets_list.clone();
+
+                    let _ = stream.write(&PROTOCOL_VERSION.to_le_bytes());
 
                     thread::spawn(|| {
                         Server::handle_client(stream, db_client, room_client, log_client, sockets_list);

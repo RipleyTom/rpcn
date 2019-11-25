@@ -14,7 +14,7 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, TcpStream};
 use std::sync::{Arc, Mutex, RwLock};
 
-const HEADER_SIZE: u16 = 5;
+const HEADER_SIZE: u16 = 9;
 
 pub struct ClientInfo {
     pub user_id: i64,
@@ -168,7 +168,8 @@ impl Client {
 
                     let command = u16::from_le_bytes([peek_data[1], peek_data[2]]);
                     let packet_size = u16::from_le_bytes([peek_data[3], peek_data[4]]);
-                    if !self.interpret_command(command, packet_size) {
+                    let packet_id = u32::from_le_bytes([peek_data[5], peek_data[6], peek_data[7], peek_data[8]]);
+                    if !self.interpret_command(command, packet_size, packet_id) {
                         self.log("Disconnecting client");
                         break;
                     }
@@ -190,7 +191,7 @@ impl Client {
         }
     }
 
-    fn interpret_command(&mut self, command: u16, length: u16) -> bool {
+    fn interpret_command(&mut self, command: u16, length: u16, packet_id: u32) -> bool {
         if length < HEADER_SIZE {
             self.log(&format!("Malformed packet(size < {})", HEADER_SIZE));
             return false;
@@ -208,6 +209,7 @@ impl Client {
                 reply.push(PacketType::Reply as u8);
                 reply.extend(&command.to_le_bytes());
                 reply.extend(&HEADER_SIZE.to_le_bytes());
+                reply.extend(&packet_id.to_le_bytes());
 
                 let mut se_data = StreamExtractor::new(data);
                 let res = self.process_command(command, &mut se_data, &mut reply);
@@ -231,8 +233,7 @@ impl Client {
                     }
                 }
 
-                assert!(reply.len() >= 5);
-                self.log_verbose(&format!("Returning: {}({}) for command: {}", res, reply[4], command));
+                self.log_verbose(&format!("Returning: {}({})", res, reply[4]));
 
                 return res;
             }
@@ -338,12 +339,13 @@ impl Client {
 
     ///// Helper functions
     fn create_notification(n_type: NotificationType, data: &Vec<u8>) -> Vec<u8> {
-        let final_size = data.len() + 5;
+        let final_size = data.len() + HEADER_SIZE as usize;
 
         let mut final_vec = Vec::with_capacity(final_size);
         final_vec.push(PacketType::Notification as u8);
         final_vec.extend(&(n_type as u16).to_le_bytes());
         final_vec.extend(&(final_size as u16).to_le_bytes());
+        final_vec.extend(&0u32.to_le_bytes()); // packet_id doesn't matter for notifications
         final_vec.extend(data);
 
         final_vec
@@ -386,9 +388,9 @@ impl Client {
                 self_id.insert(from.1);
 
                 let mut s_msg: Vec<u8> = Vec::new();
-                s_msg.extend(&room_id.to_le_bytes()); // 5..13
-                s_msg.extend(&from.0.to_le_bytes()); // 13..15
-                s_msg.extend(&cur_addr_bytes); // 15..19
+                s_msg.extend(&room_id.to_le_bytes()); // +0..+8
+                s_msg.extend(&from.0.to_le_bytes()); // +8..+10
+                s_msg.extend(&cur_addr_bytes); // +10..+14
                 let mut s_notif = Client::create_notification(NotificationType::SignalP2PEstablished, &s_msg);
                 self.send_notification(&s_notif, &user_ids);
 
@@ -410,8 +412,8 @@ impl Client {
                                     panic!("An IPV6 got in here!");
                                 }
 
-                                s_notif[13..15].clone_from_slice(&user.0.to_le_bytes());
-                                s_notif[15..19].clone_from_slice(&addr_bytes);
+                                s_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&user.0.to_le_bytes());
+                                s_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 14)].clone_from_slice(&addr_bytes);
 
                                 tosend = true;
                             }
