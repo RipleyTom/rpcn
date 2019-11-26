@@ -620,6 +620,7 @@ impl Client {
         let mut room_manager = self.room_manager.write().unwrap();
         if let Ok(leave_req) = data.get_flatbuffer::<LeaveRoomRequest>() {
             reply.push(self.leave_room(&mut room_manager, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction));
+            reply.extend(&leave_req.roomId().to_le_bytes());
             true
         } else {
             self.log("Error while extracting data from SearchRoom command");
