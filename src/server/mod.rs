@@ -1,5 +1,5 @@
 mod client;
-use client::Client;
+use client::{Client, PacketType, HEADER_SIZE};
 mod database;
 use database::DatabaseManager;
 mod room_manager;
@@ -11,12 +11,12 @@ use log::LogManager;
 mod stream_extractor;
 
 use std::collections::HashMap;
+use std::io::Write;
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
-use std::io::Write;
 
-const PROTOCOL_VERSION: u32 = 2;
+const PROTOCOL_VERSION: u32 = 3;
 
 pub struct Server {
     host: String,
@@ -59,6 +59,13 @@ impl Server {
 
         self.log(&format!("Now waiting on connections on <{}>", self.host));
 
+        let mut servinfo_vec = Vec::new();
+        servinfo_vec.push(PacketType::ServerInfo as u8);
+        servinfo_vec.extend(&0u16.to_le_bytes());
+        servinfo_vec.extend(&(4 + HEADER_SIZE as u16).to_le_bytes());
+        servinfo_vec.extend(&0u32.to_le_bytes());
+        servinfo_vec.extend(&PROTOCOL_VERSION.to_le_bytes());
+
         for stream in listener.incoming() {
             match stream {
                 Ok(mut stream) => {
@@ -68,7 +75,7 @@ impl Server {
                     let log_client = self.log_manager.clone();
                     let sockets_list = self.sockets_list.clone();
 
-                    let _ = stream.write(&PROTOCOL_VERSION.to_le_bytes());
+                    let _ = stream.write(&servinfo_vec);
 
                     thread::spawn(|| {
                         Server::handle_client(stream, db_client, room_client, log_client, sockets_list);

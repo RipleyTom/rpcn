@@ -14,7 +14,7 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, TcpStream};
 use std::sync::{Arc, Mutex, RwLock};
 
-const HEADER_SIZE: u16 = 9;
+pub const HEADER_SIZE: u16 = 9;
 
 pub struct ClientInfo {
     pub user_id: i64,
@@ -34,10 +34,11 @@ pub struct Client {
 }
 
 #[repr(u8)]
-enum PacketType {
+pub enum PacketType {
     Request,
     Reply,
     Notification,
+    ServerInfo,
 }
 
 #[repr(u16)]
