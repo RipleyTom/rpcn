@@ -9,6 +9,10 @@ clap = "2.33.0"
 num-traits = "0.2.8"
 num-derive = "0.3.0"
 rand = "0.7.2"
-rusqlite = "0.20.0"
+libsqlite3-sys = "0.16.0"
 rust-argon2 = "0.5.1"
 flatbuffers = "0.6.0"
+
+[dependencies.rusqlite]
+version = "0.20.0"
+features = ["bundled"]

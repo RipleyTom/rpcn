@@ -1,0 +1,36 @@
+name: Rust
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build
+      run: cargo build --release --verbose
+    - name: Run tests
+      run: cargo test --release --verbose
+    - run: mkdir artifact
+    - run: cp target/release/rpcn artifact/rpcn
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1.0.0
+      with:
+        name: rpcn
+        path: artifact
+
+  build-win:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Build
+      run: cargo build --release --verbose
+    - name: Run tests
+      run: cargo test --release --verbose
+    - run: mkdir artifact-win
+    - run: copy target/release/rpcn.exe artifact-win/rpcn.exe
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1.0.0
+      with:
+        name: rpcn-win
+        path: artifact-win
