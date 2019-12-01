@@ -47,9 +47,6 @@ impl Server {
     }
 
     pub fn start(&mut self) {
-        let _ = self.db.lock().unwrap().add_user("GalCiv", "abcdef", "RPCS3's GalCiv", "https://i.imgur.com/AfWIyQP.jpg");
-        let _ = self.db.lock().unwrap().add_user("Whatcookie", "abcdef", "RPCS3's Cookie", "https://i.imgur.com/AfWIyQP.jpg");
-
         let listener = TcpListener::bind(&self.host);
         if let Err(e) = listener {
             self.log(&format!("Error binding to <{}>: {}", &self.host, e));

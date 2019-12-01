@@ -264,7 +264,7 @@ impl Client {
         if !self.authentified {
             match command {
                 CommandType::Login => return self.login(data, reply),
-                CommandType::Create => return false, // TODO
+                CommandType::Create => return self.create_account(data, reply),
                 _ => {
                     reply.push(ErrorType::Invalid as u8);
                     return false;
@@ -335,6 +335,27 @@ impl Client {
 
         reply.push(ErrorType::ErrorLogin as u8);
 
+        false
+    }
+
+    fn create_account(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+        let npid = data.get_string(false);
+        let password = data.get_string(false);
+        let psn_name = data.get_string(false);
+        let avatar_url = data.get_string(false);
+
+        if data.error() {
+            self.log("Error while extracting data from Create command");
+            reply.push(ErrorType::Malformed as u8);
+            return false;
+        }
+
+        if let Err(_) = self.db.lock().unwrap().add_user(&npid, &password, &psn_name, &avatar_url) {
+            self.log(&format!("Account creation failed(npid: {})", npid));
+            reply.push(ErrorType::ErrorLogin as u8);
+        } else {
+            reply.push(ErrorType::NoError as u8);
+        }
         false
     }
 
