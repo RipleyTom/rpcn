@@ -19,7 +19,7 @@ pub const HEADER_SIZE: u16 = 9;
 pub struct ClientInfo {
     pub user_id: i64,
     pub npid: String,
-    pub psn_name: String,
+    pub online_name: String,
     pub avatar_url: String,
 }
 
@@ -91,6 +91,7 @@ pub enum ErrorType {
     Malformed,
     Invalid,
     ErrorLogin,
+    ErrorCreate,
     DbFail,
     NotFound,
 }
@@ -109,7 +110,7 @@ impl Client {
         let client_info = ClientInfo {
             user_id: 0,
             npid: String::new(),
-            psn_name: String::new(),
+            online_name: String::new(),
             avatar_url: String::new(),
         };
 
@@ -305,12 +306,12 @@ impl Client {
         if let Ok(user_data) = self.db.lock().unwrap().check_user(&login, &password) {
             self.authentified = true;
             self.client_info.npid = login;
-            self.client_info.psn_name = user_data.psn_name.clone();
+            self.client_info.online_name = user_data.online_name.clone();
             self.client_info.avatar_url = user_data.avatar_url.clone();
             self.client_info.user_id = user_data.user_id;
             reply.push(ErrorType::NoError as u8);
 
-            reply.extend(user_data.psn_name.as_bytes());
+            reply.extend(user_data.online_name.as_bytes());
             reply.push(0);
             reply.extend(user_data.avatar_url.as_bytes());
             reply.push(0);
@@ -341,7 +342,7 @@ impl Client {
     fn create_account(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         let npid = data.get_string(false);
         let password = data.get_string(false);
-        let psn_name = data.get_string(false);
+        let online_name = data.get_string(false);
         let avatar_url = data.get_string(false);
 
         if data.error() {
@@ -350,10 +351,11 @@ impl Client {
             return false;
         }
 
-        if let Err(_) = self.db.lock().unwrap().add_user(&npid, &password, &psn_name, &avatar_url) {
-            self.log(&format!("Account creation failed(npid: {})", npid));
-            reply.push(ErrorType::ErrorLogin as u8);
+        if let Err(_) = self.db.lock().unwrap().add_user(&npid, &password, &online_name, &avatar_url) {
+            self.log(&format!("Account creation failed(npid: {})", &npid));
+            reply.push(ErrorType::ErrorCreate as u8);
         } else {
+            self.log(&format!("Successfully created account {}", &npid));
             reply.push(ErrorType::NoError as u8);
         }
         false

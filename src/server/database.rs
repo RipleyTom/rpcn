@@ -27,7 +27,7 @@ pub struct UserQueryResult {
     pub user_id: i64,
     hash: Vec<u8>,
     salt: Vec<u8>,
-    pub psn_name: String,
+    pub online_name: String,
     pub avatar_url: String,
 }
 
@@ -35,9 +35,9 @@ impl DatabaseManager {
     pub fn new(log_manager: Arc<Mutex<LogManager>>) -> DatabaseManager {
         let _ = fs::create_dir("db");
 
-        let conn = rusqlite::Connection::open("db/rpcn.db").expect("Failed to open \"db/rpcn.db\"!");
+        let conn = rusqlite::Connection::open("db/rpcnv2.db").expect("Failed to open \"db/rpcnv2.db\"!");
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS users ( userId INTEGER PRIMARY KEY NOT NULL, username TEXT NOT NULL, hash BLOB NOT NULL, salt BLOB NOT NULL, psn_name TEXT NOT NULL, avatar_url TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS users ( userId INTEGER PRIMARY KEY NOT NULL, username TEXT NOT NULL, hash BLOB NOT NULL, salt BLOB NOT NULL, online_name TEXT NOT NULL, avatar_url TEXT NOT NULL)",
             NO_PARAMS,
         )
         .expect("Failed to create users table!");
@@ -63,7 +63,7 @@ impl DatabaseManager {
         self.log_manager.lock().unwrap().write(&format!("DB: {}", s));
     }
 
-    pub fn add_user(&mut self, username: &str, password: &str, psn_name: &str, avatar_url: &str) -> Result<(), DbError> {
+    pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str) -> Result<(), DbError> {
         let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE username=?1", rusqlite::params![username], |r| r.get(0));
 
         if let Err(e) = count {
@@ -89,8 +89,8 @@ impl DatabaseManager {
         if self
             .conn
             .execute(
-                "INSERT INTO users ( username, hash, salt, psn_name, avatar_url ) VALUES ( ?1, ?2, ?3, ?4, ?5 )",
-                rusqlite::params![username, hash, salt_slice, psn_name, avatar_url],
+                "INSERT INTO users ( username, hash, salt, online_name, avatar_url ) VALUES ( ?1, ?2, ?3, ?4, ?5 )",
+                rusqlite::params![username, hash, salt_slice, online_name, avatar_url],
             )
             .is_err()
         {
@@ -102,12 +102,12 @@ impl DatabaseManager {
     pub fn check_user(&mut self, username: &str, password: &str) -> Result<UserQueryResult, DbError> {
         let res: rusqlite::Result<UserQueryResult> = self
             .conn
-            .query_row("SELECT userId, hash, salt, psn_name, avatar_url FROM users WHERE username=?1", rusqlite::params![username], |r| {
+            .query_row("SELECT userId, hash, salt, online_name, avatar_url FROM users WHERE username=?1", rusqlite::params![username], |r| {
                 Ok(UserQueryResult {
                     user_id: r.get(0).unwrap(),
                     hash: r.get(1).unwrap(),
                     salt: r.get(2).unwrap(),
-                    psn_name: r.get(3).unwrap(),
+                    online_name: r.get(3).unwrap(),
                     avatar_url: r.get(4).unwrap(),
                 })
             });

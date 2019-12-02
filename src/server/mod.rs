@@ -16,7 +16,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
-const PROTOCOL_VERSION: u32 = 3;
+const PROTOCOL_VERSION: u32 = 4;
 
 pub struct Server {
     host: String,

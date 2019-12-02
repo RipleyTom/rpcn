@@ -183,7 +183,7 @@ impl SignalParam {
 struct RoomUser {
     user_id: i64,
     npid: String,
-    psn_name: String,
+    online_name: String,
     avatar_url: String,
     join_date: u64,
     flag_attr: u32,
@@ -212,7 +212,7 @@ impl RoomUser {
         RoomUser {
             user_id: 0,
             npid: String::new(),
-            psn_name: String::new(),
+            online_name: String::new(),
             avatar_url: String::new(),
             join_date: 0, // TODO
             flag_attr: 0,
@@ -240,7 +240,7 @@ impl RoomUser {
         RoomUser {
             user_id: 0,
             npid: String::new(),
-            psn_name: String::new(),
+            online_name: String::new(),
             avatar_url: String::new(),
             join_date: 0, // TODO
             flag_attr: 0,
@@ -253,14 +253,14 @@ impl RoomUser {
     }
     pub fn to_RoomMemberDataInternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<RoomMemberDataInternal<'a>> {
         let npid = builder.create_string(&self.npid);
-        let psn_name = builder.create_string(&self.psn_name);
+        let online_name = builder.create_string(&self.online_name);
         let avatar_url = builder.create_string(&self.avatar_url);
 
         let user_info = UserInfo2::create(
             builder,
             &UserInfo2Args {
                 npId: Some(npid),
-                onlineName: Some(psn_name),
+                onlineName: Some(online_name),
                 avatarUrl: Some(avatar_url),
             },
         );
@@ -462,7 +462,7 @@ impl Room {
                 npid = Some(s);
             }
             if (search_option & 0x2) != 0 {
-                let s = builder.create_string(&self.users.get(&self.owner).unwrap().psn_name);
+                let s = builder.create_string(&self.users.get(&self.owner).unwrap().online_name);
                 online_name = Some(s);
             }
             if (search_option & 0x4) != 0 {
@@ -770,7 +770,7 @@ impl RoomManager {
         let mut room_user = RoomUser::from_CreateJoinRoomRequest(req);
         room_user.user_id = cinfo.user_id;
         room_user.npid = cinfo.npid.clone();
-        room_user.psn_name = cinfo.psn_name.clone();
+        room_user.online_name = cinfo.online_name.clone();
         room_user.avatar_url = cinfo.avatar_url.clone();
         room_user.member_id = room.user_cnt;
         // TODO: Group Label, joindate
@@ -803,7 +803,7 @@ impl RoomManager {
         let mut room_user = RoomUser::from_JoinRoomRequest(req);
         room_user.user_id = cinfo.user_id;
         room_user.npid = cinfo.npid.clone();
-        room_user.psn_name = cinfo.psn_name.clone();
+        room_user.online_name = cinfo.online_name.clone();
         room_user.avatar_url = cinfo.avatar_url.clone();
         room_user.member_id = room.user_cnt;
         // TODO: Group Label, joindate
