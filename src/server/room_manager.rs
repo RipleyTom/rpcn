@@ -1,13 +1,17 @@
+#![allow(non_snake_case)]
+#![allow(dead_code)]
+
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+use parking_lot::Mutex;
 
 use crate::server::client::{ClientInfo, ErrorType, EventCause};
 use crate::server::log::LogManager;
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
-
-use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
 
 #[repr(u8)]
 #[derive(FromPrimitive)]
@@ -195,11 +199,12 @@ struct RoomUser {
     member_id: u16,
 }
 impl RoomUser {
+    #[allow(non_snake_case)]
     pub fn from_CreateJoinRoomRequest(fb: &CreateJoinRoomRequest) -> RoomUser {
-        let mut group_id = 0;
+        let group_id = 0;
         let mut member_attr: Vec<RoomMemberBinAttr> = Vec::new();
 
-        if let Some(vec) = fb.joinRoomGroupLabel() {
+        if let Some(_vec) = fb.joinRoomGroupLabel() {
             // Add group to room and set id TODO
         }
         if let Some(vec) = fb.roomMemberBinAttrInternal() {
@@ -223,11 +228,12 @@ impl RoomUser {
             member_id: 0,
         }
     }
+    #[allow(non_snake_case)]
     pub fn from_JoinRoomRequest(fb: &JoinRoomRequest) -> RoomUser {
-        let mut group_id = 0;
+        let group_id = 0;
         let mut member_attr: Vec<RoomMemberBinAttr> = Vec::new();
 
-        if let Some(vec) = fb.joinRoomGroupLabel() {
+        if let Some(_vec) = fb.joinRoomGroupLabel() {
             // Find/Create corresponding group and set id
         }
         if let Some(vec) = fb.roomMemberBinAttrInternal() {
@@ -251,6 +257,7 @@ impl RoomUser {
             member_id: 0,
         }
     }
+    #[allow(non_snake_case)]
     pub fn to_RoomMemberDataInternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<RoomMemberDataInternal<'a>> {
         let npid = builder.create_string(&self.npid);
         let online_name = builder.create_string(&self.online_name);
@@ -596,7 +603,6 @@ impl Room {
         Err(ErrorType::NotFound as u8)
     }
 
-
     pub fn is_match(&self, req: &SearchRoomRequest) -> bool {
         let intfilters = req.intFilter();
         if let Some(intfilters) = intfilters {
@@ -703,8 +709,6 @@ impl Room {
         true
     }
     pub fn find_user(&self, user_id: i64) -> u16 {
-        let mut found_ = false;
-
         for user in &self.users {
             if user.1.user_id == user_id {
                 return user.0.clone();
@@ -737,7 +741,7 @@ impl RoomManager {
     }
 
     fn log(&self, s: &str) {
-        self.log_manager.lock().unwrap().write(&format!("RoomManager: {}", s));
+        self.log_manager.lock().write(&format!("RoomManager: {}", s));
     }
 
     pub fn room_exists(&self, room_id: u64) -> bool {

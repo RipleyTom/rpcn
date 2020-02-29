@@ -53,7 +53,8 @@ fn main() {
         .about("Matchmaking server")
         .arg(Arg::with_name("verbose").short("v").long("verbose").takes_value(false).help("Enables verbose output"))
         .arg(Arg::with_name("nocreate").short("n").long("nocreate").takes_value(false).help("Disables automated creation on request"))
-        .arg(Arg::with_name("host").short("h").long("host").takes_value(true).help("Binding address(hostname:port)"))
+        .arg(Arg::with_name("host").short("h").long("host").takes_value(true).help("Binding address(hostname)"))
+        .arg(Arg::with_name("port").short("p").long("port").takes_value(true).help("Binding port"))
         .get_matches();
 
     println!("RPCN v{}", env!("CARGO_PKG_VERSION"));
@@ -66,13 +67,18 @@ fn main() {
         Config::set_verbose(true);
     }
 
-    let mut host = "0.0.0.0:31313";
+    let mut host = "0.0.0.0";
+    let mut port = "31313";
 
     if let Some(p_host) = matches.value_of("host") {
         host = p_host;
     }
 
-    let mut serv = Server::new(host);
+    if let Some(p_port) = matches.value_of("port") {
+        port = p_port;
+    }
+
+    let mut serv = Server::new(host, port);
 
     serv.start();
 }

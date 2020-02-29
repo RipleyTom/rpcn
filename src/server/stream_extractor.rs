@@ -1,8 +1,9 @@
-use num_traits::*;
 use std::mem;
 
+use num_traits::*;
+
+#[allow(unused_imports)]
 pub mod np2_structs_generated;
-use np2_structs_generated::*;
 
 pub mod fb_helpers;
 

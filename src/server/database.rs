@@ -1,8 +1,8 @@
 use std::fs;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use parking_lot::Mutex;
 use rand::prelude::*;
-
 use rusqlite;
 use rusqlite::NO_PARAMS;
 
@@ -16,6 +16,7 @@ pub struct DatabaseManager {
 
 #[derive(Debug)]
 #[repr(u8)]
+#[allow(dead_code)]
 pub enum DbError {
     Internal,
     Empty,
@@ -60,7 +61,7 @@ impl DatabaseManager {
     }
 
     fn log(&self, s: &str) {
-        self.log_manager.lock().unwrap().write(&format!("DB: {}", s));
+        self.log_manager.lock().write(&format!("DB: {}", s));
     }
 
     pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str) -> Result<(), DbError> {

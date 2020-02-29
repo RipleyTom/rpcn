@@ -1,3 +1,12 @@
+use std::collections::{HashMap, HashSet};
+use std::io::{Read, Write};
+use std::net::TcpStream;
+use std::sync::Arc;
+
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+use parking_lot::{Mutex, RwLock};
+
 use crate::server::database::DatabaseManager;
 use crate::server::log::LogManager;
 use crate::server::room_manager::{RoomManager, SignalParam, SignalingType};
@@ -5,14 +14,6 @@ use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::stream_extractor::StreamExtractor;
 use crate::Config;
-
-use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
-
-use std::collections::{HashMap, HashSet};
-use std::io::{Read, Write};
-use std::net::{IpAddr, TcpStream};
-use std::sync::{Arc, Mutex, RwLock};
 
 pub const HEADER_SIZE: u16 = 9;
 
@@ -23,12 +24,28 @@ pub struct ClientInfo {
     pub avatar_url: String,
 }
 
+pub struct ClientSignalingInfo {
+    pub tcp_stream: TcpStream,
+    pub addr_p2p: [u8; 4],
+    pub port_p2p: u16,
+}
+
+impl ClientSignalingInfo {
+    pub fn new(tcp_stream: TcpStream) -> ClientSignalingInfo {
+        ClientSignalingInfo {
+            tcp_stream,
+            addr_p2p: [0; 4],
+            port_p2p: 0,
+        }
+    }
+}
+
 pub struct Client {
     stream: TcpStream,
     db: Arc<Mutex<DatabaseManager>>,
     room_manager: Arc<RwLock<RoomManager>>,
     log_manager: Arc<Mutex<LogManager>>,
-    sockets_list: Arc<Mutex<HashMap<i64, TcpStream>>>,
+    signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
     authentified: bool,
     client_info: ClientInfo,
 }
@@ -70,6 +87,7 @@ enum NotificationType {
 
 #[repr(u8)]
 #[derive(Clone)]
+#[allow(dead_code)]
 pub enum EventCause {
     None,
     LeaveAction,
@@ -102,7 +120,7 @@ impl Client {
         db: Arc<Mutex<DatabaseManager>>,
         room_manager: Arc<RwLock<RoomManager>>,
         log_manager: Arc<Mutex<LogManager>>,
-        sockets_list: Arc<Mutex<HashMap<i64, TcpStream>>>,
+        signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
     ) -> Client {
         stream.set_read_timeout(None).expect("set_read_timeout error!");
         stream.set_write_timeout(None).expect("set_write_timeout error!");
@@ -119,7 +137,7 @@ impl Client {
             db,
             room_manager,
             log_manager,
-            sockets_list,
+            signaling_infos,
             authentified: false,
             client_info,
         }
@@ -128,13 +146,15 @@ impl Client {
     ///// Logging functions
 
     fn log(&self, s: &str) {
-        self.log_manager.lock().unwrap().write(&format!("Client({}): {}", &self.client_info.npid, s));
+        self.log_manager.lock().write(&format!("Client({}): {}", &self.client_info.npid, s));
     }
     fn log_verbose(&self, s: &str) {
         if Config::is_verbose() {
             self.log(s);
         }
     }
+
+    #[allow(dead_code)]
     fn dump_packet(&self, packet: &Vec<u8>, source: &str) {
         if !Config::is_verbose() {
             return;
@@ -189,7 +209,7 @@ impl Client {
             //     .unwrap()
             //     .leave_all_rooms(self.user_id)
             //     .unwrap();
-            self.sockets_list.lock().unwrap().remove(&self.client_info.user_id);
+            self.signaling_infos.write().remove(&self.client_info.user_id);
         }
     }
 
@@ -303,7 +323,7 @@ impl Client {
             return false;
         }
 
-        if let Ok(user_data) = self.db.lock().unwrap().check_user(&login, &password) {
+        if let Ok(user_data) = self.db.lock().check_user(&login, &password) {
             self.authentified = true;
             self.client_info.npid = login;
             self.client_info.online_name = user_data.online_name.clone();
@@ -316,20 +336,13 @@ impl Client {
             reply.extend(user_data.avatar_url.as_bytes());
             reply.push(0);
 
-            let cur_user_addr = self.stream.peer_addr().unwrap().ip();
-
-            let cur_addr_bytes;
-            if let IpAddr::V4(ip4addr) = cur_user_addr {
-                cur_addr_bytes = ip4addr.octets();
-            } else {
-                panic!("An IPV6 got in here!");
-            }
-
-            reply.extend(&cur_addr_bytes);
+            reply.extend(&self.client_info.user_id.to_le_bytes());
 
             self.log("Authentified");
 
-            self.sockets_list.lock().unwrap().insert(self.client_info.user_id, self.stream.try_clone().unwrap());
+            self.signaling_infos
+                .write()
+                .insert(self.client_info.user_id, ClientSignalingInfo::new(self.stream.try_clone().unwrap()));
 
             return true;
         }
@@ -351,7 +364,7 @@ impl Client {
             return false;
         }
 
-        if let Err(_) = self.db.lock().unwrap().add_user(&npid, &password, &online_name, &avatar_url) {
+        if let Err(_) = self.db.lock().add_user(&npid, &password, &online_name, &avatar_url) {
             self.log(&format!("Account creation failed(npid: {})", &npid));
             reply.push(ErrorType::ErrorCreate as u8);
         } else {
@@ -375,69 +388,64 @@ impl Client {
         final_vec
     }
     fn send_notification(&self, notif: &Vec<u8>, user_list: &HashSet<i64>) {
-        let mut dasocks = self.sockets_list.lock().unwrap();
+        let sig_infos = self.signaling_infos.read();
 
         for user_id in user_list {
-            let entry = dasocks.get_mut(user_id);
+            let entry = sig_infos.get(user_id);
 
-            if let Some(s) = entry {
-                let _ = s.write(&notif);
+            if let Some(c) = entry {
+                let mut stream_clone = c.tcp_stream.try_clone().unwrap(); // To avoid needing a write lock on signaling_infos
+                let _ = stream_clone.write(&notif);
             }
         }
     }
-    fn signal_connections(&self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_info: Option<SignalParam>) {
-        if let None = sig_info {
+    fn signal_connections(&self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>) {
+        if let None = sig_param {
             return;
         }
-        let sig_info = sig_info.unwrap();
-        if !sig_info.should_signal() {
+        let sig_param = sig_param.unwrap();
+        if !sig_param.should_signal() {
             return;
         }
 
-        match sig_info.get_type() {
+        match sig_param.get_type() {
             SignalingType::SignalingMesh => {
-                // Notifies other room members than p2p connection was established
-                let cur_user_addr = self.stream.peer_addr().unwrap().ip();
-
-                let cur_addr_bytes;
-                if let IpAddr::V4(ip4addr) = cur_user_addr {
-                    cur_addr_bytes = ip4addr.octets();
-                } else {
-                    panic!("An IPV6 got in here!");
-                }
-
+                // Notifies other room members that p2p connection was established
                 let user_ids: HashSet<i64> = to.iter().map(|x| x.1.clone()).collect();
-                //let self_id : HashSet<i64> = [from.1].iter().cloned().collect();
+
                 let mut self_id = HashSet::new();
                 self_id.insert(from.1);
 
+                let mut addr_p2p = [0; 4];
+                let mut port_p2p = 0;
+                {
+                    let sig_infos = self.signaling_infos.read();
+                    if let Some(entry) = sig_infos.get(&from.1) {
+                        addr_p2p = entry.addr_p2p;
+                        port_p2p = entry.port_p2p;
+                    }
+                }
+
                 let mut s_msg: Vec<u8> = Vec::new();
-                s_msg.extend(&room_id.to_le_bytes()); // +0..+8
-                s_msg.extend(&from.0.to_le_bytes()); // +8..+10
-                s_msg.extend(&cur_addr_bytes); // +10..+14
+                s_msg.extend(&room_id.to_le_bytes()); // +0..+8 room ID
+                s_msg.extend(&from.0.to_le_bytes()); // +8..+10 member ID
+                s_msg.extend(&port_p2p.to_be_bytes()); // +10..+12 port
+                s_msg.extend(&addr_p2p); // +12..+16 addr
                 let mut s_notif = Client::create_notification(NotificationType::SignalP2PEstablished, &s_msg);
                 self.send_notification(&s_notif, &user_ids);
 
                 // Notifies user that connection has been established with all other occupants
                 {
                     for user in &to {
-                        let mut tosend = false;
+                        let mut tosend = false; // tosend is there to avoid double locking on signaling_infos
                         {
-                            let mut dasocks = self.sockets_list.lock().unwrap();
-                            let entry = dasocks.get_mut(&user.1);
+                            let sig_infos = self.signaling_infos.read();
+                            let user_si = sig_infos.get(&user.1);
 
-                            if let Some(s) = entry {
-                                let user_addr = s.peer_addr().unwrap().ip();
-
-                                let addr_bytes;
-                                if let IpAddr::V4(ip4addr) = user_addr {
-                                    addr_bytes = ip4addr.octets();
-                                } else {
-                                    panic!("An IPV6 got in here!");
-                                }
-
+                            if let Some(user_si) = user_si {
                                 s_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&user.0.to_le_bytes());
-                                s_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 14)].clone_from_slice(&addr_bytes);
+                                s_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_be_bytes());
+                                s_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
 
                                 tosend = true;
                             }
@@ -448,7 +456,7 @@ impl Client {
                     }
                 }
             }
-            _ => panic!("Unimplemented SignalingType({:?})", sig_info.get_type()),
+            _ => panic!("Unimplemented SignalingType({:?})", sig_param.get_type()),
         }
     }
 
@@ -469,7 +477,7 @@ impl Client {
         //     com_id = String::from("NPWR01249");
         // }
 
-        let servs = self.db.lock().unwrap().get_server_list(&com_id);
+        let servs = self.db.lock().get_server_list(&com_id);
         if let Err(_) = servs {
             reply.push(ErrorType::DbFail as u8);
             return false;
@@ -498,7 +506,7 @@ impl Client {
             return false;
         }
 
-        let worlds = self.db.lock().unwrap().get_world_list(server_id);
+        let worlds = self.db.lock().get_world_list(server_id);
         if let Err(_) = worlds {
             reply.push(ErrorType::DbFail as u8);
             return false;
@@ -522,9 +530,9 @@ impl Client {
 
     fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(create_req) = data.get_flatbuffer::<CreateJoinRoomRequest>() {
-            let server_id = self.db.lock().unwrap().get_corresponding_server(create_req.worldId());
+            let server_id = self.db.lock().get_corresponding_server(create_req.worldId());
 
-            let resp = self.room_manager.write().unwrap().create_room(&create_req, &self.client_info, server_id);
+            let resp = self.room_manager.write().create_room(&create_req, &self.client_info, server_id);
             reply.push(ErrorType::NoError as u8);
             reply.extend(&(resp.len() as u32).to_le_bytes());
             reply.extend(resp);
@@ -536,7 +544,7 @@ impl Client {
         }
     }
     fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
-        let mut room_manager = self.room_manager.write().unwrap();
+        let mut room_manager = self.room_manager.write();
         if let Ok(join_req) = data.get_flatbuffer::<JoinRoomRequest>() {
             let room_id = join_req.roomId();
             if !room_manager.room_exists(room_id) {
@@ -641,7 +649,7 @@ impl Client {
     }
 
     fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
-        let mut room_manager = self.room_manager.write().unwrap();
+        let mut room_manager = self.room_manager.write();
         if let Ok(leave_req) = data.get_flatbuffer::<LeaveRoomRequest>() {
             reply.push(self.leave_room(&mut room_manager, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction));
             reply.extend(&leave_req.roomId().to_le_bytes());
@@ -654,7 +662,7 @@ impl Client {
     }
     fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(search_req) = data.get_flatbuffer::<SearchRoomRequest>() {
-            let resp = self.room_manager.read().unwrap().search_room(&search_req);
+            let resp = self.room_manager.read().search_room(&search_req);
 
             reply.push(ErrorType::NoError as u8);
             reply.extend(&(resp.len() as u32).to_le_bytes());
@@ -668,7 +676,7 @@ impl Client {
     }
     fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataExternalRequest>() {
-            if let Err(e) = self.room_manager.write().unwrap().set_roomdata_external(&setdata_req) {
+            if let Err(e) = self.room_manager.write().set_roomdata_external(&setdata_req) {
                 reply.push(e);
             } else {
                 reply.push(ErrorType::NoError as u8);
@@ -682,7 +690,7 @@ impl Client {
     }
     fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(setdata_req) = data.get_flatbuffer::<GetRoomDataInternalRequest>() {
-            let resp = self.room_manager.read().unwrap().get_roomdata_internal(&setdata_req);
+            let resp = self.room_manager.read().get_roomdata_internal(&setdata_req);
             if let Err(e) = resp {
                 reply.push(e);
             } else {
@@ -700,7 +708,7 @@ impl Client {
     }
     fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataInternalRequest>() {
-            if let Err(e) = self.room_manager.write().unwrap().set_roomdata_internal(&setdata_req) {
+            if let Err(e) = self.room_manager.write().set_roomdata_internal(&setdata_req) {
                 reply.push(e);
             } else {
                 reply.push(ErrorType::NoError as u8);
@@ -720,13 +728,13 @@ impl Client {
             return false;
         }
 
-        let world_id = self.room_manager.read().unwrap().get_corresponding_world(room_id);
+        let world_id = self.room_manager.read().get_corresponding_world(room_id);
         if let Err(e) = world_id {
             reply.push(e);
             return true;
         }
         let world_id = world_id.unwrap();
-        let server_id = self.db.lock().unwrap().get_corresponding_server(world_id);
+        let server_id = self.db.lock().get_corresponding_server(world_id);
 
         let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
         let resp = GetPingInfoResponse::create(
