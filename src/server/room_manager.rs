@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 #![allow(dead_code)]
+#![allow(non_camel_case_types)]
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
@@ -7,6 +8,7 @@ use std::sync::Arc;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use parking_lot::Mutex;
+use rand::Rng;
 
 use crate::server::client::{ClientInfo, ErrorType, EventCause};
 use crate::server::log::LogManager;
@@ -22,6 +24,16 @@ enum SceNpMatching2Operator {
     OperatorLe = 4,
     OperatorGt = 5,
     OperatorGe = 6,
+}
+
+#[repr(u32)]
+enum SceNpMatching2FlagAttr {
+    SCE_NP_MATCHING2_ROOM_FLAG_ATTR_OWNER_AUTO_GRANT = 0x80000000,
+    SCE_NP_MATCHING2_ROOM_FLAG_ATTR_CLOSED = 0x40000000,
+    SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL = 0x20000000,
+    SCE_NP_MATCHING2_ROOM_FLAG_ATTR_HIDDEN = 0x10000000,
+    SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION = 0x04000000,
+    SCE_NP_MATCHING2_ROOM_FLAG_ATTR_PROHIBITIVE_MODE = 0x02000000,
 }
 
 #[repr(u8)]
@@ -199,7 +211,6 @@ struct RoomUser {
     member_id: u16,
 }
 impl RoomUser {
-    #[allow(non_snake_case)]
     pub fn from_CreateJoinRoomRequest(fb: &CreateJoinRoomRequest) -> RoomUser {
         let group_id = 0;
         let mut member_attr: Vec<RoomMemberBinAttr> = Vec::new();
@@ -228,7 +239,6 @@ impl RoomUser {
             member_id: 0,
         }
     }
-    #[allow(non_snake_case)]
     pub fn from_JoinRoomRequest(fb: &JoinRoomRequest) -> RoomUser {
         let group_id = 0;
         let mut member_attr: Vec<RoomMemberBinAttr> = Vec::new();
@@ -257,7 +267,6 @@ impl RoomUser {
             member_id: 0,
         }
     }
-    #[allow(non_snake_case)]
     pub fn to_RoomMemberDataInternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<RoomMemberDataInternal<'a>> {
         let npid = builder.create_string(&self.npid);
         let online_name = builder.create_string(&self.online_name);
@@ -604,6 +613,17 @@ impl Room {
     }
 
     pub fn is_match(&self, req: &SearchRoomRequest) -> bool {
+        // Hidden rooms never turn up in searches
+        if (self.flag_attr & (SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_HIDDEN as u32)) != 0 {
+            return false;
+        }
+
+        let flag_filter = req.flagFilter();
+        let flag_attr = req.flagAttr();
+        if (self.flag_attr & flag_filter) != flag_attr {
+            return false;
+        }
+
         let intfilters = req.intFilter();
         if let Some(intfilters) = intfilters {
             for i in 0..intfilters.len() {
@@ -813,6 +833,11 @@ impl RoomManager {
         // TODO: Group Label, joindate
         room.users.insert(room.user_cnt, room_user);
 
+        // Set full flag if necessary
+        if room.users.len() == room.max_slot as usize {
+            room.flag_attr |= SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32;
+        }
+
         let user_set = self.user_rooms.entry(cinfo.user_id).or_insert(HashSet::new());
         user_set.insert(self.room_cnt);
 
@@ -843,6 +868,12 @@ impl RoomManager {
 
         room.users.remove(&member_id);
 
+        // Remove full flag if necessary
+        if room.users.len() != room.max_slot as usize {
+            room.flag_attr &= !(SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32);
+        }
+
+        // Generate list of users left
         let mut user_list = HashSet::new();
         for user in &room.users {
             user_list.insert(user.1.user_id);
@@ -852,12 +883,26 @@ impl RoomManager {
             // Check if the room is getting destroyed
             let mut found_successor = false;
 
+            // Try to find successor in the designated successor list
             while let Some(s) = room.owner_succession.pop_front() {
                 if room.users.contains_key(&s) {
                     found_successor = true;
                     room.owner = s;
                     break;
                 }
+            }
+
+            // If no successor is found and there are still users, assign ownership randomly
+            if !found_successor && room.users.len() != 0 {
+                let mut random_user = rand::thread_rng().gen_range(0, room.users.len());
+
+                for key in room.users.keys() {
+                    if random_user == 0 {
+                        room.owner = key.clone();
+                    }
+                    random_user -= 1;
+                }
+                found_successor = true;
             }
 
             if !found_successor {
@@ -868,10 +913,6 @@ impl RoomManager {
                     self.world_rooms.get_mut(&world_id).unwrap().remove(&room_id);
                 } else {
                     self.lobby_rooms.get_mut(&lobby_id).unwrap().remove(&room_id);
-                }
-                // Remove from user_rooms
-                for user in &user_list {
-                    self.user_rooms.get_mut(user).unwrap().remove(&room_id);
                 }
                 // Remove from global room list
                 self.rooms.remove(&room_id);
@@ -1008,5 +1049,13 @@ impl RoomManager {
         room.owner_succession = succession_list;
 
         Ok(())
+    }
+
+    pub fn get_rooms_by_user(&self, user: i64) -> Option<HashSet<u64>> {
+        if !self.user_rooms.contains_key(&user) {
+            return None;
+        }
+
+        Some(self.user_rooms.get(&user).unwrap().clone())
     }
 }

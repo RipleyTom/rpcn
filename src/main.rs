@@ -1,10 +1,10 @@
-mod server;
-use server::Server;
+use std::env;
 
 use clap;
 use clap::{App, Arg};
 
-use std::env;
+mod server;
+use server::Server;
 
 // Replace config by lazy_static with RwLock maybe?
 pub struct ConfigInner {

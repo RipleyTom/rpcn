@@ -204,11 +204,13 @@ impl Client {
         }
 
         if self.authentified {
-            // self.db
-            //     .lock()
-            //     .unwrap()
-            //     .leave_all_rooms(self.user_id)
-            //     .unwrap();
+            // leave all rooms user is still in
+            if let Some(rooms) = self.room_manager.read().get_rooms_by_user(self.client_info.user_id) {
+                for room in rooms {
+                    self.leave_room(&mut self.room_manager.write(), room, None, EventCause::MemberDisappeared);
+                }
+            }
+            
             self.signaling_infos.write().remove(&self.client_info.user_id);
         }
     }
