@@ -159,6 +159,20 @@ impl DatabaseManager {
         Ok(list_servers)
     }
     pub fn get_world_list(&mut self, server_id: u16) -> Result<Vec<u32>, DbError> {
+        // Ensures server exists
+        {
+            let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(1) FROM servers WHERE serverId=?1", rusqlite::params![server_id], |r| r.get(0));
+            if let Err(e) = count {
+                self.log(&format!("Error querying for server existence: {}", e));
+                return Err(DbError::Internal);
+            }
+
+            if count.unwrap() == 0 {
+                self.log(&format!("Attempted to query world list on an unexisting server({})", server_id));
+                return Err(DbError::Empty);
+            }
+        }
+
         let mut list_worlds = Vec::new();
         {
             let mut stmt = self.conn.prepare("SELECT worldId FROM worlds WHERE serverId=?1").unwrap();
