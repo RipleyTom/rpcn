@@ -205,7 +205,9 @@ impl Client {
 
         if self.authentified {
             // leave all rooms user is still in
-            if let Some(rooms) = self.room_manager.read().get_rooms_by_user(self.client_info.user_id) {
+            let rooms = self.room_manager.read().get_rooms_by_user(self.client_info.user_id);
+
+            if let Some(rooms) = rooms {
                 for room in rooms {
                     self.leave_room(&mut self.room_manager.write(), room, None, EventCause::MemberDisappeared);
                 }
