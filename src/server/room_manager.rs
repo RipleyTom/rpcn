@@ -298,7 +298,7 @@ impl RoomUser {
                 memberId: self.member_id,
                 teamId: self.team_id,
                 roomGroup: self.group_id,
-                natType: 0, // todo
+                natType: 2, // todo
                 flagAttr: self.flag_attr,
                 roomMemberBinAttrInternal: bin_attr,
             },

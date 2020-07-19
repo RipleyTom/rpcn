@@ -1,6 +1,6 @@
 [package]
 name = "rpcn"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["RipleyTom <RipleyTom@users.noreply.github.com>"]
 edition = "2018"
 
@@ -14,6 +14,8 @@ rust-argon2 = "0.5"
 flatbuffers = "0.6"
 parking_lot = "0.10"
 chrono = "0.4"
+ring = "0.16"
+rustls = "0.18"
 
 [dependencies.rusqlite]
 version = "0.20.0"

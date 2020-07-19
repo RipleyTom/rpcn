@@ -3,6 +3,7 @@ use std::convert::TryInto;
 use std::io;
 use std::net::{IpAddr, UdpSocket};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
@@ -14,9 +15,10 @@ use crate::server::log::LogManager;
 pub struct UdpServer {
     host: String,
     log_manager: Arc<Mutex<LogManager>>,
-    running: Arc<Mutex<bool>>,
     signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
 }
+
+static UDP_SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
 
 impl UdpServer {
     fn log(log_manager: &Arc<Mutex<LogManager>>, s: &str) {
@@ -27,7 +29,6 @@ impl UdpServer {
         UdpServer {
             host: String::from(s_host),
             log_manager,
-            running: Arc::new(Mutex::new(false)),
             signaling_infos,
         }
     }
@@ -47,13 +48,12 @@ impl UdpServer {
         }
 
         let log_manager = self.log_manager.clone();
-        let running = self.running.clone();
         let signaling_infos = self.signaling_infos.clone();
 
-        *self.running.lock() = true;
+        UDP_SERVER_RUNNING.store(true, Ordering::SeqCst);
 
         thread::spawn(|| {
-            UdpServer::server_proc(log_manager, socket, running, signaling_infos);
+            UdpServer::server_proc(log_manager, socket, signaling_infos);
         });
 
         UdpServer::log(&self.log_manager, &format!("Now waiting for packets on <{}:3657>", &self.host));
@@ -62,15 +62,15 @@ impl UdpServer {
     }
 
     pub fn stop(&self) {
-        *self.running.lock() = false;
+        UDP_SERVER_RUNNING.store(false, Ordering::SeqCst);
     }
 
-    fn server_proc(log: Arc<Mutex<LogManager>>, sock: UdpSocket, running: Arc<Mutex<bool>>, signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>) {
+    fn server_proc(log: Arc<Mutex<LogManager>>, sock: UdpSocket, signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>) {
         let mut recv_buf = [0; 65535];
         let mut send_buf = [0; 65535];
 
         loop {
-            if *running.lock() == false {
+            if UDP_SERVER_RUNNING.load(Ordering::SeqCst) == false {
                 break;
             }
 
@@ -148,7 +148,7 @@ impl UdpServer {
             }
         }
 
-        *running.lock() = false;
+        UDP_SERVER_RUNNING.store(false, Ordering::SeqCst);
 
         UdpServer::log(&log, "UdpServer::server_proc terminating");
     }

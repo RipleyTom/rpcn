@@ -1,6 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::io::{Read, Write};
-use std::net::TcpStream;
 use std::sync::Arc;
 
 use num_derive::FromPrimitive;
@@ -15,6 +13,9 @@ use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::stream_extractor::StreamExtractor;
 use crate::Config;
 
+pub mod tls_stream;
+use tls_stream::TlsStream;
+
 pub const HEADER_SIZE: u16 = 9;
 
 pub struct ClientInfo {
@@ -25,15 +26,15 @@ pub struct ClientInfo {
 }
 
 pub struct ClientSignalingInfo {
-    pub tcp_stream: TcpStream,
+    pub tls_stream: Arc<Mutex<TlsStream>>,
     pub addr_p2p: [u8; 4],
     pub port_p2p: u16,
 }
 
 impl ClientSignalingInfo {
-    pub fn new(tcp_stream: TcpStream) -> ClientSignalingInfo {
+    pub fn new(tls_stream: Arc<Mutex<TlsStream>>) -> ClientSignalingInfo {
         ClientSignalingInfo {
-            tcp_stream,
+            tls_stream,
             addr_p2p: [0; 4],
             port_p2p: 0,
         }
@@ -41,7 +42,7 @@ impl ClientSignalingInfo {
 }
 
 pub struct Client {
-    stream: TcpStream,
+    tls_stream: Arc<Mutex<TlsStream>>,
     db: Arc<Mutex<DatabaseManager>>,
     room_manager: Arc<RwLock<RoomManager>>,
     log_manager: Arc<Mutex<LogManager>>,
@@ -116,14 +117,12 @@ pub enum ErrorType {
 
 impl Client {
     pub fn new(
-        stream: TcpStream,
+        tls_stream: Arc<Mutex<TlsStream>>,
         db: Arc<Mutex<DatabaseManager>>,
         room_manager: Arc<RwLock<RoomManager>>,
         log_manager: Arc<Mutex<LogManager>>,
         signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
     ) -> Client {
-        stream.set_read_timeout(None).expect("set_read_timeout error!");
-        stream.set_write_timeout(None).expect("set_write_timeout error!");
 
         let client_info = ClientInfo {
             user_id: 0,
@@ -133,7 +132,7 @@ impl Client {
         };
 
         Client {
-            stream,
+            tls_stream,
             db,
             room_manager,
             log_manager,
@@ -176,28 +175,30 @@ impl Client {
     }
 
     ///// Command processing
-
+    
     pub fn process(&mut self) {
         loop {
-            let mut peek_data = [0; HEADER_SIZE as usize];
+            let mut header_data = [0; HEADER_SIZE as usize];
 
-            match self.stream.read_exact(&mut peek_data) {
+            let r = self.tls_stream.lock().read_exact(&mut header_data);
+
+            match r {
                 Ok(_) => {
-                    if peek_data[0] != PacketType::Request as u8 {
+                    if header_data[0] != PacketType::Request as u8 {
                         self.log("Received non request packed, disconnecting client");
                         break;
                     }
 
-                    let command = u16::from_le_bytes([peek_data[1], peek_data[2]]);
-                    let packet_size = u16::from_le_bytes([peek_data[3], peek_data[4]]);
-                    let packet_id = u32::from_le_bytes([peek_data[5], peek_data[6], peek_data[7], peek_data[8]]);
+                    let command = u16::from_le_bytes([header_data[1], header_data[2]]);
+                    let packet_size = u16::from_le_bytes([header_data[3], header_data[4]]);
+                    let packet_id = u32::from_le_bytes([header_data[5], header_data[6], header_data[7], header_data[8]]);
                     if !self.interpret_command(command, packet_size, packet_id) {
                         self.log("Disconnecting client");
                         break;
                     }
                 }
-                Err(_) => {
-                    self.log("Client disconnected");
+                Err(e) => {
+                    self.log(&format!("Client disconnected: {}", &e));
                     break;
                 }
             }
@@ -226,7 +227,10 @@ impl Client {
         let to_read = length - HEADER_SIZE;
 
         let mut data = vec![0; to_read as usize];
-        match self.stream.read_exact(&mut data) {
+
+        let r = self.tls_stream.lock().read_exact(&mut data);
+
+        match r {
             Ok(_) => {
                 //self.dump_packet(&data, "input");
 
@@ -246,7 +250,7 @@ impl Client {
 
                 //self.dump_packet(&reply, "output");
 
-                match self.stream.write(&reply) {
+                match self.tls_stream.lock().write(&reply) {
                     Ok(nb) => {
                         if nb != reply.len() {
                             self.log("Failed to write all bytes!");
@@ -346,7 +350,7 @@ impl Client {
 
             self.signaling_infos
                 .write()
-                .insert(self.client_info.user_id, ClientSignalingInfo::new(self.stream.try_clone().unwrap()));
+                .insert(self.client_info.user_id, ClientSignalingInfo::new(self.tls_stream.clone()));
 
             return true;
         }
@@ -398,8 +402,7 @@ impl Client {
             let entry = sig_infos.get(user_id);
 
             if let Some(c) = entry {
-                let mut stream_clone = c.tcp_stream.try_clone().unwrap(); // To avoid needing a write lock on signaling_infos
-                let _ = stream_clone.write(&notif);
+                let _ = c.tls_stream.lock().write(&notif);
             }
         }
     }

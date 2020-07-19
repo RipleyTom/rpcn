@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use std::io::Write;
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::sync::Arc;
 use std::thread;
 
@@ -16,9 +15,12 @@ mod log;
 use log::LogManager;
 mod udp_server;
 use udp_server::UdpServer;
+use crate::Config;
 
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
+
+use client::tls_stream::TlsStream;
 
 const PROTOCOL_VERSION: u32 = 5;
 
@@ -52,10 +54,37 @@ impl Server {
         self.log_manager.lock().write(&format!("Server: {}", s));
     }
 
+    fn log_verbose(&self, s: &str) {
+        if Config::is_verbose() {
+            self.log(s);
+        }
+    }
+
     pub fn start(&mut self) {
-        // Starts udp signaling helper
+        // Starts udp signaling helper on dedicated thread
         let udp_serv = UdpServer::new(&self.host, self.log_manager.clone(), self.signaling_infos.clone());
         udp_serv.start();
+
+        // Setup TLS(TODO:ideally should not require a certificate)
+        let mut server_config = rustls::ServerConfig::new(rustls::NoClientAuth::new());
+        let f = std::fs::File::open("cert.pem");
+        if f.is_err() {
+            self.log("Failed to open certificate cert.pem");
+            return;
+        }
+        let mut f = std::io::BufReader::new(f.unwrap());
+        let certif = rustls::internal::pemfile::certs(&mut f).unwrap();
+        let f = std::fs::File::open("key.pem");
+        if f.is_err() {
+            self.log("Failed to open private key key.pem");
+            return;
+        }
+        let mut f = std::io::BufReader::new(f.unwrap());
+        let private_key = rustls::internal::pemfile::pkcs8_private_keys(&mut f).unwrap();
+
+        server_config.set_single_cert(certif, private_key[0].clone()).unwrap();
+        // server_config.ciphersuites = server_config.ciphersuites.iter().filter(|s| s.suite == rustls::internal::msgs::enums::CipherSuite::TLS_DH_anon_WITH_AES_256_CBC_SHA256).map(|s| *s).collect();
+        let server_config = Arc::new(server_config);
 
         // Starts actual server
         let bind_addr = self.host.clone() + ":" + &self.port;
@@ -77,18 +106,33 @@ impl Server {
 
         for stream in listener.incoming() {
             match stream {
-                Ok(mut stream) => {
-                    self.log(&format!("New client from {}", stream.peer_addr().unwrap()));
-                    let db_client = self.db.clone();
-                    let room_client = self.room_manager.clone();
-                    let log_client = self.log_manager.clone();
-                    let signaling_infos = self.signaling_infos.clone();
+                Ok(stream) => {
+                    if let Ok(addr) = stream.peer_addr() {
+                        self.log(&format!("New client from {}", addr));
 
-                    let _ = stream.write(&servinfo_vec);
+                        // Check validity of TLS stream before allocating resources to client
+                        let tls_stream = Arc::new(Mutex::new(TlsStream::new(stream, server_config.clone())));
+                        if let Err(e) = tls_stream.lock().do_handshake() {
+                            self.log(&format!("Error doing the handshake: {}", e.to_string()));
+                            continue;
+                        }
 
-                    thread::spawn(|| {
-                        Server::handle_client(stream, db_client, room_client, log_client, signaling_infos);
-                    });
+                        self.log_verbose("Handshake successful!");
+
+                        let db_client = self.db.clone();
+                        let room_client = self.room_manager.clone();
+                        let log_client = self.log_manager.clone();
+                        let signaling_infos = self.signaling_infos.clone();
+
+                        let res = tls_stream.lock().write(&servinfo_vec);
+                        if let Err(e) = res {
+                            self.log(&format!("Failed to write ServerInfo packet: {}", e.to_string()));
+                        } else {
+                            thread::spawn(|| {
+                                Server::handle_client(tls_stream, db_client, room_client, log_client, signaling_infos);
+                            });
+                        }
+                    }
                 }
                 Err(_) => self.log("Accept failed!"),
             }
@@ -98,13 +142,13 @@ impl Server {
     }
 
     fn handle_client(
-        stream: TcpStream,
+        tls_stream: Arc<Mutex<TlsStream>>,
         db: Arc<Mutex<DatabaseManager>>,
         room_manager: Arc<RwLock<RoomManager>>,
         log_manager: Arc<Mutex<LogManager>>,
         signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
     ) {
-        let mut client = Client::new(stream, db, room_manager, log_manager, signaling_infos);
+        let mut client = Client::new(tls_stream, db, room_manager, log_manager, signaling_infos);
         client.process();
     }
 }
