@@ -1,6 +1,6 @@
 [package]
 name = "rpcn"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["RipleyTom <RipleyTom@users.noreply.github.com>"]
 edition = "2018"
 
@@ -15,8 +15,7 @@ flatbuffers = "0.6"
 parking_lot = "0.10"
 chrono = "0.4"
 ring = "0.16"
-rustls = "0.18"
-
-[dependencies.rusqlite]
-version = "0.20.0"
-features = ["bundled"]
+rusqlite = { version = "0.20", features = [ "bundled" ] }
+tokio = { version = "0.2", features = [ "full" ] }
+tokio-rustls = "0.14"
+futures-util = "0.3"

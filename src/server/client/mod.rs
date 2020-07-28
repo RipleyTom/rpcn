@@ -4,6 +4,10 @@ use std::sync::Arc;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use parking_lot::{Mutex, RwLock};
+use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
+use tokio::sync::mpsc;
+use tokio_rustls::server::TlsStream;
 
 use crate::server::database::DatabaseManager;
 use crate::server::log::LogManager;
@@ -12,9 +16,6 @@ use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::stream_extractor::StreamExtractor;
 use crate::Config;
-
-pub mod tls_stream;
-use tls_stream::TlsStream;
 
 pub const HEADER_SIZE: u16 = 9;
 
@@ -26,15 +27,15 @@ pub struct ClientInfo {
 }
 
 pub struct ClientSignalingInfo {
-    pub tls_stream: Arc<Mutex<TlsStream>>,
+    pub channel: mpsc::Sender<Vec<u8>>,
     pub addr_p2p: [u8; 4],
     pub port_p2p: u16,
 }
 
 impl ClientSignalingInfo {
-    pub fn new(tls_stream: Arc<Mutex<TlsStream>>) -> ClientSignalingInfo {
+    pub fn new(channel: mpsc::Sender<Vec<u8>>) -> ClientSignalingInfo {
         ClientSignalingInfo {
-            tls_stream,
+            channel,
             addr_p2p: [0; 4],
             port_p2p: 0,
         }
@@ -42,7 +43,8 @@ impl ClientSignalingInfo {
 }
 
 pub struct Client {
-    tls_stream: Arc<Mutex<TlsStream>>,
+    tls_reader: io::ReadHalf<TlsStream<TcpStream>>,
+    channel_sender: mpsc::Sender<Vec<u8>>,
     db: Arc<Mutex<DatabaseManager>>,
     room_manager: Arc<RwLock<RoomManager>>,
     log_manager: Arc<Mutex<LogManager>>,
@@ -116,14 +118,13 @@ pub enum ErrorType {
 }
 
 impl Client {
-    pub fn new(
-        tls_stream: Arc<Mutex<TlsStream>>,
+    pub async fn new(
+        tls_stream: TlsStream<TcpStream>,
         db: Arc<Mutex<DatabaseManager>>,
         room_manager: Arc<RwLock<RoomManager>>,
         log_manager: Arc<Mutex<LogManager>>,
         signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
     ) -> Client {
-
         let client_info = ClientInfo {
             user_id: 0,
             npid: String::new(),
@@ -131,8 +132,20 @@ impl Client {
             avatar_url: String::new(),
         };
 
+        let (channel_sender, mut channel_receiver) = mpsc::channel::<Vec<u8>>(32);
+        let (tls_reader, mut tls_writer) = io::split(tls_stream);
+
+        let fut_sock_writer = async move {
+            while let Some(outgoing_packet) = channel_receiver.recv().await {
+                let _ = tls_writer.write_all(&outgoing_packet).await;
+            }
+        };
+
+        tokio::spawn(fut_sock_writer);
+
         Client {
-            tls_stream,
+            tls_reader,
+            channel_sender,
             db,
             room_manager,
             log_manager,
@@ -175,12 +188,11 @@ impl Client {
     }
 
     ///// Command processing
-    
-    pub fn process(&mut self) {
+    pub async fn process(&mut self) {
         loop {
             let mut header_data = [0; HEADER_SIZE as usize];
 
-            let r = self.tls_stream.lock().read_exact(&mut header_data);
+            let r = self.tls_reader.read_exact(&mut header_data).await;
 
             match r {
                 Ok(_) => {
@@ -192,7 +204,7 @@ impl Client {
                     let command = u16::from_le_bytes([header_data[1], header_data[2]]);
                     let packet_size = u16::from_le_bytes([header_data[3], header_data[4]]);
                     let packet_id = u32::from_le_bytes([header_data[5], header_data[6], header_data[7], header_data[8]]);
-                    if !self.interpret_command(command, packet_size, packet_id) {
+                    if !self.interpret_command(command, packet_size, packet_id).await {
                         self.log("Disconnecting client");
                         break;
                     }
@@ -210,15 +222,14 @@ impl Client {
 
             if let Some(rooms) = rooms {
                 for room in rooms {
-                    self.leave_room(&mut self.room_manager.write(), room, None, EventCause::MemberDisappeared);
+                    self.leave_room(&self.room_manager, room, None, EventCause::MemberDisappeared).await;
                 }
             }
-            
             self.signaling_infos.write().remove(&self.client_info.user_id);
         }
     }
 
-    fn interpret_command(&mut self, command: u16, length: u16, packet_id: u32) -> bool {
+    async fn interpret_command(&mut self, command: u16, length: u16, packet_id: u32) -> bool {
         if length < HEADER_SIZE {
             self.log(&format!("Malformed packet(size < {})", HEADER_SIZE));
             return false;
@@ -228,7 +239,7 @@ impl Client {
 
         let mut data = vec![0; to_read as usize];
 
-        let r = self.tls_stream.lock().read_exact(&mut data);
+        let r = self.tls_reader.read_exact(&mut data).await;
 
         match r {
             Ok(_) => {
@@ -242,7 +253,7 @@ impl Client {
                 reply.extend(&packet_id.to_le_bytes());
 
                 let mut se_data = StreamExtractor::new(data);
-                let res = self.process_command(command, &mut se_data, &mut reply);
+                let res = self.process_command(command, &mut se_data, &mut reply).await;
 
                 // update length
                 let len = reply.len() as u16;
@@ -250,18 +261,7 @@ impl Client {
 
                 //self.dump_packet(&reply, "output");
 
-                match self.tls_stream.lock().write(&reply) {
-                    Ok(nb) => {
-                        if nb != reply.len() {
-                            self.log("Failed to write all bytes!");
-                            return false;
-                        }
-                    }
-                    Err(e) => {
-                        self.log(&format!("Write error: {}", e));
-                        return false;
-                    }
-                }
+                let _ = self.channel_sender.send(reply.clone()).await;
 
                 self.log_verbose(&format!("Returning: {}({})", res, reply[4]));
 
@@ -274,7 +274,7 @@ impl Client {
         }
     }
 
-    fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    async fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         let command = FromPrimitive::from_u16(command);
         if command.is_none() {
             self.log("Unknown command received");
@@ -305,8 +305,8 @@ impl Client {
             CommandType::GetServerList => return self.req_get_server_list(data, reply),
             CommandType::GetWorldList => return self.req_get_world_list(data, reply),
             CommandType::CreateRoom => return self.req_create_room(data, reply),
-            CommandType::JoinRoom => return self.req_join_room(data, reply),
-            CommandType::LeaveRoom => return self.req_leave_room(data, reply),
+            CommandType::JoinRoom => return self.req_join_room(data, reply).await,
+            CommandType::LeaveRoom => return self.req_leave_room(data, reply).await,
             CommandType::SearchRoom => return self.req_search_room(data, reply),
             CommandType::SetRoomDataExternal => return self.req_set_roomdata_external(data, reply),
             CommandType::GetRoomDataInternal => return self.req_get_roomdata_internal(data, reply),
@@ -348,9 +348,7 @@ impl Client {
 
             self.log("Authentified");
 
-            self.signaling_infos
-                .write()
-                .insert(self.client_info.user_id, ClientSignalingInfo::new(self.tls_stream.clone()));
+            self.signaling_infos.write().insert(self.client_info.user_id, ClientSignalingInfo::new(self.channel_sender.clone()));
 
             return true;
         }
@@ -395,18 +393,24 @@ impl Client {
 
         final_vec
     }
-    fn send_notification(&self, notif: &Vec<u8>, user_list: &HashSet<i64>) {
-        let sig_infos = self.signaling_infos.read();
-
+    async fn send_notification(&self, notif: &Vec<u8>, user_list: &HashSet<i64>) {
         for user_id in user_list {
-            let entry = sig_infos.get(user_id);
-
-            if let Some(c) = entry {
-                let _ = c.tls_stream.lock().write(&notif);
+            let mut channel_copy;
+            let entry;
+            {
+                let sig_infos = self.signaling_infos.read();
+                entry = sig_infos.get(user_id);
+                if let Some(c) = entry {
+                    channel_copy = c.channel.clone();
+                } else {
+                    continue;
+                }
             }
+
+            let _ = channel_copy.send(notif.clone()).await;
         }
     }
-    fn signal_connections(&self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>) {
+    async fn signal_connections(&self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>) {
         if let None = sig_param {
             return;
         }
@@ -439,7 +443,7 @@ impl Client {
                 s_msg.extend(&port_p2p.to_be_bytes()); // +10..+12 port
                 s_msg.extend(&addr_p2p); // +12..+16 addr
                 let mut s_notif = Client::create_notification(NotificationType::SignalP2PEstablished, &s_msg);
-                self.send_notification(&s_notif, &user_ids);
+                self.send_notification(&s_notif, &user_ids).await;
 
                 // Notifies user that connection has been established with all other occupants
                 {
@@ -458,7 +462,7 @@ impl Client {
                             }
                         }
                         if tosend {
-                            self.send_notification(&s_notif, &self_id);
+                            self.send_notification(&s_notif, &self_id).await;
                         }
                     }
                 }
@@ -550,48 +554,52 @@ impl Client {
             false
         }
     }
-    fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
-        let mut room_manager = self.room_manager.write();
+    async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(join_req) = data.get_flatbuffer::<JoinRoomRequest>() {
             let room_id = join_req.roomId();
-            if !room_manager.room_exists(room_id) {
-                reply.push(ErrorType::NotFound as u8);
-                return true;
-            }
-
-            let (users, siginfo);
+            let user_ids: HashSet<i64>;
+            let (notif, member_id, users, siginfo);
             {
-                let room = room_manager.get_room(room_id.clone());
-                users = room.get_room_users();
-                siginfo = room.get_signaling_info();
+                let mut room_manager = self.room_manager.write();
+                if !room_manager.room_exists(room_id) {
+                    reply.push(ErrorType::NotFound as u8);
+                    return true;
+                }
+
+                {
+                    let room = room_manager.get_room(room_id.clone());
+                    users = room.get_room_users();
+                    siginfo = room.get_signaling_info();
+                }
+
+                let resp = room_manager.join_room(&join_req, &self.client_info);
+                if let Err(e) = resp {
+                    reply.push(e);
+                    return true;
+                }
+
+                let (member_id_ta, resp) = resp.unwrap();
+                member_id = member_id_ta;
+                reply.push(ErrorType::NoError as u8);
+                reply.extend(&(resp.len() as u32).to_le_bytes());
+                reply.extend(resp);
+
+                user_ids = users.iter().map(|x| x.1.clone()).collect();
+
+                // Notif other room users a new user has joined
+                let mut n_msg: Vec<u8> = Vec::new();
+                n_msg.extend(&room_id.to_le_bytes());
+                let up_info = room_manager
+                    .get_room(room_id)
+                    .get_room_member_update_info(member_id, EventCause::None, Some(&join_req.optData().unwrap()));
+                n_msg.extend(&(up_info.len() as u32).to_le_bytes());
+                n_msg.extend(up_info);
+                notif = Client::create_notification(NotificationType::UserJoinedRoom, &n_msg);
             }
-
-            let resp = room_manager.join_room(&join_req, &self.client_info);
-            if let Err(e) = resp {
-                reply.push(e);
-                return true;
-            }
-
-            let (member_id, resp) = resp.unwrap();
-            reply.push(ErrorType::NoError as u8);
-            reply.extend(&(resp.len() as u32).to_le_bytes());
-            reply.extend(resp);
-
-            let user_ids: HashSet<i64> = users.iter().map(|x| x.1.clone()).collect();
-
-            // Notif other room users a new user has joined
-            let mut n_msg: Vec<u8> = Vec::new();
-            n_msg.extend(&room_id.to_le_bytes());
-            let up_info = room_manager
-                .get_room(room_id)
-                .get_room_member_update_info(member_id, EventCause::None, Some(&join_req.optData().unwrap()));
-            n_msg.extend(&(up_info.len() as u32).to_le_bytes());
-            n_msg.extend(up_info);
-            let notif = Client::create_notification(NotificationType::UserJoinedRoom, &n_msg);
-            self.send_notification(&notif, &user_ids);
+            self.send_notification(&notif, &user_ids).await;
 
             // Send signaling stuff if any
-            self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo);
+            self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo).await;
         } else {
             self.log("Error while extracting data from JoinRoom command");
             reply.push(ErrorType::Malformed as u8);
@@ -599,25 +607,31 @@ impl Client {
         }
         true
     }
-    fn leave_room(&self, room_manager: &mut RoomManager, room_id: u64, opt_data: Option<&PresenceOptionData>, event_cause: EventCause) -> u8 {
-        if !room_manager.room_exists(room_id) {
-            return ErrorType::NotFound as u8;
-        }
+    async fn leave_room(&self, room_manager: &Arc<RwLock<RoomManager>>, room_id: u64, opt_data: Option<&PresenceOptionData<'_>>, event_cause: EventCause) -> u8 {
+        let (destroyed, users, user_data);
+        {
+            let mut room_manager = room_manager.write();
+            if !room_manager.room_exists(room_id) {
+                return ErrorType::NotFound as u8;
+            }
 
-        let room = room_manager.get_room(room_id);
-        let member_id = room.get_member_id(self.client_info.user_id);
-        if let Err(e) = member_id {
-            return e;
-        }
+            let room = room_manager.get_room(room_id);
+            let member_id = room.get_member_id(self.client_info.user_id);
+            if let Err(e) = member_id {
+                return e;
+            }
 
-        // We get this in advance in case the room is not destroyed
-        let user_data = room.get_room_member_update_info(member_id.unwrap(), event_cause.clone(), opt_data);
+            // We get this in advance in case the room is not destroyed
+            user_data = room.get_room_member_update_info(member_id.unwrap(), event_cause.clone(), opt_data);
 
-        let res = room_manager.leave_room(room_id, self.client_info.user_id.clone());
-        if let Err(e) = res {
-            return e;
+            let res = room_manager.leave_room(room_id, self.client_info.user_id.clone());
+            if let Err(e) = res {
+                return e;
+            }
+            let (destroyed_toa, users_toa) = res.unwrap();
+            destroyed = destroyed_toa;
+            users = users_toa;
         }
-        let (destroyed, users) = res.unwrap();
 
         if destroyed {
             // Notify other room users that the room has been destroyed
@@ -640,7 +654,7 @@ impl Client {
             n_msg.extend(&room_update_data);
 
             let notif = Client::create_notification(NotificationType::RoomDestroyed, &n_msg);
-            self.send_notification(&notif, &users);
+            self.send_notification(&notif, &users).await;
         } else {
             // Notify other room users that someone left the room
             let mut n_msg: Vec<u8> = Vec::new();
@@ -649,16 +663,18 @@ impl Client {
             n_msg.extend(&user_data);
 
             let notif = Client::create_notification(NotificationType::UserLeftRoom, &n_msg);
-            self.send_notification(&notif, &users);
+            self.send_notification(&notif, &users).await;
         }
 
         ErrorType::NoError as u8
     }
 
-    fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
-        let mut room_manager = self.room_manager.write();
+    async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
         if let Ok(leave_req) = data.get_flatbuffer::<LeaveRoomRequest>() {
-            reply.push(self.leave_room(&mut room_manager, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction));
+            reply.push(
+                self.leave_room(&self.room_manager, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction)
+                    .await,
+            );
             reply.extend(&leave_req.roomId().to_le_bytes());
             true
         } else {

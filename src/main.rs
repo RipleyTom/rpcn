@@ -80,5 +80,9 @@ fn main() {
 
     let mut serv = Server::new(host, port);
 
-    serv.start();
+    if let Err(e) = serv.start() {
+        println!("Server terminated with error: {}", e);
+    } else {
+        println!("Server terminated normally");
+    }
 }
