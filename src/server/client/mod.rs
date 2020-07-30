@@ -372,6 +372,18 @@ impl Client {
             return Err(());
         }
 
+        if npid.len() < 3 || npid.len() > 16 || !npid.chars().all(|x| x.is_ascii_alphanumeric() || x == '-' || x == '_') {
+            self.log("Error validating NpId");
+            reply.push(ErrorType::Malformed as u8);
+            return Err(());
+        }
+
+        if online_name.len() < 3 || online_name.len() > 16 || !online_name.chars().all(|x| x.is_alphabetic() || x.is_ascii_digit() || x == '-' || x == '_') {
+            self.log("Error validating Online Name");
+            reply.push(ErrorType::Malformed as u8);
+            return Err(());
+        }
+
         if let Err(_) = self.db.lock().add_user(&npid, &password, &online_name, &avatar_url) {
             self.log(&format!("Account creation failed(npid: {})", &npid));
             reply.push(ErrorType::ErrorCreate as u8);
