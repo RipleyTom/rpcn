@@ -839,7 +839,7 @@ impl RoomManager {
         }
 
         let user_set = self.user_rooms.entry(cinfo.user_id).or_insert(HashSet::new());
-        user_set.insert(self.room_cnt);
+        user_set.insert(room.room_id);
 
         let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
         let room_data = room.to_RoomDataInternal(&mut builder);
@@ -850,15 +850,18 @@ impl RoomManager {
 
     pub fn leave_room(&mut self, room_id: u64, user_id: i64) -> Result<(bool, HashSet<i64>), u8> {
         if !self.room_exists(room_id) {
+            self.log("Attempted to leave a non existing room");
             return Err(ErrorType::NotFound as u8);
         }
 
         if let Some(user_set) = self.user_rooms.get_mut(&user_id) {
             if let None = user_set.get(&room_id) {
+                self.log("Couldn't find the room in the user user_rooms set");
                 return Err(ErrorType::NotFound as u8);
             }
             user_set.remove(&room_id);
         } else {
+            self.log("Couldn't find the user in the user_rooms list");
             return Err(ErrorType::NotFound as u8);
         }
 

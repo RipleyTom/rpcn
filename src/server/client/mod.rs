@@ -204,7 +204,7 @@ impl Client {
                     let command = u16::from_le_bytes([header_data[1], header_data[2]]);
                     let packet_size = u16::from_le_bytes([header_data[3], header_data[4]]);
                     let packet_id = u32::from_le_bytes([header_data[5], header_data[6], header_data[7], header_data[8]]);
-                    if !self.interpret_command(command, packet_size, packet_id).await {
+                    if self.interpret_command(command, packet_size, packet_id).await.is_err() {
                         self.log("Disconnecting client");
                         break;
                     }
@@ -229,10 +229,10 @@ impl Client {
         }
     }
 
-    async fn interpret_command(&mut self, command: u16, length: u16, packet_id: u32) -> bool {
+    async fn interpret_command(&mut self, command: u16, length: u16, packet_id: u32) -> Result<(), ()> {
         if length < HEADER_SIZE {
             self.log(&format!("Malformed packet(size < {})", HEADER_SIZE));
-            return false;
+            return Err(());
         }
 
         let to_read = length - HEADER_SIZE;
@@ -263,22 +263,22 @@ impl Client {
 
                 let _ = self.channel_sender.send(reply.clone()).await;
 
-                self.log_verbose(&format!("Returning: {}({})", res, reply[4]));
+                self.log_verbose(&format!("Returning: {}({})", res.is_ok(), reply[4]));
 
                 return res;
             }
             Err(e) => {
                 self.log(&format!("Read error: {}", e));
-                return false;
+                return Err(());
             }
         }
     }
 
-    async fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    async fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         let command = FromPrimitive::from_u16(command);
         if command.is_none() {
             self.log("Unknown command received");
-            return false;
+            return Err(());
         }
 
         self.log_verbose(&format!("Parsing command {:?}", command));
@@ -286,7 +286,7 @@ impl Client {
         let command = command.unwrap();
 
         match command {
-            CommandType::Terminate => return false,
+            CommandType::Terminate => return Err(()),
             _ => {}
         }
 
@@ -295,8 +295,9 @@ impl Client {
                 CommandType::Login => return self.login(data, reply),
                 CommandType::Create => return self.create_account(data, reply),
                 _ => {
+                    self.log("User attempted an invalid command at this stage");
                     reply.push(ErrorType::Invalid as u8);
-                    return false;
+                    return Err(());
                 }
             }
         }
@@ -313,22 +314,23 @@ impl Client {
             CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply),
             CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
             _ => {
+                self.log("Unknown command received");
                 reply.push(ErrorType::Invalid as u8);
-                return false;
+                return Err(());
             }
         }
     }
 
     ///// Account management
 
-    fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         let login = data.get_string(false);
         let password = data.get_string(false);
 
         if data.error() {
             self.log("Error while extracting data from Login command");
             reply.push(ErrorType::Malformed as u8);
-            return false;
+            return Err(());
         }
 
         if let Ok(user_data) = self.db.lock().check_user(&login, &password) {
@@ -350,15 +352,15 @@ impl Client {
 
             self.signaling_infos.write().insert(self.client_info.user_id, ClientSignalingInfo::new(self.channel_sender.clone()));
 
-            return true;
+            return Ok(());
         }
 
         reply.push(ErrorType::ErrorLogin as u8);
 
-        false
+        Err(())
     }
 
-    fn create_account(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn create_account(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         let npid = data.get_string(false);
         let password = data.get_string(false);
         let online_name = data.get_string(false);
@@ -367,7 +369,7 @@ impl Client {
         if data.error() {
             self.log("Error while extracting data from Create command");
             reply.push(ErrorType::Malformed as u8);
-            return false;
+            return Err(());
         }
 
         if let Err(_) = self.db.lock().add_user(&npid, &password, &online_name, &avatar_url) {
@@ -377,7 +379,7 @@ impl Client {
             self.log(&format!("Successfully created account {}", &npid));
             reply.push(ErrorType::NoError as u8);
         }
-        false
+        Err(())
     }
 
     ///// Helper functions
@@ -473,14 +475,14 @@ impl Client {
 
     ///// Server/world retrieval
 
-    fn req_get_server_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_get_server_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         // Expecting 10(communicationId)
         let com_id = data.get_string(false);
 
         if data.error() || com_id.len() != 9 {
             self.log("Error while extracting data from GetServerList command");
             reply.push(ErrorType::Malformed as u8);
-            return false;
+            return Err(());
         }
 
         // TODO: Generalize this (redirects DeS US queries to EU servers)
@@ -491,7 +493,7 @@ impl Client {
         let servs = self.db.lock().get_server_list(&com_id);
         if let Err(_) = servs {
             reply.push(ErrorType::DbFail as u8);
-            return false;
+            return Err(());
         }
         let servs = servs.unwrap();
 
@@ -505,22 +507,22 @@ impl Client {
 
         self.log_verbose(&format!("Returning {} servers", num_servs));
 
-        true
+        Ok(())
     }
-    fn req_get_world_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_get_world_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         // Expecting 2(serverId)
         let server_id = data.get::<u16>();
 
         if data.error() {
             self.log("Error while extracting data from GetWorldList command");
             reply.push(ErrorType::Malformed as u8);
-            return false;
+            return Err(());
         }
 
         let worlds = self.db.lock().get_world_list(server_id);
         if let Err(_) = worlds {
             reply.push(ErrorType::DbFail as u8);
-            return false;
+            return Err(());
         }
         let worlds = worlds.unwrap();
 
@@ -534,12 +536,12 @@ impl Client {
 
         self.log_verbose(&format!("Returning {} worlds", num_worlds));
 
-        true
+        Ok(())
     }
 
     ///// Room commands
 
-    fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(create_req) = data.get_flatbuffer::<CreateJoinRoomRequest>() {
             let server_id = self.db.lock().get_corresponding_server(create_req.worldId());
 
@@ -547,14 +549,14 @@ impl Client {
             reply.push(ErrorType::NoError as u8);
             reply.extend(&(resp.len() as u32).to_le_bytes());
             reply.extend(resp);
-            true
+            Ok(())
         } else {
             self.log("Error while extracting data from CreateRoom command");
             reply.push(ErrorType::Malformed as u8);
-            false
+            Err(())
         }
     }
-    async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(join_req) = data.get_flatbuffer::<JoinRoomRequest>() {
             let room_id = join_req.roomId();
             let user_ids: HashSet<i64>;
@@ -562,8 +564,9 @@ impl Client {
             {
                 let mut room_manager = self.room_manager.write();
                 if !room_manager.room_exists(room_id) {
+                    self.log("User requested to leave a room it wasn't in!");
                     reply.push(ErrorType::NotFound as u8);
-                    return true;
+                    return Ok(());
                 }
 
                 {
@@ -574,8 +577,9 @@ impl Client {
 
                 let resp = room_manager.join_room(&join_req, &self.client_info);
                 if let Err(e) = resp {
+                    self.log("User failed to join the room!");
                     reply.push(e);
-                    return true;
+                    return Ok(());
                 }
 
                 let (member_id_ta, resp) = resp.unwrap();
@@ -603,9 +607,9 @@ impl Client {
         } else {
             self.log("Error while extracting data from JoinRoom command");
             reply.push(ErrorType::Malformed as u8);
-            return false;
+            return Err(());
         }
-        true
+        Ok(())
     }
     async fn leave_room(&self, room_manager: &Arc<RwLock<RoomManager>>, room_id: u64, opt_data: Option<&PresenceOptionData<'_>>, event_cause: EventCause) -> u8 {
         let (destroyed, users, user_data);
@@ -669,49 +673,49 @@ impl Client {
         ErrorType::NoError as u8
     }
 
-    async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(leave_req) = data.get_flatbuffer::<LeaveRoomRequest>() {
             reply.push(
                 self.leave_room(&self.room_manager, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction)
                     .await,
             );
             reply.extend(&leave_req.roomId().to_le_bytes());
-            true
+            Ok(())
         } else {
             self.log("Error while extracting data from SearchRoom command");
             reply.push(ErrorType::Malformed as u8);
-            false
+            Err(())
         }
     }
-    fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(search_req) = data.get_flatbuffer::<SearchRoomRequest>() {
             let resp = self.room_manager.read().search_room(&search_req);
 
             reply.push(ErrorType::NoError as u8);
             reply.extend(&(resp.len() as u32).to_le_bytes());
             reply.extend(resp);
-            true
+            Ok(())
         } else {
             self.log("Error while extracting data from SearchRoom command");
             reply.push(ErrorType::Malformed as u8);
-            false
+            Err(())
         }
     }
-    fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataExternalRequest>() {
             if let Err(e) = self.room_manager.write().set_roomdata_external(&setdata_req) {
                 reply.push(e);
             } else {
                 reply.push(ErrorType::NoError as u8);
             }
-            true
+            Ok(())
         } else {
             self.log("Error while extracting data from SetRoomDataExternal command");
             reply.push(ErrorType::Malformed as u8);
-            false
+            Err(())
         }
     }
-    fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(setdata_req) = data.get_flatbuffer::<GetRoomDataInternalRequest>() {
             let resp = self.room_manager.read().get_roomdata_internal(&setdata_req);
             if let Err(e) = resp {
@@ -722,39 +726,39 @@ impl Client {
                 reply.extend(&(resp.len() as u32).to_le_bytes());
                 reply.extend(resp);
             }
-            true
+            Ok(())
         } else {
             self.log("Error while extracting data from GetRoomDataInternal command");
             reply.push(ErrorType::Malformed as u8);
-            false
+            Err(())
         }
     }
-    fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataInternalRequest>() {
             if let Err(e) = self.room_manager.write().set_roomdata_internal(&setdata_req) {
                 reply.push(e);
             } else {
                 reply.push(ErrorType::NoError as u8);
             }
-            true
+            Ok(())
         } else {
             self.log("Error while extracting data from SetRoomDataExternal command");
             reply.push(ErrorType::Malformed as u8);
-            false
+            Err(())
         }
     }
-    fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> bool {
+    fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         let room_id = data.get::<u64>();
         if data.error() {
             self.log("Error while extracting data from PingRoomOwner command");
             reply.push(ErrorType::Malformed as u8);
-            return false;
+            return Err(());
         }
 
         let world_id = self.room_manager.read().get_corresponding_world(room_id);
         if let Err(e) = world_id {
             reply.push(e);
-            return true;
+            return Ok(());
         }
         let world_id = world_id.unwrap();
         let server_id = self.db.lock().get_corresponding_server(world_id);
@@ -777,6 +781,6 @@ impl Client {
         reply.extend(&(finished_data.len() as u32).to_le_bytes());
         reply.extend(finished_data);
 
-        true
+        Ok(())
     }
 }
