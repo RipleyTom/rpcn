@@ -19,3 +19,4 @@ rusqlite = { version = "0.20", features = [ "bundled" ] }
 tokio = { version = "0.2", features = [ "full" ] }
 tokio-rustls = "0.14"
 futures-util = "0.3"
+thiserror = "1.0.11"

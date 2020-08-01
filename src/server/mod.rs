@@ -1,15 +1,16 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufReader};
-use std::net::ToSocketAddrs;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio_rustls::rustls::internal::pemfile::{certs, pkcs8_private_keys};
-use tokio_rustls::rustls::{NoClientAuth, ServerConfig};
+use tokio_rustls::rustls::{NoClientAuth, ServerConfig, TLSError};
 use tokio_rustls::TlsAcceptor;
+use thiserror::*;
 
 use parking_lot::{Mutex, RwLock};
 
@@ -23,7 +24,7 @@ mod log;
 use log::LogManager;
 mod udp_server;
 use crate::Config;
-use udp_server::UdpServer;
+use udp_server::{UdpServer, UdpServerStartError};
 
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
@@ -39,6 +40,35 @@ pub struct Server {
     room_manager: Arc<RwLock<RoomManager>>,
     log_manager: Arc<Mutex<LogManager>>,
     signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
+}
+
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum ServerStartError {
+    #[error("{str_addr} is not a valid address")]
+    InvalidAddress {
+        str_addr: String,
+    },
+    #[error(transparent)]
+    UdpServerError(#[from] UdpServerStartError),
+    #[error("Failed to open certificate cert.pem")]
+    OpenCertificateError(#[source] std::io::Error),
+    #[error("Failed to open certificate key.pem")]
+    OpenPrivateKeyError(#[source] std::io::Error),
+    #[error("cert.pem is invalid")]
+    InvalidCertificate,
+    #[error("key.pem is invalid")]
+    InvalidPrivateKey,
+    #[error("key.pem is invalid")]
+    CertificateSetupError(#[from] TLSError),
+    #[error(transparent)]
+    IoError(#[from] io::Error),
+    #[error("Error binding to <{addr}>: {source}")]
+    TcpBindError {
+        #[source]
+        source: io::Error,
+        addr: SocketAddr,
+    }
 }
 
 impl Server {
@@ -69,27 +99,25 @@ impl Server {
         }
     }
 
-    pub fn start(&mut self) -> io::Result<()> {
+    pub fn start(&mut self) -> Result<(), ServerStartError> {
         // Starts udp signaling helper on dedicated thread
         let mut udp_serv = UdpServer::new(&self.host, self.log_manager.clone(), self.signaling_infos.clone());
         udp_serv.start()?;
 
         // Parse host address
         let str_addr = self.host.clone() + ":" + &self.port;
-        let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("{} is not a valid address", &str_addr)))?;
+        let mut addr = str_addr.to_socket_addrs().map_err(|_| ServerStartError::InvalidAddress { str_addr: str_addr.clone() })?;
         let addr = addr
             .next()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("{} is not a valid address", &str_addr)))?;
+            .ok_or_else(|| ServerStartError::InvalidAddress { str_addr })?;
 
         // Setup TLS(TODO:ideally should not require a certificate)
-        let f_cert = File::open("cert.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open certificate cert.pem"))?;
-        let f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
-        let certif = certs(&mut BufReader::new(&f_cert)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
-        let mut private_key = pkcs8_private_keys(&mut BufReader::new(&f_key)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "key.pem is invalid"))?;
+        let f_cert = File::open("cert.pem").map_err(|e| ServerStartError::OpenCertificateError(e))?;
+        let f_key = std::fs::File::open("key.pem").map_err(|e| ServerStartError::OpenPrivateKeyError(e))?;
+        let certif = certs(&mut BufReader::new(&f_cert)).map_err(|_| ServerStartError::InvalidCertificate)?;
+        let mut private_key = pkcs8_private_keys(&mut BufReader::new(&f_key)).map_err(|_| ServerStartError::InvalidPrivateKey)?;
         let mut server_config = ServerConfig::new(NoClientAuth::new());
-        server_config
-            .set_single_cert(certif, private_key.remove(0))
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))?;
+        server_config.set_single_cert(certif, private_key.remove(0))?;
 
         // Setup Tokio
         let mut runtime = runtime::Builder::new().threaded_scheduler().enable_io().build()?;
@@ -105,7 +133,7 @@ impl Server {
         let servinfo_vec: Arc<Vec<u8>> = Arc::new(servinfo_vec);
 
         let fut_server = async {
-            let mut listener = TcpListener::bind(&addr).await.map_err(|e| io::Error::new(e.kind(), format!("Error binding to <{}>: {}", &addr, e)))?;
+            let mut listener = TcpListener::bind(&addr).await.map_err(|source| ServerStartError::TcpBindError { addr, source })?;
             self.log(&format!("Now waiting for connections on <{}>", &addr));
             loop {
                 let accept_result = listener.accept().await;
