@@ -555,7 +555,11 @@ impl Client {
 
     fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(create_req) = data.get_flatbuffer::<CreateJoinRoomRequest>() {
-            let server_id = self.db.lock().get_corresponding_server(create_req.worldId());
+            let server_id = self.db.lock().get_corresponding_server(create_req.worldId()).map_err(|_| {
+                self.log(&format!("Attempted to use invalid worldId: {}", create_req.worldId()));
+                reply.push(ErrorType::Malformed as u8);
+                ()
+            })?;
 
             let resp = self.room_manager.write().create_room(&create_req, &self.client_info, server_id);
             reply.push(ErrorType::NoError as u8);
@@ -773,7 +777,7 @@ impl Client {
             return Ok(());
         }
         let world_id = world_id.unwrap();
-        let server_id = self.db.lock().get_corresponding_server(world_id);
+        let server_id = self.db.lock().get_corresponding_server(world_id).unwrap(); // consistency is guaranteed by database here
 
         let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
         let resp = GetPingInfoResponse::create(
