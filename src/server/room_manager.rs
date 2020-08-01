@@ -3,15 +3,13 @@
 #![allow(non_camel_case_types)]
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::Arc;
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use parking_lot::Mutex;
+use tracing::*;
 use rand::Rng;
 
 use crate::server::client::{ClientInfo, ErrorType, EventCause};
-use crate::server::log::LogManager;
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 
@@ -44,6 +42,7 @@ pub enum SignalingType {
     SignalingStar = 2,
 }
 
+#[derive(Debug)]
 pub struct RoomBinAttr {
     id: u16,
     attr: Vec<u8>,
@@ -66,6 +65,8 @@ impl RoomBinAttr {
         BinAttr::create(builder, &BinAttrArgs { id: self.id, data: Some(final_attr) })
     }
 }
+
+#[derive(Debug)]
 pub struct RoomMemberBinAttr {
     update_date: u64,
     data: RoomBinAttr,
@@ -82,6 +83,8 @@ impl RoomMemberBinAttr {
         MemberBinAttrInternal::create(builder, &MemberBinAttrInternalArgs { updateDate: self.update_date, data })
     }
 }
+
+#[derive(Debug)]
 pub struct RoomBinAttrInternal {
     update_date: u64,
     update_member_id: u16,
@@ -110,6 +113,7 @@ impl RoomBinAttrInternal {
     }
 }
 
+#[derive(Debug)]
 struct RoomIntAttr {
     id: u16,
     attr: u32,
@@ -125,6 +129,7 @@ impl RoomIntAttr {
     }
 }
 
+#[derive(Debug)]
 struct RoomGroupConfig {
     slot_num: u32,
     with_label: bool,
@@ -171,7 +176,7 @@ impl RoomGroupConfig {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SignalParam {
     sig_type: SignalingType,
     flag: u8,
@@ -196,6 +201,7 @@ impl SignalParam {
     }
 }
 
+#[derive(Debug)]
 struct RoomUser {
     user_id: i64,
     npid: String,
@@ -306,6 +312,7 @@ impl RoomUser {
     }
 }
 
+#[derive(Debug)]
 pub struct Room {
     // Info given from stream
     world_id: u32,
@@ -739,29 +746,24 @@ impl Room {
     }
 }
 
+#[derive(Debug)]
 pub struct RoomManager {
     rooms: HashMap<u64, Room>, // roomid/roomdata
     room_cnt: u64,
     world_rooms: HashMap<u32, HashSet<u64>>, // worldid/roomids
     lobby_rooms: HashMap<u64, HashSet<u64>>, // lobbyid/roomids
     user_rooms: HashMap<i64, HashSet<u64>>,  // List of user / list of rooms
-    log_manager: Arc<Mutex<LogManager>>,
 }
 
 impl RoomManager {
-    pub fn new(log_manager: Arc<Mutex<LogManager>>) -> RoomManager {
+    pub fn new() -> RoomManager {
         RoomManager {
             rooms: HashMap::new(),
             room_cnt: 0,
             world_rooms: HashMap::new(),
             lobby_rooms: HashMap::new(),
             user_rooms: HashMap::new(),
-            log_manager,
         }
-    }
-
-    fn log(&self, s: &str) {
-        self.log_manager.lock().write(&format!("RoomManager: {}", s));
     }
 
     pub fn room_exists(&self, room_id: u64) -> bool {
@@ -848,20 +850,21 @@ impl RoomManager {
         Ok((room.user_cnt, builder.finished_data().to_vec()))
     }
 
+    #[instrument]
     pub fn leave_room(&mut self, room_id: u64, user_id: i64) -> Result<(bool, HashSet<i64>), u8> {
         if !self.room_exists(room_id) {
-            self.log("Attempted to leave a non existing room");
+            error!("Attempted to leave a non existing room");
             return Err(ErrorType::NotFound as u8);
         }
 
         if let Some(user_set) = self.user_rooms.get_mut(&user_id) {
             if let None = user_set.get(&room_id) {
-                self.log("Couldn't find the room in the user user_rooms set");
+                error!("Couldn't find the room in the user user_rooms set");
                 return Err(ErrorType::NotFound as u8);
             }
             user_set.remove(&room_id);
         } else {
-            self.log("Couldn't find the user in the user_rooms list");
+            error!("Couldn't find the user in the user_rooms list");
             return Err(ErrorType::NotFound as u8);
         }
 

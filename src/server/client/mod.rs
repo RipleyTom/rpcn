@@ -8,9 +8,9 @@ use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_rustls::server::TlsStream;
+use tracing::*;
 
 use crate::server::database::DatabaseManager;
-use crate::server::log::LogManager;
 use crate::server::room_manager::{RoomManager, SignalParam, SignalingType};
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
@@ -19,6 +19,7 @@ use crate::Config;
 
 pub const HEADER_SIZE: u16 = 9;
 
+#[derive(Debug)]
 pub struct ClientInfo {
     pub user_id: i64,
     pub npid: String,
@@ -26,6 +27,7 @@ pub struct ClientInfo {
     pub avatar_url: String,
 }
 
+#[derive(Debug)]
 pub struct ClientSignalingInfo {
     pub channel: mpsc::Sender<Vec<u8>>,
     pub addr_p2p: [u8; 4],
@@ -42,18 +44,19 @@ impl ClientSignalingInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct Client {
     tls_reader: io::ReadHalf<TlsStream<TcpStream>>,
     channel_sender: mpsc::Sender<Vec<u8>>,
     db: Arc<Mutex<DatabaseManager>>,
     room_manager: Arc<RwLock<RoomManager>>,
-    log_manager: Arc<Mutex<LogManager>>,
     signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
     authentified: bool,
     client_info: ClientInfo,
 }
 
 #[repr(u8)]
+#[derive(Debug)]
 pub enum PacketType {
     Request,
     Reply,
@@ -80,6 +83,7 @@ enum CommandType {
 }
 
 #[repr(u16)]
+#[derive(Debug)]
 enum NotificationType {
     UserJoinedRoom,
     UserLeftRoom,
@@ -89,7 +93,7 @@ enum NotificationType {
 }
 
 #[repr(u8)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum EventCause {
     None,
@@ -107,6 +111,7 @@ pub enum EventCause {
 }
 
 #[repr(u8)]
+#[derive(Debug)]
 pub enum ErrorType {
     NoError,
     Malformed,
@@ -122,7 +127,6 @@ impl Client {
         tls_stream: TlsStream<TcpStream>,
         db: Arc<Mutex<DatabaseManager>>,
         room_manager: Arc<RwLock<RoomManager>>,
-        log_manager: Arc<Mutex<LogManager>>,
         signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
     ) -> Client {
         let client_info = ClientInfo {
@@ -148,21 +152,9 @@ impl Client {
             channel_sender,
             db,
             room_manager,
-            log_manager,
             signaling_infos,
             authentified: false,
             client_info,
-        }
-    }
-
-    ///// Logging functions
-
-    fn log(&self, s: &str) {
-        self.log_manager.lock().write(&format!("Client({}): {}", &self.client_info.npid, s));
-    }
-    fn log_verbose(&self, s: &str) {
-        if Config::is_verbose() {
-            self.log(s);
         }
     }
 
@@ -171,20 +163,20 @@ impl Client {
         if !Config::is_verbose() {
             return;
         }
-        self.log(&format!("Dumping packet({}):", source));
+        info!("Dumping packet({}):", source);
         let mut line = String::new();
 
         let mut count = 0;
         for p in packet {
             if (count != 0) && (count % 16) == 0 {
-                self.log(&format!("{}", line));
+                info!("{}", line);
                 line.clear();
             }
 
             line = format!("{} {:02x}", line, p);
             count += 1;
         }
-        self.log(&format!("{}", line));
+        info!("{}", line);
     }
 
     ///// Command processing
@@ -197,7 +189,7 @@ impl Client {
             match r {
                 Ok(_) => {
                     if header_data[0] != PacketType::Request as u8 {
-                        self.log("Received non request packed, disconnecting client");
+                        error!("Received non request packed, disconnecting client");
                         break;
                     }
 
@@ -205,12 +197,12 @@ impl Client {
                     let packet_size = u16::from_le_bytes([header_data[3], header_data[4]]);
                     let packet_id = u32::from_le_bytes([header_data[5], header_data[6], header_data[7], header_data[8]]);
                     if self.interpret_command(command, packet_size, packet_id).await.is_err() {
-                        self.log("Disconnecting client");
+                        error!("Disconnecting client");
                         break;
                     }
                 }
                 Err(e) => {
-                    self.log(&format!("Client disconnected: {}", &e));
+                    error!("Client disconnected: {}", &e);
                     break;
                 }
             }
@@ -231,7 +223,7 @@ impl Client {
 
     async fn interpret_command(&mut self, command: u16, length: u16, packet_id: u32) -> Result<(), ()> {
         if length < HEADER_SIZE {
-            self.log(&format!("Malformed packet(size < {})", HEADER_SIZE));
+            error!("Malformed packet(size < {})", HEADER_SIZE);
             return Err(());
         }
 
@@ -263,12 +255,12 @@ impl Client {
 
                 let _ = self.channel_sender.send(reply.clone()).await;
 
-                self.log_verbose(&format!("Returning: {}({})", res.is_ok(), reply[4]));
+                debug!("Returning: {}({})", res.is_ok(), reply[4]);
 
                 return res;
             }
             Err(e) => {
-                self.log(&format!("Read error: {}", e));
+                error!("Read error: {}", e);
                 return Err(());
             }
         }
@@ -277,11 +269,11 @@ impl Client {
     async fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         let command = FromPrimitive::from_u16(command);
         if command.is_none() {
-            self.log("Unknown command received");
+            error!("Unknown command received");
             return Err(());
         }
 
-        self.log_verbose(&format!("Parsing command {:?}", command));
+        debug!("Parsing command {:?}", command);
 
         let command = command.unwrap();
 
@@ -295,7 +287,7 @@ impl Client {
                 CommandType::Login => return self.login(data, reply),
                 CommandType::Create => return self.create_account(data, reply),
                 _ => {
-                    self.log("User attempted an invalid command at this stage");
+                    error!("User attempted an invalid command at this stage");
                     reply.push(ErrorType::Invalid as u8);
                     return Err(());
                 }
@@ -314,7 +306,7 @@ impl Client {
             CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply),
             CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
             _ => {
-                self.log("Unknown command received");
+                error!("Unknown command received");
                 reply.push(ErrorType::Invalid as u8);
                 return Err(());
             }
@@ -328,7 +320,7 @@ impl Client {
         let password = data.get_string(false);
 
         if data.error() {
-            self.log("Error while extracting data from Login command");
+            error!("Error while extracting data from Login command");
             reply.push(ErrorType::Malformed as u8);
             return Err(());
         }
@@ -348,7 +340,7 @@ impl Client {
 
             reply.extend(&self.client_info.user_id.to_le_bytes());
 
-            self.log("Authentified");
+            info!("Authentified");
 
             self.signaling_infos.write().insert(self.client_info.user_id, ClientSignalingInfo::new(self.channel_sender.clone()));
 
@@ -367,16 +359,16 @@ impl Client {
         let avatar_url = data.get_string(false);
 
         if data.error() {
-            self.log("Error while extracting data from Create command");
+            error!("Error while extracting data from Create command");
             reply.push(ErrorType::Malformed as u8);
             return Err(());
         }
 
         if let Err(_) = self.db.lock().add_user(&npid, &password, &online_name, &avatar_url) {
-            self.log(&format!("Account creation failed(npid: {})", &npid));
+            error!("Account creation failed(npid: {})", &npid);
             reply.push(ErrorType::ErrorCreate as u8);
         } else {
-            self.log(&format!("Successfully created account {}", &npid));
+            info!("Successfully created account {}", &npid);
             reply.push(ErrorType::NoError as u8);
         }
         Err(())
@@ -480,7 +472,7 @@ impl Client {
         let com_id = data.get_string(false);
 
         if data.error() || com_id.len() != 9 {
-            self.log("Error while extracting data from GetServerList command");
+            error!("Error while extracting data from GetServerList command");
             reply.push(ErrorType::Malformed as u8);
             return Err(());
         }
@@ -505,7 +497,7 @@ impl Client {
             reply.extend(&serv.to_le_bytes());
         }
 
-        self.log_verbose(&format!("Returning {} servers", num_servs));
+        debug!("Returning {} servers", num_servs);
 
         Ok(())
     }
@@ -514,7 +506,7 @@ impl Client {
         let server_id = data.get::<u16>();
 
         if data.error() {
-            self.log("Error while extracting data from GetWorldList command");
+            error!("Error while extracting data from GetWorldList command");
             reply.push(ErrorType::Malformed as u8);
             return Err(());
         }
@@ -534,7 +526,7 @@ impl Client {
             reply.extend(&world.to_le_bytes());
         }
 
-        self.log_verbose(&format!("Returning {} worlds", num_worlds));
+        debug!("Returning {} worlds", num_worlds);
 
         Ok(())
     }
@@ -551,7 +543,7 @@ impl Client {
             reply.extend(resp);
             Ok(())
         } else {
-            self.log("Error while extracting data from CreateRoom command");
+            error!("Error while extracting data from CreateRoom command");
             reply.push(ErrorType::Malformed as u8);
             Err(())
         }
@@ -564,7 +556,7 @@ impl Client {
             {
                 let mut room_manager = self.room_manager.write();
                 if !room_manager.room_exists(room_id) {
-                    self.log("User requested to leave a room it wasn't in!");
+                    error!("User requested to leave a room it wasn't in!");
                     reply.push(ErrorType::NotFound as u8);
                     return Ok(());
                 }
@@ -577,7 +569,7 @@ impl Client {
 
                 let resp = room_manager.join_room(&join_req, &self.client_info);
                 if let Err(e) = resp {
-                    self.log("User failed to join the room!");
+                    error!("User failed to join the room!");
                     reply.push(e);
                     return Ok(());
                 }
@@ -605,7 +597,7 @@ impl Client {
             // Send signaling stuff if any
             self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo).await;
         } else {
-            self.log("Error while extracting data from JoinRoom command");
+            error!("Error while extracting data from JoinRoom command");
             reply.push(ErrorType::Malformed as u8);
             return Err(());
         }
@@ -682,7 +674,7 @@ impl Client {
             reply.extend(&leave_req.roomId().to_le_bytes());
             Ok(())
         } else {
-            self.log("Error while extracting data from SearchRoom command");
+            error!("Error while extracting data from SearchRoom command");
             reply.push(ErrorType::Malformed as u8);
             Err(())
         }
@@ -696,7 +688,7 @@ impl Client {
             reply.extend(resp);
             Ok(())
         } else {
-            self.log("Error while extracting data from SearchRoom command");
+            error!("Error while extracting data from SearchRoom command");
             reply.push(ErrorType::Malformed as u8);
             Err(())
         }
@@ -710,7 +702,7 @@ impl Client {
             }
             Ok(())
         } else {
-            self.log("Error while extracting data from SetRoomDataExternal command");
+            error!("Error while extracting data from SetRoomDataExternal command");
             reply.push(ErrorType::Malformed as u8);
             Err(())
         }
@@ -728,7 +720,7 @@ impl Client {
             }
             Ok(())
         } else {
-            self.log("Error while extracting data from GetRoomDataInternal command");
+            error!("Error while extracting data from GetRoomDataInternal command");
             reply.push(ErrorType::Malformed as u8);
             Err(())
         }
@@ -742,7 +734,7 @@ impl Client {
             }
             Ok(())
         } else {
-            self.log("Error while extracting data from SetRoomDataExternal command");
+            error!("Error while extracting data from SetRoomDataExternal command");
             reply.push(ErrorType::Malformed as u8);
             Err(())
         }
@@ -750,7 +742,7 @@ impl Client {
     fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         let room_id = data.get::<u64>();
         if data.error() {
-            self.log("Error while extracting data from PingRoomOwner command");
+            error!("Error while extracting data from PingRoomOwner command");
             reply.push(ErrorType::Malformed as u8);
             return Err(());
         }

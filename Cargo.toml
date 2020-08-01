@@ -19,3 +19,5 @@ rusqlite = { version = "0.20", features = [ "bundled" ] }
 tokio = { version = "0.2", features = [ "full" ] }
 tokio-rustls = "0.14"
 futures-util = "0.3"
+tracing = "0.1.13"
+tracing-subscriber = "0.2.3"

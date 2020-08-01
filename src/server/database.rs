@@ -1,17 +1,15 @@
 use std::fs;
-use std::sync::Arc;
 
-use parking_lot::Mutex;
 use rand::prelude::*;
 use rusqlite;
 use rusqlite::NO_PARAMS;
+use tracing::*;
 
-use crate::server::log::LogManager;
 use crate::Config;
 
+#[derive(Debug)]
 pub struct DatabaseManager {
     conn: rusqlite::Connection,
-    log_manager: Arc<Mutex<LogManager>>,
 }
 
 #[derive(Debug)]
@@ -33,7 +31,7 @@ pub struct UserQueryResult {
 }
 
 impl DatabaseManager {
-    pub fn new(log_manager: Arc<Mutex<LogManager>>) -> DatabaseManager {
+    pub fn new() -> DatabaseManager {
         let _ = fs::create_dir("db");
 
         let conn = rusqlite::Connection::open("db/rpcnv2.db").expect("Failed to open \"db/rpcnv2.db\"!");
@@ -57,23 +55,20 @@ impl DatabaseManager {
             NO_PARAMS,
         )
         .expect("Failed to create lobbies table!");
-        DatabaseManager { conn, log_manager }
+        DatabaseManager { conn }
     }
 
-    fn log(&self, s: &str) {
-        self.log_manager.lock().write(&format!("DB: {}", s));
-    }
-
+    #[instrument]
     pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str) -> Result<(), DbError> {
         let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE username=?1", rusqlite::params![username], |r| r.get(0));
 
         if let Err(e) = count {
-            self.log(&format!("Error querying username count: {}", e));
+            error!("Error querying username count: {}", e);
             return Err(DbError::Internal);
         }
 
         if count.unwrap() != 0 {
-            self.log(&format!("Attempted to create an already existing user({})", username));
+            error!("Attempted to create an already existing user({})", username);
             return Err(DbError::Existing);
         }
 
@@ -100,6 +95,8 @@ impl DatabaseManager {
             Ok(())
         }
     }
+
+    #[instrument]
     pub fn check_user(&mut self, username: &str, password: &str) -> Result<UserQueryResult, DbError> {
         let res: rusqlite::Result<UserQueryResult> = self
             .conn
@@ -114,7 +111,7 @@ impl DatabaseManager {
             });
 
         if let Err(e) = res {
-            self.log(&format!("Error querying username row: {}", e));
+            error!("Error querying username row: {}", e);
             return Err(DbError::Internal);
         }
 
@@ -129,6 +126,8 @@ impl DatabaseManager {
 
         Ok(res)
     }
+
+    #[instrument]
     pub fn get_server_list(&mut self, communication_id: &str) -> Result<Vec<u16>, DbError> {
         let mut list_servers = Vec::new();
         {
@@ -149,7 +148,7 @@ impl DatabaseManager {
                 new_sid = cur_max_res.unwrap() + 1;
             }
 
-            self.log(&format!("Creating a server for {}", communication_id));
+            info!("Creating a server for {}", communication_id);
             self.conn
                 .execute("INSERT INTO servers ( serverId, communicationId ) VALUES (?1, ?2)", rusqlite::params!(new_sid, communication_id))
                 .expect("Failed to insert server");
@@ -158,17 +157,19 @@ impl DatabaseManager {
 
         Ok(list_servers)
     }
+
+    #[instrument]
     pub fn get_world_list(&mut self, server_id: u16) -> Result<Vec<u32>, DbError> {
         // Ensures server exists
         {
             let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(1) FROM servers WHERE serverId=?1", rusqlite::params![server_id], |r| r.get(0));
             if let Err(e) = count {
-                self.log(&format!("Error querying for server existence: {}", e));
+                error!("Error querying for server existence: {}", e);
                 return Err(DbError::Internal);
             }
 
             if count.unwrap() == 0 {
-                self.log(&format!("Attempted to query world list on an unexisting server({})", server_id));
+                error!("Attempted to query world list on an unexisting server({})", server_id);
                 return Err(DbError::Empty);
             }
         }
@@ -192,7 +193,7 @@ impl DatabaseManager {
                 new_wid = cur_max_res.unwrap() + 1;
             }
 
-            self.log(&format!("Creating a world for server id {}", server_id));
+            info!("Creating a world for server id {}", server_id);
             self.conn
                 .execute("INSERT INTO worlds ( worldId, serverId ) VALUES (?1, ?2)", rusqlite::params!(new_wid, server_id))
                 .expect("Failed to insert world");

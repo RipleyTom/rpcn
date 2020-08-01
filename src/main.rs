@@ -1,4 +1,6 @@
 use std::env;
+use tracing_subscriber;
+
 
 use clap;
 use clap::{App, Arg};
@@ -47,6 +49,7 @@ impl Config {
 static mut CONFIGINNER: ConfigInner = ConfigInner::from_defaults();
 
 fn main() {
+    tracing_subscriber::fmt::init();
     let matches = App::new("RPCN")
         .version(clap::crate_version!())
         .author(clap::crate_authors!())

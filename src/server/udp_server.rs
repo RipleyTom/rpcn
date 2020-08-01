@@ -7,40 +7,37 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
+
+use tracing::*;
 
 use crate::server::client::ClientSignalingInfo;
-use crate::server::log::LogManager;
 
+#[derive(Debug)]
 pub struct UdpServer {
     host: String,
-    log_manager: Arc<Mutex<LogManager>>,
     signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
     join_handle: Option<thread::JoinHandle<()>>,
 }
 
+#[derive(Debug)]
 struct UdpServerInstance {
     socket: UdpSocket,
-    log_manager: Arc<Mutex<LogManager>>,
     signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
 }
 
 static UDP_SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
 
 impl UdpServer {
-    fn log(&self, s: &str) {
-        self.log_manager.lock().write(&format!("UdpServer: {}", s));
-    }
-
-    pub fn new(s_host: &str, log_manager: Arc<Mutex<LogManager>>, signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>) -> UdpServer {
+    pub fn new(s_host: &str, signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>) -> UdpServer {
         UdpServer {
             host: String::from(s_host),
-            log_manager,
             signaling_infos,
             join_handle: None,
         }
     }
 
+    #[instrument]
     pub fn start(&mut self) -> io::Result<()> {
         let bind_addr = self.host.clone() + ":3657";
         let socket = UdpSocket::bind(&bind_addr).map_err(|e| io::Error::new(e.kind(), format!("Error binding udp server to <{}>", &bind_addr)))?;
@@ -48,38 +45,35 @@ impl UdpServer {
             .set_read_timeout(Some(Duration::from_millis(1)))
             .map_err(|e| io::Error::new(e.kind(), format!("Error setting udp server timeout to 1ms")))?;
 
-        let log_manager = self.log_manager.clone();
         let signaling_infos = self.signaling_infos.clone();
 
         UDP_SERVER_RUNNING.store(true, Ordering::SeqCst);
 
-        let mut udp_serv_inst = UdpServerInstance::new(socket, log_manager, signaling_infos);
+        let mut udp_serv_inst = UdpServerInstance::new(socket, signaling_infos);
         self.join_handle = Some(thread::spawn(move || udp_serv_inst.server_proc()));
 
-        self.log(&format!("Now waiting for packets on <{}:3657>", &self.host));
+        //self.log(&format!("Now waiting for packets on <{}:3657>", &self.host));
+        info!("Now waiting for packets on <{}:3657>", &self.host);
 
         Ok(())
     }
 
+    #[instrument]
     pub fn stop(&mut self) {
         UDP_SERVER_RUNNING.store(false, Ordering::SeqCst);
         if self.join_handle.is_some() {
             let j = self.join_handle.take().unwrap();
             let _ = j.join();
         }
-        self.log("Server Stopped");
+        info!("Server Stopped");
     }
 }
 impl UdpServerInstance {
-    fn new(socket: UdpSocket, log_manager: Arc<Mutex<LogManager>>, signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>) -> UdpServerInstance {
-        UdpServerInstance { socket, log_manager, signaling_infos }
+    fn new(socket: UdpSocket, signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>) -> UdpServerInstance {
+        UdpServerInstance { socket, signaling_infos }
     }
 
-    fn log(&self, s: &str) {
-        self.log_manager.lock().write(&format!("UdpServerInstance: {}", s));
-    }
-
-
+    #[instrument]
     fn server_proc(&mut self) {
         let mut recv_buf = [0; 65535];
         let mut send_buf = [0; 65535];
@@ -96,7 +90,7 @@ impl UdpServerInstance {
                 if err_kind == io::ErrorKind::WouldBlock || err_kind == io::ErrorKind::TimedOut {
                     continue;
                 } else {
-                    self.log(&format!("Error recv_from: {}", e));
+                    error!("Error recv_from: {}", e);
                     break;
                 }
             }
@@ -105,7 +99,7 @@ impl UdpServerInstance {
             let (amt, src) = res.unwrap();
 
             if amt != 9 || recv_buf[0] != 1 {
-                self.log(&format!("Received invalid packet from {}", src));
+                warn!("Received invalid packet from {}", src);
                 continue;
             }
 
@@ -117,7 +111,7 @@ impl UdpServerInstance {
                     ip_addr = ip.octets();
                 }
                 IpAddr::V6(_) => {
-                    self.log(&format!("Received packet from IPv6 IP"));
+                    warn!("Received packet from IPv6 IP");
                     continue;
                 }
             }
@@ -158,13 +152,13 @@ impl UdpServerInstance {
 
             let res = self.socket.send_to(&send_buf[0..8], src);
             if let Err(e) = res {
-                self.log(&format!("Error send_to: {}", e));
+                error!("Error send_to: {}", e);
                 break;
             }
         }
 
         UDP_SERVER_RUNNING.store(false, Ordering::SeqCst);
 
-        self.log("UdpServerInstance::server_proc terminating");
+        info!("UdpServerInstance::server_proc terminating");
     }
 }

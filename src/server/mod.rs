@@ -13,14 +13,14 @@ use tokio_rustls::TlsAcceptor;
 
 use parking_lot::{Mutex, RwLock};
 
+use tracing::*;
+
 mod client;
 use client::{Client, ClientSignalingInfo, PacketType, HEADER_SIZE};
 mod database;
 use database::DatabaseManager;
 mod room_manager;
 use room_manager::RoomManager;
-mod log;
-use log::LogManager;
 mod udp_server;
 use crate::Config;
 use udp_server::UdpServer;
@@ -32,20 +32,19 @@ mod stream_extractor;
 
 const PROTOCOL_VERSION: u32 = 5;
 
+#[derive(Debug)]
 pub struct Server {
     host: String,
     port: String,
     db: Arc<Mutex<DatabaseManager>>,
     room_manager: Arc<RwLock<RoomManager>>,
-    log_manager: Arc<Mutex<LogManager>>,
     signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
 }
 
 impl Server {
     pub fn new(s_host: &str, s_port: &str) -> Server {
-        let log_manager = Arc::new(Mutex::new(LogManager::new()));
-        let db = Arc::new(Mutex::new(DatabaseManager::new(log_manager.clone())));
-        let room_manager = Arc::new(RwLock::new(RoomManager::new(log_manager.clone())));
+        let db = Arc::new(Mutex::new(DatabaseManager::new()));
+        let room_manager = Arc::new(RwLock::new(RoomManager::new()));
         let signaling_infos = Arc::new(RwLock::new(HashMap::new()));
 
         Server {
@@ -53,25 +52,13 @@ impl Server {
             port: String::from(s_port),
             db,
             room_manager,
-            log_manager,
             signaling_infos,
-        }
-    }
-
-    fn log(&self, s: &str) {
-        self.log_manager.lock().write(&format!("Server: {}", s));
-    }
-
-    #[allow(dead_code)]
-    fn log_verbose(&self, s: &str) {
-        if Config::is_verbose() {
-            self.log(s);
         }
     }
 
     pub fn start(&mut self) -> io::Result<()> {
         // Starts udp signaling helper on dedicated thread
-        let mut udp_serv = UdpServer::new(&self.host, self.log_manager.clone(), self.signaling_infos.clone());
+        let mut udp_serv = UdpServer::new(&self.host, self.signaling_infos.clone());
         udp_serv.start()?;
 
         // Parse host address
@@ -106,29 +93,29 @@ impl Server {
 
         let fut_server = async {
             let mut listener = TcpListener::bind(&addr).await.map_err(|e| io::Error::new(e.kind(), format!("Error binding to <{}>: {}", &addr, e)))?;
-            self.log(&format!("Now waiting for connections on <{}>", &addr));
+            //self.log(&format!("Now waiting for connections on <{}>", &addr));
+            info!("Now waiting for connections on <{}>", &addr);
             loop {
                 let accept_result = listener.accept().await;
                 if let Err(e) = accept_result {
-                    self.log(&format!("Accept failed with: {}", e));
+                    warn!("Accept failed with: {}", e);
                     continue;
                 }
 
                 let (stream, peer_addr) = accept_result.unwrap();
-                self.log(&format!("New client from {}", peer_addr));
+                info!("New client from {}", peer_addr);
 
                 let acceptor = acceptor.clone();
 
                 let db_client = self.db.clone();
                 let room_client = self.room_manager.clone();
-                let log_client = self.log_manager.clone();
                 let signaling_infos = self.signaling_infos.clone();
                 let servinfo_vec = servinfo_vec.clone();
 
                 let fut_client = async move {
                     let mut stream = acceptor.accept(stream).await?;
                     stream.write_all(&servinfo_vec).await?;
-                    let mut client = Client::new(stream, db_client, room_client, log_client, signaling_infos).await;
+                    let mut client = Client::new(stream, db_client, room_client, signaling_infos).await;
                     client.process().await;
                     Ok(()) as io::Result<()>
                 };
