@@ -850,7 +850,7 @@ impl RoomManager {
         Ok((room.user_cnt, builder.finished_data().to_vec()))
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub fn leave_room(&mut self, room_id: u64, user_id: i64) -> Result<(bool, HashSet<i64>), u8> {
         if !self.room_exists(room_id) {
             error!("Attempted to leave a non existing room");

@@ -37,7 +37,7 @@ impl UdpServer {
         }
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub fn start(&mut self) -> io::Result<()> {
         let bind_addr = self.host.clone() + ":3657";
         let socket = UdpSocket::bind(&bind_addr).map_err(|e| io::Error::new(e.kind(), format!("Error binding udp server to <{}>", &bind_addr)))?;
@@ -58,7 +58,7 @@ impl UdpServer {
         Ok(())
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub fn stop(&mut self) {
         UDP_SERVER_RUNNING.store(false, Ordering::SeqCst);
         if self.join_handle.is_some() {
@@ -73,7 +73,7 @@ impl UdpServerInstance {
         UdpServerInstance { socket, signaling_infos }
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     fn server_proc(&mut self) {
         let mut recv_buf = [0; 65535];
         let mut send_buf = [0; 65535];

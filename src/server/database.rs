@@ -58,7 +58,7 @@ impl DatabaseManager {
         DatabaseManager { conn }
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str) -> Result<(), DbError> {
         let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE username=?1", rusqlite::params![username], |r| r.get(0));
 
@@ -96,7 +96,7 @@ impl DatabaseManager {
         }
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub fn check_user(&mut self, username: &str, password: &str) -> Result<UserQueryResult, DbError> {
         let res: rusqlite::Result<UserQueryResult> = self
             .conn
@@ -127,7 +127,7 @@ impl DatabaseManager {
         Ok(res)
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub fn get_server_list(&mut self, communication_id: &str) -> Result<Vec<u16>, DbError> {
         let mut list_servers = Vec::new();
         {
@@ -158,7 +158,7 @@ impl DatabaseManager {
         Ok(list_servers)
     }
 
-    #[instrument]
+    #[instrument(skip(self))]
     pub fn get_world_list(&mut self, server_id: u16) -> Result<Vec<u32>, DbError> {
         // Ensures server exists
         {
