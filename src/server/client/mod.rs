@@ -139,6 +139,7 @@ impl Client {
             while let Some(outgoing_packet) = channel_receiver.recv().await {
                 let _ = tls_writer.write_all(&outgoing_packet).await;
             }
+            let _ = tls_writer.shutdown().await;
         };
 
         tokio::spawn(fut_sock_writer);
