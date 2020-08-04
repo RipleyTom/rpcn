@@ -570,7 +570,7 @@ impl Client {
                 }
 
                 {
-                    let room = room_manager.get_room(room_id.clone());
+                    let room = room_manager.get_room(room_id.clone()).unwrap();
                     users = room.get_room_users();
                     siginfo = room.get_signaling_info();
                 }
@@ -594,8 +594,8 @@ impl Client {
                 let mut n_msg: Vec<u8> = Vec::new();
                 n_msg.extend(&room_id.to_le_bytes());
                 let up_info = room_manager
-                    .get_room(room_id)
-                    .get_room_member_update_info(member_id, EventCause::None, Some(&join_req.optData().unwrap()));
+                    .get_room(room_id).unwrap()
+                    .get_room_member_update_info(member_id, EventCause::None, Some(&join_req.optData().unwrap())).unwrap();
                 n_msg.extend(&(up_info.len() as u32).to_le_bytes());
                 n_msg.extend(up_info);
                 notif = Client::create_notification(NotificationType::UserJoinedRoom, &n_msg);
@@ -619,14 +619,14 @@ impl Client {
                 return ErrorType::NotFound as u8;
             }
 
-            let room = room_manager.get_room(room_id);
+            let room = room_manager.get_room(room_id).unwrap();
             let member_id = room.get_member_id(self.client_info.user_id);
-            if let Err(e) = member_id {
-                return e;
+            if let None = member_id {
+                return ErrorType::NotFound as u8;
             }
 
             // We get this in advance in case the room is not destroyed
-            user_data = room.get_room_member_update_info(member_id.unwrap(), event_cause.clone(), opt_data);
+            user_data = room.get_room_member_update_info(member_id.unwrap(), event_cause.clone(), opt_data).unwrap();
 
             let res = room_manager.leave_room(room_id, self.client_info.user_id.clone());
             if let Err(e) = res {
@@ -756,8 +756,8 @@ impl Client {
         }
 
         let world_id = self.room_manager.read().get_corresponding_world(room_id);
-        if let Err(e) = world_id {
-            reply.push(e);
+        if let None = world_id {
+            reply.push(ErrorType::NotFound as u8);
             return Ok(());
         }
         let world_id = world_id.unwrap();

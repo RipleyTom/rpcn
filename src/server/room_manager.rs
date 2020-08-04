@@ -3,6 +3,7 @@
 #![allow(non_camel_case_types)]
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::convert::TryInto;
 use std::sync::Arc;
 
 use num_derive::FromPrimitive;
@@ -127,8 +128,7 @@ impl RoomIntAttr {
 
 struct RoomGroupConfig {
     slot_num: u32,
-    with_label: bool,
-    label: [u8; 8],
+    label: Option<[u8; 8]>,
     with_password: bool,
 
     group_id: u8,
@@ -137,17 +137,10 @@ struct RoomGroupConfig {
 impl RoomGroupConfig {
     pub fn from_flatbuffer(fb: &GroupConfig, group_id: u8) -> RoomGroupConfig {
         let slot_num = fb.slotNum();
-        let with_label = fb.withLabel();
-        let mut label = [0; 8];
-        if let Some(vec) = fb.label() {
-            for i in 0..8 {
-                label[i] = vec[i];
-            }
-        }
+        let label = fb.label().map(|x| x.try_into()).transpose().unwrap_or_default();
         let with_password = fb.withPassword();
         RoomGroupConfig {
             slot_num,
-            with_label,
             label,
             with_password,
             group_id,
@@ -155,14 +148,14 @@ impl RoomGroupConfig {
         }
     }
     pub fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<RoomGroup<'a>> {
-        let label = Some(builder.create_vector(&self.label));
+        let label = Some(builder.create_vector(&self.label.unwrap_or_default()));
 
         RoomGroup::create(
             builder,
             &RoomGroupArgs {
                 groupId: self.group_id,
                 withPassword: self.with_password,
-                withLabel: self.with_label,
+                withLabel: self.label.is_some(),
                 label,
                 slotNum: self.slot_num,
                 curGroupMemberNum: self.num_members,
@@ -421,30 +414,12 @@ impl Room {
         }
     }
     pub fn to_RoomDataInternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<RoomDataInternal<'a>> {
-        let mut final_member_list = None;
-        if self.users.len() != 0 {
-            let mut member_list = Vec::new();
-            for user in &self.users {
-                member_list.push(user.1.to_RoomMemberDataInternal(builder));
-            }
-            final_member_list = Some(builder.create_vector(&member_list));
-        }
-        let mut final_group_list = None;
-        if self.group_config.len() != 0 {
-            let mut group_list = Vec::new();
-            for group in &self.group_config {
-                group_list.push(group.to_flatbuffer(builder));
-            }
-            final_group_list = Some(builder.create_vector(&group_list));
-        }
-        let mut final_internalbinattr = None;
-        if self.bin_attr_internal.len() != 0 {
-            let mut bin_list = Vec::new();
-            for bin in &self.bin_attr_internal {
-                bin_list.push(bin.to_flatbuffer(builder));
-            }
-            final_internalbinattr = Some(builder.create_vector(&bin_list));
-        }
+        let member_list: Vec<_> = self.users.iter().map(|user| user.1.to_RoomMemberDataInternal(builder)).collect();
+        let final_member_list = builder.create_vector(&member_list);
+        let group_list: Vec<_> = self.group_config.iter().map(|group| group.to_flatbuffer(builder)).collect();
+        let final_group_list = builder.create_vector(&group_list);
+        let bin_list: Vec<_> = self.bin_attr_internal.iter().map(|bin| bin.to_flatbuffer(builder)).collect();
+        let final_internalbinattr = builder.create_vector(&bin_list);
 
         let mut rbuild = RoomDataInternalBuilder::new(builder);
         rbuild.add_serverId(self.server_id);
@@ -454,15 +429,15 @@ impl Room {
         rbuild.add_passwordSlotMask(self.password_slot_mask);
         rbuild.add_maxSlot(self.max_slot as u32);
         if self.users.len() != 0 {
-            rbuild.add_memberList(final_member_list.unwrap());
+            rbuild.add_memberList(final_member_list);
         }
         rbuild.add_ownerId(self.owner);
         if self.group_config.len() != 0 {
-            rbuild.add_roomGroup(final_group_list.unwrap());
+            rbuild.add_roomGroup(final_group_list);
         }
         rbuild.add_flagAttr(self.flag_attr);
         if self.bin_attr_internal.len() != 0 {
-            rbuild.add_roomBinAttrInternal(final_internalbinattr.unwrap());
+            rbuild.add_roomBinAttrInternal(final_internalbinattr);
         }
         rbuild.finish()
     }
@@ -564,9 +539,8 @@ impl Room {
     pub fn get_signaling_info(&self) -> Option<SignalParam> {
         self.signaling_param.clone()
     }
-    pub fn get_room_member_update_info(&self, member_id: u16, event_cause: EventCause, user_opt_data: Option<&PresenceOptionData>) -> Vec<u8> {
-        assert!(self.users.contains_key(&member_id));
-        let user = self.users.get(&member_id).unwrap();
+    pub fn get_room_member_update_info(&self, member_id: u16, event_cause: EventCause, user_opt_data: Option<&PresenceOptionData>) -> Option<Vec<u8>> {
+        let user = self.users.get(&member_id)?;
 
         // Builds flatbuffer
         let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
@@ -584,32 +558,16 @@ impl Room {
             },
         );
         builder.finish(up_info, None);
-        builder.finished_data().to_vec()
+        Some(builder.finished_data().to_vec())
     }
     pub fn get_room_users(&self) -> HashMap<u16, i64> {
-        let mut users_vec = HashMap::new();
-        for user in &self.users {
-            users_vec.insert(user.0.clone(), user.1.user_id.clone());
-        }
-
-        users_vec
+        self.users.iter().map(|(i, u)| (*i, u.user_id)).collect()
     }
     pub fn get_room_user_ids(&self) -> HashSet<i64> {
-        let mut users = HashSet::new();
-        for user in &self.users {
-            users.insert(user.1.user_id.clone());
-        }
-
-        users
+        self.users.iter().map(|u| u.1.user_id).collect()
     }
-    pub fn get_member_id(&self, user_id: i64) -> Result<u16, u8> {
-        for user in &self.users {
-            if user.1.user_id == user_id {
-                return Ok(user.0.clone());
-            }
-        }
-
-        Err(ErrorType::NotFound as u8)
+    pub fn get_member_id(&self, user_id: i64) -> Option<u16> {
+        self.users.iter().find(|u| u.1.user_id == user_id).map(|u| *u.0)
     }
 
     pub fn is_match(&self, req: &SearchRoomRequest) -> bool {
@@ -765,20 +723,17 @@ impl RoomManager {
     }
 
     pub fn room_exists(&self, room_id: u64) -> bool {
-        return self.rooms.contains_key(&room_id);
+        self.rooms.contains_key(&room_id)
     }
-    pub fn get_room(&self, room_id: u64) -> &Room {
-        return self.rooms.get(&room_id).unwrap();
+    pub fn get_room(&self, room_id: u64) -> Option<&Room> {
+        self.rooms.get(&room_id)
     }
-    pub fn get_mut_room(&mut self, room_id: u64) -> &mut Room {
-        return self.rooms.get_mut(&room_id).unwrap();
+    pub fn get_mut_room(&mut self, room_id: u64) -> Option<&mut Room> {
+        self.rooms.get_mut(&room_id)
     }
 
-    pub fn get_corresponding_world(&self, room_id: u64) -> Result<u32, u8> {
-        if !self.room_exists(room_id) {
-            return Err(ErrorType::NotFound as u8);
-        }
-        Ok(self.get_room(room_id).world_id)
+    pub fn get_corresponding_world(&self, room_id: u64) -> Option<u32> {
+        self.get_room(room_id).map(|r| r.world_id)
     }
 
     pub fn create_room(&mut self, req: &CreateJoinRoomRequest, cinfo: &ClientInfo, server_id: u16) -> Vec<u8> {
@@ -865,7 +820,7 @@ impl RoomManager {
             return Err(ErrorType::NotFound as u8);
         }
 
-        let room = self.get_mut_room(room_id);
+        let room = self.get_mut_room(room_id).unwrap();
         let member_id = room.find_user(user_id);
         assert!(member_id != 0); // This should never happen as it would mean user_rooms is incoherent
 
@@ -944,7 +899,7 @@ impl RoomManager {
 
         if let Some(room_list) = list {
             for room_id in room_list.iter() {
-                let room = self.get_room(*room_id);
+                let room = self.get_room(*room_id).unwrap();
                 if room.is_match(req) {
                     matching_rooms.push(room);
                     num_found += 1;
@@ -982,7 +937,7 @@ impl RoomManager {
         if !self.room_exists(req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
-        let room = self.get_mut_room(req.roomId());
+        let room = self.get_mut_room(req.roomId()).unwrap();
 
         let mut bin_attr_external: Vec<RoomBinAttr> = Vec::new();
         let mut search_bin_attr: Vec<RoomBinAttr> = Vec::new();
@@ -1014,7 +969,7 @@ impl RoomManager {
         if !self.room_exists(req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
-        let room = self.get_room(req.roomId());
+        let room = self.get_room(req.roomId()).unwrap();
 
         // TODO: only retrieve specified values
 
@@ -1029,7 +984,7 @@ impl RoomManager {
         if !self.room_exists(req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
-        let room = self.get_mut_room(req.roomId());
+        let room = self.get_mut_room(req.roomId()).unwrap();
 
         let flag_filter = req.flagFilter();
         let flag_attr = req.flagAttr();
