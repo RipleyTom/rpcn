@@ -576,9 +576,9 @@ impl Client {
                 }
 
                 let resp = room_manager.join_room(&join_req, &self.client_info);
-                if let Err(e) = resp {
+                if let None = resp {
                     self.log("User failed to join the room!");
-                    reply.push(e);
+                    reply.push(ErrorType::NotFound as u8);
                     return Ok(());
                 }
 
@@ -630,7 +630,7 @@ impl Client {
 
             let res = room_manager.leave_room(room_id, self.client_info.user_id.clone());
             if let Err(e) = res {
-                return e;
+                return e.into();
             }
             let (destroyed_toa, users_toa) = res.unwrap();
             destroyed = destroyed_toa;
@@ -703,8 +703,8 @@ impl Client {
     }
     fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataExternalRequest>() {
-            if let Err(e) = self.room_manager.write().set_roomdata_external(&setdata_req) {
-                reply.push(e);
+            if let None = self.room_manager.write().set_roomdata_external(&setdata_req) {
+                reply.push(ErrorType::NotFound as u8);
             } else {
                 reply.push(ErrorType::NoError as u8);
             }
@@ -718,8 +718,8 @@ impl Client {
     fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(setdata_req) = data.get_flatbuffer::<GetRoomDataInternalRequest>() {
             let resp = self.room_manager.read().get_roomdata_internal(&setdata_req);
-            if let Err(e) = resp {
-                reply.push(e);
+            if let None = resp {
+                reply.push(ErrorType::NotFound as u8);
             } else {
                 let resp = resp.unwrap();
                 reply.push(ErrorType::NoError as u8);
@@ -735,8 +735,8 @@ impl Client {
     }
     fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataInternalRequest>() {
-            if let Err(e) = self.room_manager.write().set_roomdata_internal(&setdata_req) {
-                reply.push(e);
+            if let None = self.room_manager.write().set_roomdata_internal(&setdata_req) {
+                reply.push(ErrorType::NotFound as u8);
             } else {
                 reply.push(ErrorType::NoError as u8);
             }
