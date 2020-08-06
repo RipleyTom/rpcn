@@ -9,13 +9,16 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_rustls::server::TlsStream;
 
-use crate::server::database::DatabaseManager;
+use crate::server::database::{DatabaseManager, DbError};
 use crate::server::log::LogManager;
 use crate::server::room_manager::{RoomManager, SignalParam, SignalingType};
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::stream_extractor::StreamExtractor;
 use crate::Config;
+
+pub mod error;
+use self::error::*;
 
 pub const HEADER_SIZE: u16 = 9;
 
@@ -117,6 +120,7 @@ pub enum ErrorType {
     NotFound,
 }
 
+
 impl Client {
     pub async fn new(
         tls_stream: TlsStream<TcpStream>,
@@ -188,7 +192,8 @@ impl Client {
     }
 
     ///// Command processing
-    pub async fn process(&mut self) {
+    pub async fn process(&mut self) -> ProcessError {
+        let err;
         loop {
             let mut header_data = [0; HEADER_SIZE as usize];
 
@@ -197,20 +202,20 @@ impl Client {
             match r {
                 Ok(_) => {
                     if header_data[0] != PacketType::Request as u8 {
-                        self.log("Received non request packed, disconnecting client");
+                        err = ProcessError::NonRequestPacket;
                         break;
                     }
 
                     let command = u16::from_le_bytes([header_data[1], header_data[2]]);
                     let packet_size = u16::from_le_bytes([header_data[3], header_data[4]]);
                     let packet_id = u32::from_le_bytes([header_data[5], header_data[6], header_data[7], header_data[8]]);
-                    if self.interpret_command(command, packet_size, packet_id).await.is_err() {
-                        self.log("Disconnecting client");
+                    if let Err(e) = self.interpret_command(command, packet_size, packet_id).await {
+                        err = ProcessError::InterpretCommandError(e);
                         break;
                     }
                 }
                 Err(e) => {
-                    self.log(&format!("Client disconnected: {}", &e));
+                    err = ProcessError::IoError(e);
                     break;
                 }
             }
@@ -227,159 +232,131 @@ impl Client {
             }
             self.signaling_infos.write().remove(&self.client_info.user_id);
         }
+        err
     }
 
-    async fn interpret_command(&mut self, command: u16, length: u16, packet_id: u32) -> Result<(), ()> {
+    async fn interpret_command(&mut self, command: u16, length: u16, packet_id: u32) -> Result<(), InterpretCommandError> {
         if length < HEADER_SIZE {
             self.log(&format!("Malformed packet(size < {})", HEADER_SIZE));
-            return Err(());
+            return Err(InterpretCommandError::MalformedPacket(length));
         }
 
         let to_read = length - HEADER_SIZE;
 
         let mut data = vec![0; to_read as usize];
 
-        let r = self.tls_reader.read_exact(&mut data).await;
+        self.tls_reader.read_exact(&mut data).await.map_err(InterpretCommandError::IoError)?;
+        
+        //self.dump_packet(&data, "input");
 
-        match r {
-            Ok(_) => {
-                //self.dump_packet(&data, "input");
+        let mut reply = Vec::with_capacity(1000);
 
-                let mut reply = Vec::with_capacity(1000);
+        reply.push(PacketType::Reply as u8);
+        reply.extend(&command.to_le_bytes());
+        reply.extend(&HEADER_SIZE.to_le_bytes());
+        reply.extend(&packet_id.to_le_bytes());
 
-                reply.push(PacketType::Reply as u8);
-                reply.extend(&command.to_le_bytes());
-                reply.extend(&HEADER_SIZE.to_le_bytes());
-                reply.extend(&packet_id.to_le_bytes());
+        let mut se_data = StreamExtractor::new(data);
+        let res = self.process_command(command, &mut se_data, &mut reply).await;
 
-                let mut se_data = StreamExtractor::new(data);
-                let res = self.process_command(command, &mut se_data, &mut reply).await;
-
-                // update length
-                let len = reply.len() as u16;
-                reply[3..5].clone_from_slice(&len.to_le_bytes());
-
-                //self.dump_packet(&reply, "output");
-
-                let _ = self.channel_sender.send(reply.clone()).await;
-
-                self.log_verbose(&format!("Returning: {}({})", res.is_ok(), reply[4]));
-
-                return res;
-            }
-            Err(e) => {
-                self.log(&format!("Read error: {}", e));
-                return Err(());
+        if let Err(err) = &res {
+            if let Some(error_type) = ProcessRequestError::to_error_type(err.clone()) {
+                reply.push(error_type as u8);
             }
         }
+
+        // update length
+        let len = reply.len() as u16;
+        reply[3..5].clone_from_slice(&len.to_le_bytes());
+
+        //self.dump_packet(&reply, "output");
+
+        let _ = self.channel_sender.send(reply.clone()).await;
+
+        self.log_verbose(&format!("Returning: {}({})", res.is_ok(), reply[4]));
+
+        res.map_err(InterpretCommandError::ProcessRequestError)
     }
 
-    async fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
-        let command = FromPrimitive::from_u16(command);
-        if command.is_none() {
-            self.log("Unknown command received");
-            return Err(());
-        }
+    async fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ProcessRequestError> {
+        let command = FromPrimitive::from_u16(command).ok_or(ProcessRequestError::InvalidCommand)?;
 
         self.log_verbose(&format!("Parsing command {:?}", command));
 
-        let command = command.unwrap();
-
         match command {
-            CommandType::Terminate => return Err(()),
+            CommandType::Terminate => return Err(ProcessRequestError::Terminate),
             _ => {}
         }
 
         if !self.authentified {
             match command {
-                CommandType::Login => return self.login(data, reply),
-                CommandType::Create => return self.create_account(data, reply),
-                _ => {
-                    self.log("User attempted an invalid command at this stage");
-                    reply.push(ErrorType::Invalid as u8);
-                    return Err(());
-                }
+                CommandType::Login => self.login(data, reply)?,
+                CommandType::Create => self.create_account(data, reply)?,
+                _ => return Err(ProcessRequestError::NotAuthorized)
             }
         }
 
         match command {
-            CommandType::GetServerList => return self.req_get_server_list(data, reply),
-            CommandType::GetWorldList => return self.req_get_world_list(data, reply),
-            CommandType::CreateRoom => return self.req_create_room(data, reply),
-            CommandType::JoinRoom => return self.req_join_room(data, reply).await,
-            CommandType::LeaveRoom => return self.req_leave_room(data, reply).await,
-            CommandType::SearchRoom => return self.req_search_room(data, reply),
-            CommandType::SetRoomDataExternal => return self.req_set_roomdata_external(data, reply),
-            CommandType::GetRoomDataInternal => return self.req_get_roomdata_internal(data, reply),
-            CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply),
-            CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
-            _ => {
-                self.log("Unknown command received");
-                reply.push(ErrorType::Invalid as u8);
-                return Err(());
-            }
+            CommandType::GetServerList => self.req_get_server_list(data, reply).map_err(ProcessRequestError::GetServerListError),
+            CommandType::GetWorldList => self.req_get_world_list(data, reply).map_err(ProcessRequestError::GetWorldListError),
+            CommandType::CreateRoom => self.req_create_room(data, reply).map_err(ProcessRequestError::CreateRoomError),
+            CommandType::JoinRoom => self.req_join_room(data, reply).await.map_err(ProcessRequestError::JoinRoomError),
+            CommandType::LeaveRoom => self.req_leave_room(data, reply).await.map_err(ProcessRequestError::LeaveRoomError),
+            CommandType::SearchRoom => self.req_search_room(data, reply).map_err(ProcessRequestError::SearchRoomError),
+            CommandType::SetRoomDataExternal => self.req_set_roomdata_external(data, reply).map_err(ProcessRequestError::SetRoomDataExternalError),
+            CommandType::GetRoomDataInternal => self.req_get_roomdata_internal(data, reply).map_err(ProcessRequestError::GetRoomDataInternalError),
+            CommandType::SetRoomDataInternal => self.req_set_roomdata_internal(data, reply).map_err(ProcessRequestError::SetRoomDataInternalError),
+            CommandType::PingRoomOwner => self.req_ping_room_owner(data, reply).map_err(ProcessRequestError::PingRoomOwnerError),
+            _ => Err(ProcessRequestError::InvalidCommand),
         }
     }
 
     ///// Account management
 
-    fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+    fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), LoginError> {
         let login = data.get_string(false);
         let password = data.get_string(false);
 
         if data.error() {
-            self.log("Error while extracting data from Login command");
-            reply.push(ErrorType::Malformed as u8);
-            return Err(());
+            return Err(LoginError::MalformedInput);
         }
 
-        if let Ok(user_data) = self.db.lock().check_user(&login, &password) {
-            self.authentified = true;
-            self.client_info.npid = login;
-            self.client_info.online_name = user_data.online_name.clone();
-            self.client_info.avatar_url = user_data.avatar_url.clone();
-            self.client_info.user_id = user_data.user_id;
-            reply.push(ErrorType::NoError as u8);
+        let user_data = self.db.lock().check_user(&login, &password).map_err(LoginError::DatabaseError)?;
+        self.authentified = true;
+        self.client_info.npid = login;
+        self.client_info.online_name = user_data.online_name.clone();
+        self.client_info.avatar_url = user_data.avatar_url.clone();
+        self.client_info.user_id = user_data.user_id;
+        reply.push(ErrorType::NoError as u8);
 
-            reply.extend(user_data.online_name.as_bytes());
-            reply.push(0);
-            reply.extend(user_data.avatar_url.as_bytes());
-            reply.push(0);
+        reply.extend(user_data.online_name.as_bytes());
+        reply.push(0);
+        reply.extend(user_data.avatar_url.as_bytes());
+        reply.push(0);
 
-            reply.extend(&self.client_info.user_id.to_le_bytes());
+        reply.extend(&self.client_info.user_id.to_le_bytes());
 
-            self.log("Authentified");
+        self.log("Authentified");
 
-            self.signaling_infos.write().insert(self.client_info.user_id, ClientSignalingInfo::new(self.channel_sender.clone()));
+        self.signaling_infos.write().insert(self.client_info.user_id, ClientSignalingInfo::new(self.channel_sender.clone()));
 
-            return Ok(());
-        }
-
-        reply.push(ErrorType::ErrorLogin as u8);
-
-        Err(())
+        Ok(())
     }
 
-    fn create_account(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+    fn create_account(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), CreateAccountError> {
         let npid = data.get_string(false);
         let password = data.get_string(false);
         let online_name = data.get_string(false);
         let avatar_url = data.get_string(false);
 
         if data.error() {
-            self.log("Error while extracting data from Create command");
-            reply.push(ErrorType::Malformed as u8);
-            return Err(());
+            return Err(CreateAccountError::MalformedInput);
         }
 
-        if let Err(_) = self.db.lock().add_user(&npid, &password, &online_name, &avatar_url) {
-            self.log(&format!("Account creation failed(npid: {})", &npid));
-            reply.push(ErrorType::ErrorCreate as u8);
-        } else {
-            self.log(&format!("Successfully created account {}", &npid));
-            reply.push(ErrorType::NoError as u8);
-        }
-        Err(())
+        self.db.lock().add_user(&npid, &password, &online_name, &avatar_url).map_err(|e| CreateAccountError::DatabaseError(e, npid.to_string()))?;
+        self.log(&format!("Successfully created account {}", &npid));
+        reply.push(ErrorType::NoError as u8);
+        Ok(())
     }
 
     ///// Helper functions
@@ -475,14 +452,12 @@ impl Client {
 
     ///// Server/world retrieval
 
-    fn req_get_server_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+    fn req_get_server_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
         // Expecting 10(communicationId)
         let com_id = data.get_string(false);
 
         if data.error() || com_id.len() != 9 {
-            self.log("Error while extracting data from GetServerList command");
-            reply.push(ErrorType::Malformed as u8);
-            return Err(());
+            return Err(RequestError::MalformedInput);
         }
 
         // TODO: Generalize this (redirects DeS US queries to EU servers)
@@ -490,12 +465,7 @@ impl Client {
         //     com_id = String::from("NPWR01249");
         // }
 
-        let servs = self.db.lock().get_server_list(&com_id);
-        if let Err(_) = servs {
-            reply.push(ErrorType::DbFail as u8);
-            return Err(());
-        }
-        let servs = servs.unwrap();
+        let servs = self.db.lock().get_server_list(&com_id).map_err(RequestError::DatabaseError)?;
 
         reply.push(ErrorType::NoError as u8);
 
@@ -509,22 +479,15 @@ impl Client {
 
         Ok(())
     }
-    fn req_get_world_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+    fn req_get_world_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
         // Expecting 2(serverId)
         let server_id = data.get::<u16>();
 
         if data.error() {
-            self.log("Error while extracting data from GetWorldList command");
-            reply.push(ErrorType::Malformed as u8);
-            return Err(());
+            return Err(RequestError::MalformedInput);
         }
 
-        let worlds = self.db.lock().get_world_list(server_id);
-        if let Err(_) = worlds {
-            reply.push(ErrorType::DbFail as u8);
-            return Err(());
-        }
-        let worlds = worlds.unwrap();
+        let worlds = self.db.lock().get_world_list(server_id).map_err(RequestError::DatabaseError)?;
 
         reply.push(ErrorType::NoError as u8);
 
@@ -541,74 +504,55 @@ impl Client {
 
     ///// Room commands
 
-    fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
-        if let Ok(create_req) = data.get_flatbuffer::<CreateJoinRoomRequest>() {
-            let server_id = self.db.lock().get_corresponding_server(create_req.worldId());
+    fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
+        let create_req = data.get_flatbuffer::<CreateJoinRoomRequest>().map_err(|_| RequestError::MalformedInput)?;
+        let server_id = self.db.lock().get_corresponding_server(create_req.worldId());
 
-            let resp = self.room_manager.write().create_room(&create_req, &self.client_info, server_id);
+        let resp = self.room_manager.write().create_room(&create_req, &self.client_info, server_id);
+        reply.push(ErrorType::NoError as u8);
+        reply.extend(&(resp.len() as u32).to_le_bytes());
+        reply.extend(resp);
+        Ok(())
+    }
+    async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
+        let join_req = data.get_flatbuffer::<JoinRoomRequest>().map_err(|_| RequestError::MalformedInput)?;
+        let room_id = join_req.roomId();
+        let user_ids: HashSet<i64>;
+        let (notif, member_id, users, siginfo);
+        {
+            let mut room_manager = self.room_manager.write();
+
+            let room = room_manager.get_room(room_id).ok_or(RequestError::RoomNotFound)?;
+            users = room.get_room_users();
+            siginfo = room.get_signaling_info();
+
+            let (member_id_ta, resp) = room_manager.join_room(&join_req, &self.client_info).ok_or(RequestError::RoomNotFound)?;
+
+            member_id = member_id_ta;
             reply.push(ErrorType::NoError as u8);
             reply.extend(&(resp.len() as u32).to_le_bytes());
             reply.extend(resp);
-            Ok(())
-        } else {
-            self.log("Error while extracting data from CreateRoom command");
-            reply.push(ErrorType::Malformed as u8);
-            Err(())
+
+            user_ids = users.iter().map(|x| x.1.clone()).collect();
+
+            // Notif other room users a new user has joined
+            let mut n_msg: Vec<u8> = Vec::new();
+            n_msg.extend(&room_id.to_le_bytes());
+            //TODO: deal with the borrow/unwrap
+            let opt_data = join_req.optData().unwrap();
+            let up_info = room_manager
+                .get_room(room_id)
+                .ok_or(RequestError::RoomNotFound)?
+                .get_room_member_update_info(member_id, EventCause::None, Some(&opt_data))
+                .ok_or(RequestError::UserNotFound)?;
+            n_msg.extend(&(up_info.len() as u32).to_le_bytes());
+            n_msg.extend(up_info);
+            notif = Client::create_notification(NotificationType::UserJoinedRoom, &n_msg);
         }
-    }
-    async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
-        if let Ok(join_req) = data.get_flatbuffer::<JoinRoomRequest>() {
-            let room_id = join_req.roomId();
-            let user_ids: HashSet<i64>;
-            let (notif, member_id, users, siginfo);
-            {
-                let mut room_manager = self.room_manager.write();
-                if !room_manager.room_exists(room_id) {
-                    self.log("User requested to leave a room it wasn't in!");
-                    reply.push(ErrorType::NotFound as u8);
-                    return Ok(());
-                }
+        self.send_notification(&notif, &user_ids).await;
 
-                {
-                    let room = room_manager.get_room(room_id.clone()).unwrap();
-                    users = room.get_room_users();
-                    siginfo = room.get_signaling_info();
-                }
-
-                let resp = room_manager.join_room(&join_req, &self.client_info);
-                if let None = resp {
-                    self.log("User failed to join the room!");
-                    reply.push(ErrorType::NotFound as u8);
-                    return Ok(());
-                }
-
-                let (member_id_ta, resp) = resp.unwrap();
-                member_id = member_id_ta;
-                reply.push(ErrorType::NoError as u8);
-                reply.extend(&(resp.len() as u32).to_le_bytes());
-                reply.extend(resp);
-
-                user_ids = users.iter().map(|x| x.1.clone()).collect();
-
-                // Notif other room users a new user has joined
-                let mut n_msg: Vec<u8> = Vec::new();
-                n_msg.extend(&room_id.to_le_bytes());
-                let up_info = room_manager
-                    .get_room(room_id).unwrap()
-                    .get_room_member_update_info(member_id, EventCause::None, Some(&join_req.optData().unwrap())).unwrap();
-                n_msg.extend(&(up_info.len() as u32).to_le_bytes());
-                n_msg.extend(up_info);
-                notif = Client::create_notification(NotificationType::UserJoinedRoom, &n_msg);
-            }
-            self.send_notification(&notif, &user_ids).await;
-
-            // Send signaling stuff if any
-            self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo).await;
-        } else {
-            self.log("Error while extracting data from JoinRoom command");
-            reply.push(ErrorType::Malformed as u8);
-            return Err(());
-        }
+        // Send signaling stuff if any
+        self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo).await;
         Ok(())
     }
     async fn leave_room(&self, room_manager: &Arc<RwLock<RoomManager>>, room_id: u64, opt_data: Option<&PresenceOptionData<'_>>, event_cause: EventCause) -> u8 {
@@ -673,94 +617,53 @@ impl Client {
         ErrorType::NoError as u8
     }
 
-    async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
-        if let Ok(leave_req) = data.get_flatbuffer::<LeaveRoomRequest>() {
-            reply.push(
-                self.leave_room(&self.room_manager, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction)
-                    .await,
-            );
-            reply.extend(&leave_req.roomId().to_le_bytes());
-            Ok(())
-        } else {
-            self.log("Error while extracting data from SearchRoom command");
-            reply.push(ErrorType::Malformed as u8);
-            Err(())
-        }
+    async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
+        let leave_req = data.get_flatbuffer::<LeaveRoomRequest>().map_err(|_| RequestError::MalformedInput)?;
+        //TODO: deal with the borrow
+        let opt_data = leave_req.optData().unwrap();
+        let rep = self.leave_room(&self.room_manager, leave_req.roomId(), Some(&opt_data), EventCause::LeaveAction).await;
+        reply.push(rep);
+        reply.extend(&leave_req.roomId().to_le_bytes());
+        Ok(())
     }
-    fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
-        if let Ok(search_req) = data.get_flatbuffer::<SearchRoomRequest>() {
-            let resp = self.room_manager.read().search_room(&search_req);
+    fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
+        let search_req = data.get_flatbuffer::<SearchRoomRequest>().map_err(|_| RequestError::MalformedInput)?;
+        let resp = self.room_manager.read().search_room(&search_req);
 
-            reply.push(ErrorType::NoError as u8);
-            reply.extend(&(resp.len() as u32).to_le_bytes());
-            reply.extend(resp);
-            Ok(())
-        } else {
-            self.log("Error while extracting data from SearchRoom command");
-            reply.push(ErrorType::Malformed as u8);
-            Err(())
-        }
+        reply.push(ErrorType::NoError as u8);
+        reply.extend(&(resp.len() as u32).to_le_bytes());
+        reply.extend(resp);
+        Ok(())
     }
-    fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
-        if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataExternalRequest>() {
-            if let None = self.room_manager.write().set_roomdata_external(&setdata_req) {
-                reply.push(ErrorType::NotFound as u8);
-            } else {
-                reply.push(ErrorType::NoError as u8);
-            }
-            Ok(())
-        } else {
-            self.log("Error while extracting data from SetRoomDataExternal command");
-            reply.push(ErrorType::Malformed as u8);
-            Err(())
-        }
+    fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
+        let setdata_req = data.get_flatbuffer::<SetRoomDataExternalRequest>().map_err(|_| RequestError::MalformedInput)?;
+        self.room_manager.write().set_roomdata_external(&setdata_req).ok_or(RequestError::RoomNotFound)?;
+        reply.push(ErrorType::NoError as u8);
+        Ok(())
     }
-    fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
-        if let Ok(setdata_req) = data.get_flatbuffer::<GetRoomDataInternalRequest>() {
-            let resp = self.room_manager.read().get_roomdata_internal(&setdata_req);
-            if let None = resp {
-                reply.push(ErrorType::NotFound as u8);
-            } else {
-                let resp = resp.unwrap();
-                reply.push(ErrorType::NoError as u8);
-                reply.extend(&(resp.len() as u32).to_le_bytes());
-                reply.extend(resp);
-            }
-            Ok(())
-        } else {
-            self.log("Error while extracting data from GetRoomDataInternal command");
-            reply.push(ErrorType::Malformed as u8);
-            Err(())
-        }
+    fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
+        let setdata_req = data.get_flatbuffer::<GetRoomDataInternalRequest>().map_err(|_| RequestError::MalformedInput)?;
+        let resp = self.room_manager.read().get_roomdata_internal(&setdata_req).ok_or(RequestError::RoomNotFound)?;
+        reply.push(ErrorType::NoError as u8);
+        reply.extend(&(resp.len() as u32).to_le_bytes());
+        reply.extend(resp);
+        Ok(())
     }
-    fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
-        if let Ok(setdata_req) = data.get_flatbuffer::<SetRoomDataInternalRequest>() {
-            if let None = self.room_manager.write().set_roomdata_internal(&setdata_req) {
-                reply.push(ErrorType::NotFound as u8);
-            } else {
-                reply.push(ErrorType::NoError as u8);
-            }
-            Ok(())
-        } else {
-            self.log("Error while extracting data from SetRoomDataExternal command");
-            reply.push(ErrorType::Malformed as u8);
-            Err(())
-        }
+    fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
+        let setdata_req = data.get_flatbuffer::<SetRoomDataInternalRequest>().map_err(|_| RequestError::MalformedInput)?;
+        self.room_manager.write().set_roomdata_internal(&setdata_req).ok_or(RequestError::RoomNotFound)?;
+        reply.push(ErrorType::NoError as u8);
+        Ok(())
     }
-    fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+    fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
         let room_id = data.get::<u64>();
         if data.error() {
             self.log("Error while extracting data from PingRoomOwner command");
             reply.push(ErrorType::Malformed as u8);
-            return Err(());
+            return Err(RequestError::MalformedInput);
         }
 
-        let world_id = self.room_manager.read().get_corresponding_world(room_id);
-        if let None = world_id {
-            reply.push(ErrorType::NotFound as u8);
-            return Ok(());
-        }
-        let world_id = world_id.unwrap();
+        let world_id = self.room_manager.read().get_corresponding_world(room_id).ok_or(RequestError::WorldNotFound)?;
         let server_id = self.db.lock().get_corresponding_server(world_id);
 
         let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
