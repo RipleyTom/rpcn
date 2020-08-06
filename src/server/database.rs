@@ -201,9 +201,9 @@ impl DatabaseManager {
 
         Ok(list_worlds)
     }
-    pub fn get_corresponding_server(&mut self, world_id: u32) -> u16 {
+    pub fn get_corresponding_server(&mut self, world_id: u32) -> Result<u16, rusqlite::Error> {
         let serv: rusqlite::Result<u16> = self.conn.query_row("SELECT (serverId) FROM worlds WHERE worldId = ?1", rusqlite::params![world_id], |r| r.get(0));
 
-        return serv.unwrap();
+        serv
     }
 }

@@ -143,6 +143,7 @@ impl Client {
             while let Some(outgoing_packet) = channel_receiver.recv().await {
                 let _ = tls_writer.write_all(&outgoing_packet).await;
             }
+            let _ = tls_writer.shutdown().await;
         };
 
         tokio::spawn(fut_sock_writer);
@@ -353,6 +354,14 @@ impl Client {
             return Err(CreateAccountError::MalformedInput);
         }
 
+        if npid.len() < 3 || npid.len() > 16 || !npid.chars().all(|x| x.is_ascii_alphanumeric() || x == '-' || x == '_') {
+            return Err(CreateAccountError::InvalidNpid)
+        }
+
+        if online_name.len() < 3 || online_name.len() > 16 || !online_name.chars().all(|x| x.is_alphabetic() || x.is_ascii_digit() || x == '-' || x == '_') {
+            return Err(CreateAccountError::InvalidOnlineName)
+        }
+
         self.db.lock().add_user(&npid, &password, &online_name, &avatar_url).map_err(|e| CreateAccountError::DatabaseError(e, npid.to_string()))?;
         self.log(&format!("Successfully created account {}", &npid));
         reply.push(ErrorType::NoError as u8);
@@ -506,7 +515,7 @@ impl Client {
 
     fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), RequestError> {
         let create_req = data.get_flatbuffer::<CreateJoinRoomRequest>().map_err(|_| RequestError::MalformedInput)?;
-        let server_id = self.db.lock().get_corresponding_server(create_req.worldId());
+        let server_id = self.db.lock().get_corresponding_server(create_req.worldId()).map_err(|_| RequestError::InvalidWorldId(create_req.worldId()))?;
 
         let resp = self.room_manager.write().create_room(&create_req, &self.client_info, server_id);
         reply.push(ErrorType::NoError as u8);
@@ -664,7 +673,7 @@ impl Client {
         }
 
         let world_id = self.room_manager.read().get_corresponding_world(room_id).ok_or(RequestError::WorldNotFound)?;
-        let server_id = self.db.lock().get_corresponding_server(world_id);
+        let server_id = self.db.lock().get_corresponding_server(world_id).unwrap(); // consistency is guaranteed by database here
 
         let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
         let resp = GetPingInfoResponse::create(

@@ -74,7 +74,11 @@ pub enum CreateAccountError {
     #[error("Error while extracting data")]
     MalformedInput,
     #[error("Account creation failed(npid: {1}) due to a db error: {0:?}")]
-    DatabaseError(DbError, String)
+    DatabaseError(DbError, String),
+    #[error("Error validating NpId")]
+    InvalidNpid,
+    #[error("Error validating Online Name")]
+    InvalidOnlineName,
 }
 
 #[non_exhaustive]
@@ -89,7 +93,9 @@ pub enum RequestError {
     #[error("User was not found")]
     UserNotFound,
     #[error("A database error occured: {0:?}")]
-    DatabaseError(DbError)
+    DatabaseError(DbError),
+    #[error("Attempted to use invalid worldId: {0}")]
+    InvalidWorldId(u32),
 }
 
 impl From<LoginError> for ErrorType {
@@ -106,7 +112,7 @@ impl From<CreateAccountError> for ErrorType {
     fn from(err: CreateAccountError) -> Self {
         use CreateAccountError::*;
         match err {
-            MalformedInput => ErrorType::Malformed,
+            MalformedInput | InvalidNpid | InvalidOnlineName => ErrorType::Malformed,
             DatabaseError(_, _) => ErrorType::ErrorCreate,
         }
     }
@@ -116,7 +122,7 @@ impl From<RequestError> for ErrorType {
     fn from(err: RequestError) -> Self {
         use RequestError::*;
         match err {
-            MalformedInput => ErrorType::Malformed,
+            MalformedInput | InvalidWorldId(_) => ErrorType::Malformed,
             WorldNotFound | UserNotFound | RoomNotFound => ErrorType::NotFound,
             DatabaseError(_) => ErrorType::DbFail,
         }
