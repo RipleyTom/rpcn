@@ -291,8 +291,8 @@ impl Client {
 
         if !self.authentified {
             match command {
-                CommandType::Login => self.login(data, reply)?,
-                CommandType::Create => self.create_account(data, reply)?,
+                CommandType::Login => return self.login(data, reply).map_err(Into::into),
+                CommandType::Create => return self.create_account(data, reply).map_err(Into::into),
                 _ => return Err(ProcessRequestError::NotAuthorized)
             }
         }
