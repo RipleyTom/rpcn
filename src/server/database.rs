@@ -14,7 +14,7 @@ pub struct DatabaseManager {
     log_manager: Arc<Mutex<LogManager>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 #[allow(dead_code)]
 pub enum DbError {

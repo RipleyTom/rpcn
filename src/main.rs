@@ -2,6 +2,7 @@ use std::env;
 
 use clap;
 use clap::{App, Arg};
+use anyhow::*;
 
 mod server;
 use server::Server;
@@ -46,7 +47,7 @@ impl Config {
 
 static mut CONFIGINNER: ConfigInner = ConfigInner::from_defaults();
 
-fn main() {
+fn main() -> Result<()> {
     let matches = App::new("RPCN")
         .version(clap::crate_version!())
         .author(clap::crate_authors!())
@@ -80,9 +81,7 @@ fn main() {
 
     let mut serv = Server::new(host, port);
 
-    if let Err(e) = serv.start() {
-        println!("Server terminated with error: {}", e);
-    } else {
-        println!("Server terminated normally");
-    }
+    serv.start().context("Server terminated with error")?;
+    println!("Server terminated normally");
+    Ok(())
 }

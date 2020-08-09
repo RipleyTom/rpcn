@@ -8,6 +8,7 @@ use std::thread;
 use std::time::Duration;
 
 use parking_lot::{Mutex, RwLock};
+use thiserror::*;
 
 use crate::server::client::ClientSignalingInfo;
 use crate::server::log::LogManager;
@@ -27,6 +28,15 @@ struct UdpServerInstance {
 
 static UDP_SERVER_RUNNING: AtomicBool = AtomicBool::new(false);
 
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum UdpServerStartError {
+    #[error("Error binding udp server to <{bind_addr}>")]
+    BindingError { bind_addr: String, #[source] source: std::io::Error },
+    #[error("Error setting udp server timeout to 1ms")]
+    TimeoutError(#[from] #[source] std::io::Error),
+}
+
 impl UdpServer {
     fn log(&self, s: &str) {
         self.log_manager.lock().write(&format!("UdpServer: {}", s));
@@ -41,12 +51,10 @@ impl UdpServer {
         }
     }
 
-    pub fn start(&mut self) -> io::Result<()> {
+    pub fn start(&mut self) -> Result<(), UdpServerStartError> {
         let bind_addr = self.host.clone() + ":3657";
-        let socket = UdpSocket::bind(&bind_addr).map_err(|e| io::Error::new(e.kind(), format!("Error binding udp server to <{}>", &bind_addr)))?;
-        socket
-            .set_read_timeout(Some(Duration::from_millis(1)))
-            .map_err(|e| io::Error::new(e.kind(), format!("Error setting udp server timeout to 1ms")))?;
+        let socket = UdpSocket::bind(&bind_addr).map_err(|source| UdpServerStartError::BindingError { bind_addr, source })?;
+        socket.set_read_timeout(Some(Duration::from_millis(1)))?;
 
         let log_manager = self.log_manager.clone();
         let signaling_infos = self.signaling_infos.clone();
