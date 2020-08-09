@@ -4,6 +4,7 @@ use std::io::{self, BufReader};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 
+use tokio::task::JoinError;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::runtime;
@@ -16,6 +17,7 @@ use parking_lot::{Mutex, RwLock};
 
 mod client;
 use client::{Client, ClientSignalingInfo, PacketType, HEADER_SIZE};
+use client::error::*;
 mod database;
 use database::DatabaseManager;
 mod room_manager;
@@ -68,7 +70,20 @@ pub enum ServerStartError {
         #[source]
         source: io::Error,
         addr: SocketAddr,
-    }
+    },
+    #[error("Failed to join thread")]
+    JoinError(#[from] #[source] JoinError),
+}
+
+#[non_exhaustive]
+#[derive(Debug, Error)]
+pub enum ClientError {
+    #[error("Failed to accept the stream")]
+    AcceptStreamError(#[source] io::Error),
+    #[error("Failed to write to the stream")]
+    IoError(#[source] io::Error),
+    #[error("An error occured when processing")]
+    ProcessError(#[source] ProcessError),
 }
 
 impl Server {
@@ -154,14 +169,30 @@ impl Server {
                 let servinfo_vec = servinfo_vec.clone();
 
                 let fut_client = async move {
-                    let mut stream = acceptor.accept(stream).await?;
-                    stream.write_all(&servinfo_vec).await?;
+                    let mut stream = acceptor.accept(stream).await.map_err(ClientError::AcceptStreamError)?;
+                    stream.write_all(&servinfo_vec).await.map_err(ClientError::IoError)?;
                     let mut client = Client::new(stream, db_client, room_client, log_client, signaling_infos).await;
-                    client.process().await;
-                    Ok(()) as io::Result<()>
+                    let res = ClientError::ProcessError(client.process().await);
+                    Err(res) as Result<(), ClientError>
                 };
 
-                handle.spawn(fut_client);
+                let res = handle.spawn(fut_client).await?;
+                if let Err(err) = res {
+                    self.log(&format!("Error: {}", err));
+                    use std::error::Error;
+                    //This should be using `Error::chain()` but that's nightly only
+                    //https://doc.rust-lang.org/std/error/trait.Error.html#method.chain
+                    let mut counter = 0;
+                    let mut source = err.source();
+                    if source.is_some() {
+                        self.log("Caused by:");
+                    }
+                    while let Some(err) = source {
+                        self.log(&format!("\t {}: {}", counter, err));
+                        source = err.source();
+                        counter += 1;
+                    }
+                }
             }
         };
         let res = runtime.block_on(fut_server);
