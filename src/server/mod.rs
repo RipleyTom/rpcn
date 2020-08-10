@@ -30,11 +30,10 @@ mod stream_extractor;
 
 // use client::tls_stream::TlsStream;
 
-const PROTOCOL_VERSION: u32 = 5;
+const PROTOCOL_VERSION: u32 = 6;
 
 pub struct Server {
-    host: String,
-    port: String,
+    config: Arc<RwLock<Config>>,
     db: Arc<Mutex<DatabaseManager>>,
     room_manager: Arc<RwLock<RoomManager>>,
     log_manager: Arc<Mutex<LogManager>>,
@@ -42,15 +41,15 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(s_host: &str, s_port: &str) -> Server {
+    pub fn new(config: Config) -> Server {
+        let config = Arc::new(RwLock::new(config));
         let log_manager = Arc::new(Mutex::new(LogManager::new()));
-        let db = Arc::new(Mutex::new(DatabaseManager::new(log_manager.clone())));
+        let db = Arc::new(Mutex::new(DatabaseManager::new(config.clone(), log_manager.clone())));
         let room_manager = Arc::new(RwLock::new(RoomManager::new(log_manager.clone())));
         let signaling_infos = Arc::new(RwLock::new(HashMap::new()));
 
         Server {
-            host: String::from(s_host),
-            port: String::from(s_port),
+            config,
             db,
             room_manager,
             log_manager,
@@ -64,24 +63,26 @@ impl Server {
 
     #[allow(dead_code)]
     fn log_verbose(&self, s: &str) {
-        if Config::is_verbose() {
+        if self.config.read().is_verbose() {
             self.log(s);
         }
     }
 
     pub fn start(&mut self) -> io::Result<()> {
         // Starts udp signaling helper on dedicated thread
-        let mut udp_serv = UdpServer::new(&self.host, self.log_manager.clone(), self.signaling_infos.clone());
-        udp_serv.start()?;
+        let mut udp_serv = UdpServer::new(&self.config.read().get_host(), self.log_manager.clone(), self.signaling_infos.clone());
+        if self.config.read().is_run_udp_server() {
+            udp_serv.start()?;
+        }
 
         // Parse host address
-        let str_addr = self.host.clone() + ":" + &self.port;
+        let str_addr = self.config.read().get_host().clone() + ":" + &self.config.read().get_port();
         let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("{} is not a valid address", &str_addr)))?;
         let addr = addr
             .next()
             .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("{} is not a valid address", &str_addr)))?;
 
-        // Setup TLS(TODO:ideally should not require a certificate)
+        // Setup TLS
         let f_cert = File::open("cert.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open certificate cert.pem"))?;
         let f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
         let certif = certs(&mut BufReader::new(&f_cert)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
@@ -119,6 +120,7 @@ impl Server {
 
                 let acceptor = acceptor.clone();
 
+                let config = self.config.clone();
                 let db_client = self.db.clone();
                 let room_client = self.room_manager.clone();
                 let log_client = self.log_manager.clone();
@@ -128,7 +130,7 @@ impl Server {
                 let fut_client = async move {
                     let mut stream = acceptor.accept(stream).await?;
                     stream.write_all(&servinfo_vec).await?;
-                    let mut client = Client::new(stream, db_client, room_client, log_client, signaling_infos).await;
+                    let mut client = Client::new(config, stream, db_client, room_client, log_client, signaling_infos).await;
                     client.process().await;
                     Ok(()) as io::Result<()>
                 };

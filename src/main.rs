@@ -1,4 +1,7 @@
 use std::env;
+use std::collections::HashSet;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 
 use clap;
 use clap::{App, Arg};
@@ -6,45 +9,81 @@ use clap::{App, Arg};
 mod server;
 use server::Server;
 
-// Replace config by lazy_static with RwLock maybe?
-pub struct ConfigInner {
-    create_empty: bool, // Creates servers/worlds/lobbies if the client queries for ones but there are none
+pub struct Config {
+    create_empty: bool,    // Creates servers/worlds/lobbies if the client queries for ones but there are none
+    email_validated: bool, // Requires email validation
+    run_udp_server: bool,
     verbose: bool,
+    host: String,
+    port: String,
+    banned_domains: HashSet<String>,
 }
-
-impl ConfigInner {
-    pub const fn from_defaults() -> ConfigInner {
-        ConfigInner { create_empty: true, verbose: false }
-    }
-}
-
-pub struct Config {}
 
 impl Config {
     pub fn new() -> Config {
-        Config {}
-    }
-
-    pub fn set_create_empty(create_empty: bool) {
-        unsafe {
-            CONFIGINNER.create_empty = create_empty;
+        Config {
+            create_empty: true,
+            email_validated: true,
+            run_udp_server: true,
+            verbose: false,
+            host: "0.0.0.0".to_string(),
+            port: "31313".to_string(),
+            banned_domains: HashSet::new(),
         }
     }
-    pub fn is_create_empty() -> bool {
-        unsafe { CONFIGINNER.create_empty }
+
+    pub fn set_create_empty(&mut self, create_empty: bool) {
+        self.create_empty = create_empty;
+    }
+    pub fn is_create_empty(&self) -> bool {
+        self.create_empty
     }
 
-    pub fn set_verbose(verbose: bool) {
-        unsafe {
-            CONFIGINNER.verbose = verbose;
+    pub fn set_email_validated(&mut self, email_validated: bool) {
+        self.email_validated = email_validated;
+    }
+    pub fn is_email_validated(&self) -> bool {
+        self.email_validated
+    }
+
+    pub fn set_run_udp_server(&mut self, udp_server: bool) {
+        self.run_udp_server = udp_server;
+    }
+    pub fn is_run_udp_server(&self) -> bool {
+        self.run_udp_server
+    }
+
+    pub fn set_verbose(&mut self, verbose: bool) {
+        self.verbose = verbose;
+    }
+    pub fn is_verbose(&self) -> bool {
+        self.verbose
+    }
+
+    pub fn set_host(&mut self, host: &str) {
+        self.host = host.to_string();
+    }
+    pub fn get_host(&self) -> &String {
+        &self.host
+    }
+
+    pub fn set_port(&mut self, port: &str) {
+        self.port = port.to_string();
+    }
+    pub fn get_port(&self) -> &String {
+        &self.port
+    }
+
+    pub fn load_domains_banlist(&mut self) {
+        if let Ok(file_emails) = File::open("domains_banlist.txt") {
+            let br = BufReader::new(file_emails);
+            self.banned_domains = br.lines().map(|x| x.unwrap().trim().to_string()).collect();
         }
     }
-    pub fn is_verbose() -> bool {
-        unsafe { CONFIGINNER.verbose }
+    pub fn is_banned_domain(&self, domain: &str) -> bool {
+        self.banned_domains.contains(domain)
     }
 }
-
-static mut CONFIGINNER: ConfigInner = ConfigInner::from_defaults();
 
 fn main() {
     let matches = App::new("RPCN")
@@ -52,33 +91,44 @@ fn main() {
         .author(clap::crate_authors!())
         .about("Matchmaking server")
         .arg(Arg::with_name("verbose").short("v").long("verbose").takes_value(false).help("Enables verbose output"))
-        .arg(Arg::with_name("nocreate").short("n").long("nocreate").takes_value(false).help("Disables automated creation on request"))
+        .arg(Arg::with_name("nocreate").long("nocreate").takes_value(false).help("Disables automated creation on request"))
+        .arg(Arg::with_name("noemail").long("noemail").takes_value(false).help("Disables email validation"))
+        .arg(Arg::with_name("noudp").long("noudp").takes_value(false).help("Disables udp server"))
         .arg(Arg::with_name("host").short("h").long("host").takes_value(true).help("Binding address(hostname)"))
         .arg(Arg::with_name("port").short("p").long("port").takes_value(true).help("Binding port"))
         .get_matches();
 
     println!("RPCN v{}", env!("CARGO_PKG_VERSION"));
 
+    let mut config = Config::new();
+
     if matches.is_present("nocreate") {
-        Config::set_create_empty(false);
+        config.set_create_empty(false);
+    }
+
+    if matches.is_present("noemail") {
+        config.set_email_validated(false);
+    }
+
+    if matches.is_present("noudp") {
+        config.set_run_udp_server(false);
     }
 
     if matches.is_present("verbose") {
-        Config::set_verbose(true);
+        config.set_verbose(true);
     }
 
-    let mut host = "0.0.0.0";
-    let mut port = "31313";
-
     if let Some(p_host) = matches.value_of("host") {
-        host = p_host;
+        config.set_host(p_host);
     }
 
     if let Some(p_port) = matches.value_of("port") {
-        port = p_port;
+        config.set_port(p_port);
     }
 
-    let mut serv = Server::new(host, port);
+    config.load_domains_banlist();
+
+    let mut serv = Server::new(config);
 
     if let Err(e) = serv.start() {
         println!("Server terminated with error: {}", e);

@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+use lettre::{EmailAddress, SmtpClient, SmtpTransport, Transport};
+use lettre_email::EmailBuilder;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use parking_lot::{Mutex, RwLock};
@@ -24,6 +26,8 @@ pub struct ClientInfo {
     pub npid: String,
     pub online_name: String,
     pub avatar_url: String,
+    pub token: String,
+    pub flags: u16,
 }
 
 pub struct ClientSignalingInfo {
@@ -43,6 +47,7 @@ impl ClientSignalingInfo {
 }
 
 pub struct Client {
+    config: Arc<RwLock<Config>>,
     tls_reader: io::ReadHalf<TlsStream<TcpStream>>,
     channel_sender: mpsc::Sender<Vec<u8>>,
     db: Arc<Mutex<DatabaseManager>>,
@@ -67,6 +72,7 @@ enum CommandType {
     Login,
     Terminate,
     Create,
+    SendToken,
     GetServerList,
     GetWorldList,
     CreateRoom,
@@ -77,6 +83,7 @@ enum CommandType {
     GetRoomDataInternal,
     SetRoomDataInternal,
     PingRoomOwner,
+    UpdateDomainBans = 0x0100,
 }
 
 #[repr(u16)]
@@ -111,14 +118,17 @@ pub enum ErrorType {
     NoError,
     Malformed,
     Invalid,
+    InvalidInput,
     ErrorLogin,
     ErrorCreate,
+    AlreadyLoggedIn,
     DbFail,
     NotFound,
 }
 
 impl Client {
     pub async fn new(
+        config: Arc<RwLock<Config>>,
         tls_stream: TlsStream<TcpStream>,
         db: Arc<Mutex<DatabaseManager>>,
         room_manager: Arc<RwLock<RoomManager>>,
@@ -130,6 +140,8 @@ impl Client {
             npid: String::new(),
             online_name: String::new(),
             avatar_url: String::new(),
+            token: String::new(),
+            flags: 0,
         };
 
         let (channel_sender, mut channel_receiver) = mpsc::channel::<Vec<u8>>(32);
@@ -145,6 +157,7 @@ impl Client {
         tokio::spawn(fut_sock_writer);
 
         Client {
+            config,
             tls_reader,
             channel_sender,
             db,
@@ -162,14 +175,14 @@ impl Client {
         self.log_manager.lock().write(&format!("Client({}): {}", &self.client_info.npid, s));
     }
     fn log_verbose(&self, s: &str) {
-        if Config::is_verbose() {
+        if self.config.read().is_verbose() {
             self.log(s);
         }
     }
 
     #[allow(dead_code)]
     fn dump_packet(&self, packet: &Vec<u8>, source: &str) {
-        if !Config::is_verbose() {
+        if !self.config.read().is_verbose() {
             return;
         }
         self.log(&format!("Dumping packet({}):", source));
@@ -295,6 +308,7 @@ impl Client {
             match command {
                 CommandType::Login => return self.login(data, reply),
                 CommandType::Create => return self.create_account(data, reply),
+                CommandType::SendToken => return self.resend_token(data, reply),
                 _ => {
                     self.log("User attempted an invalid command at this stage");
                     reply.push(ErrorType::Invalid as u8);
@@ -314,6 +328,7 @@ impl Client {
             CommandType::GetRoomDataInternal => return self.req_get_roomdata_internal(data, reply),
             CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply),
             CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
+            CommandType::UpdateDomainBans => return self.req_admin_update_domain_bans(),
             _ => {
                 self.log("Unknown command received");
                 reply.push(ErrorType::Invalid as u8);
@@ -327,6 +342,7 @@ impl Client {
     fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         let login = data.get_string(false);
         let password = data.get_string(false);
+        let token = data.get_string(true);
 
         if data.error() {
             self.log("Error while extracting data from Login command");
@@ -334,12 +350,19 @@ impl Client {
             return Err(());
         }
 
-        if let Ok(user_data) = self.db.lock().check_user(&login, &password) {
+        if let Ok(user_data) = self.db.lock().check_user(&login, &password, &token, true) {
+            if self.signaling_infos.read().contains_key(&user_data.user_id) {
+                reply.push(ErrorType::AlreadyLoggedIn as u8);
+                return Err(());
+            }
+
             self.authentified = true;
             self.client_info.npid = login;
             self.client_info.online_name = user_data.online_name.clone();
             self.client_info.avatar_url = user_data.avatar_url.clone();
             self.client_info.user_id = user_data.user_id;
+            self.client_info.token = user_data.token.clone();
+            self.client_info.flags = user_data.flags;
             reply.push(ErrorType::NoError as u8);
 
             reply.extend(user_data.online_name.as_bytes());
@@ -366,6 +389,7 @@ impl Client {
         let password = data.get_string(false);
         let online_name = data.get_string(false);
         let avatar_url = data.get_string(false);
+        let email = data.get_string(false);
 
         if data.error() {
             self.log("Error while extracting data from Create command");
@@ -375,27 +399,106 @@ impl Client {
 
         if npid.len() < 3 || npid.len() > 16 || !npid.chars().all(|x| x.is_ascii_alphanumeric() || x == '-' || x == '_') {
             self.log("Error validating NpId");
-            reply.push(ErrorType::Malformed as u8);
+            reply.push(ErrorType::InvalidInput as u8);
             return Err(());
         }
 
         if online_name.len() < 3 || online_name.len() > 16 || !online_name.chars().all(|x| x.is_alphabetic() || x.is_ascii_digit() || x == '-' || x == '_') {
             self.log("Error validating Online Name");
+            reply.push(ErrorType::InvalidInput as u8);
+            return Err(());
+        }
+
+        let email = email.trim().to_string();
+
+        if EmailAddress::new(email.clone()).is_err() {
+            self.log(&format!("Invalid email provided: {}", email));
+            reply.push(ErrorType::InvalidInput as u8);
+            return Err(());
+        }
+
+        if self.config.read().is_email_validated() {
+            let tokens: Vec<&str> = email.split('@').collect();
+            // This should not happen as email has been validated above
+            if tokens.len() != 2 {
+                reply.push(ErrorType::InvalidInput as u8);
+                return Err(());
+            }
+            if self.config.read().is_banned_domain(tokens[1]) {
+                self.log(&format!("Attempted to use banned domain: {}", email));
+                reply.push(ErrorType::InvalidInput as u8);
+                return Err(());
+            }
+        }
+
+        if let Ok(token) = self.db.lock().add_user(&npid, &password, &online_name, &avatar_url, &email) {
+            self.log(&format!("Successfully created account {}", &npid));
+            reply.push(ErrorType::NoError as u8);
+            if self.config.read().is_email_validated() {
+                if let Err(e) = Client::send_token_mail(&email, &npid, &token) {
+                    self.log(&format!("Error sending email: {}", e));
+                }
+            }
+        } else {
+            self.log(&format!("Account creation failed(npid: {})", &npid));
+            reply.push(ErrorType::ErrorCreate as u8);
+        }
+
+        Err(()) // this is not an error, we disconnect the client after account creation, successful or not
+    }
+
+    fn resend_token(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+        let login = data.get_string(false);
+        let password = data.get_string(false);
+
+        if data.error() {
+            self.log("Error while extracting data from Login command");
             reply.push(ErrorType::Malformed as u8);
             return Err(());
         }
 
-        if let Err(_) = self.db.lock().add_user(&npid, &password, &online_name, &avatar_url) {
-            self.log(&format!("Account creation failed(npid: {})", &npid));
-            reply.push(ErrorType::ErrorCreate as u8);
-        } else {
-            self.log(&format!("Successfully created account {}", &npid));
+        if let Ok(user_data) = self.db.lock().check_user(&login, &password, "", false) {
+            if self.config.read().is_email_validated() {
+                if let Err(e) = Client::send_token_mail(&user_data.email, &login, &user_data.token) {
+                    self.log(&format!("Error sending email: {}", e));
+                }
+            }
             reply.push(ErrorType::NoError as u8);
+        } else {
+            reply.push(ErrorType::ErrorLogin as u8);    
         }
+
         Err(())
     }
 
+    ///// Admin stuff
+    fn req_admin_update_domain_bans(&self) -> Result<(), ()> {
+        if (self.client_info.flags & 1) == 0 {
+            return Err(());
+        }
+
+        self.config.write().load_domains_banlist();
+
+        Ok(())
+    }
+
     ///// Helper functions
+
+    fn send_token_mail(email_addr: &str, npid: &str, token: &str) -> Result<(), lettre::smtp::error::Error> {
+        // Send the email
+        let email_to_send = EmailBuilder::new()
+            .to((email_addr, npid))
+            .from("no_reply@rpcs3.net")
+            .subject("Your token for RPCN")
+            .text(format!("Your token is:\n{}", token))
+            .build()
+            .unwrap();
+        let mut mailer = SmtpTransport::new(SmtpClient::new_unencrypted_localhost().unwrap());
+
+        mailer.send(email_to_send.into())?;
+        Ok(())
+    }
+
     fn create_notification(n_type: NotificationType, data: &Vec<u8>) -> Vec<u8> {
         let final_size = data.len() + HEADER_SIZE as usize;
 
@@ -558,7 +661,7 @@ impl Client {
         if let Ok(create_req) = data.get_flatbuffer::<CreateJoinRoomRequest>() {
             let server_id = self.db.lock().get_corresponding_server(create_req.worldId()).map_err(|_| {
                 self.log(&format!("Attempted to use invalid worldId: {}", create_req.worldId()));
-                reply.push(ErrorType::Malformed as u8);
+                reply.push(ErrorType::InvalidInput as u8);
                 ()
             })?;
 
@@ -582,7 +685,7 @@ impl Client {
                 let mut room_manager = self.room_manager.write();
                 if !room_manager.room_exists(room_id) {
                     self.log("User requested to leave a room it wasn't in!");
-                    reply.push(ErrorType::NotFound as u8);
+                    reply.push(ErrorType::InvalidInput as u8);
                     return Ok(());
                 }
 

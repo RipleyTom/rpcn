@@ -2,6 +2,7 @@ use std::fs;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
+use parking_lot::RwLock;
 use rand::prelude::*;
 use rusqlite;
 use rusqlite::NO_PARAMS;
@@ -10,6 +11,7 @@ use crate::server::log::LogManager;
 use crate::Config;
 
 pub struct DatabaseManager {
+    config: Arc<RwLock<Config>>,
     conn: rusqlite::Connection,
     log_manager: Arc<Mutex<LogManager>>,
 }
@@ -21,24 +23,29 @@ pub enum DbError {
     Internal,
     Empty,
     WrongPass,
+    WrongToken,
     Existing,
 }
 
+#[allow(dead_code)]
 pub struct UserQueryResult {
     pub user_id: i64,
     hash: Vec<u8>,
     salt: Vec<u8>,
     pub online_name: String,
     pub avatar_url: String,
+    pub email: String,
+    pub token: String,
+    pub flags: u16,
 }
 
 impl DatabaseManager {
-    pub fn new(log_manager: Arc<Mutex<LogManager>>) -> DatabaseManager {
+    pub fn new(config: Arc<RwLock<Config>>, log_manager: Arc<Mutex<LogManager>>) -> DatabaseManager {
         let _ = fs::create_dir("db");
 
-        let conn = rusqlite::Connection::open("db/rpcnv2.db").expect("Failed to open \"db/rpcnv2.db\"!");
+        let conn = rusqlite::Connection::open("db/rpcnv3.db").expect("Failed to open \"db/rpcnv3.db\"!");
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS users ( userId INTEGER PRIMARY KEY NOT NULL, username TEXT NOT NULL, hash BLOB NOT NULL, salt BLOB NOT NULL, online_name TEXT NOT NULL, avatar_url TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS users ( userId INTEGER PRIMARY KEY NOT NULL, username TEXT NOT NULL, hash BLOB NOT NULL, salt BLOB NOT NULL, online_name TEXT NOT NULL, avatar_url TEXT NOT NULL, email TEXT NOT NULL, token TEXT NOT NULL, flags UNSIGNED SMALLINT NOT NULL)",
             NO_PARAMS,
         )
         .expect("Failed to create users table!");
@@ -57,23 +64,32 @@ impl DatabaseManager {
             NO_PARAMS,
         )
         .expect("Failed to create lobbies table!");
-        DatabaseManager { conn, log_manager }
+        DatabaseManager { config, conn, log_manager }
     }
 
     fn log(&self, s: &str) {
         self.log_manager.lock().write(&format!("DB: {}", s));
     }
 
-    pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str) -> Result<(), DbError> {
+    pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str, email: &str) -> Result<String, DbError> {
         let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE username=?1", rusqlite::params![username], |r| r.get(0));
-
         if let Err(e) = count {
             self.log(&format!("Error querying username count: {}", e));
             return Err(DbError::Internal);
         }
-
         if count.unwrap() != 0 {
             self.log(&format!("Attempted to create an already existing user({})", username));
+            return Err(DbError::Existing);
+        }
+
+        let email_lower = email.to_ascii_lowercase();
+        let count_email: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE lower(email)=?1", rusqlite::params![email_lower], |r| r.get(0));
+        if let Err(e) = count_email {
+            self.log(&format!("Error querying email count: {}", e));
+            return Err(DbError::Internal);
+        }
+        if count_email.unwrap() != 0 {
+            self.log(&format!("Attempted to create an account with an already existing email({})", email));
             return Err(DbError::Existing);
         }
 
@@ -87,31 +103,42 @@ impl DatabaseManager {
 
         let salt_slice = &salt[..];
 
-        if self
-            .conn
-            .execute(
-                "INSERT INTO users ( username, hash, salt, online_name, avatar_url ) VALUES ( ?1, ?2, ?3, ?4, ?5 )",
-                rusqlite::params![username, hash, salt_slice, online_name, avatar_url],
-            )
-            .is_err()
-        {
+        let mut token = [0; 8];
+        rng_gen.fill_bytes(&mut token);
+        let mut token_str = String::new();
+        for t in &token {
+            token_str += &format!("{:02X}", t);
+        }
+
+        let flags: u16 = 0;
+
+        if let Err(e) = self.conn.execute(
+            "INSERT INTO users ( username, hash, salt, online_name, avatar_url, email, token, flags ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8 )",
+            rusqlite::params![username, hash, salt_slice, online_name, avatar_url, email, token_str, flags],
+        ) {
+            self.log(&format!("Internal DB Error: {}", e));
             Err(DbError::Internal)
         } else {
-            Ok(())
+            Ok(token_str)
         }
     }
-    pub fn check_user(&mut self, username: &str, password: &str) -> Result<UserQueryResult, DbError> {
-        let res: rusqlite::Result<UserQueryResult> = self
-            .conn
-            .query_row("SELECT userId, hash, salt, online_name, avatar_url FROM users WHERE username=?1", rusqlite::params![username], |r| {
+    pub fn check_user(&mut self, username: &str, password: &str, token: &str, check_token: bool) -> Result<UserQueryResult, DbError> {
+        let res: rusqlite::Result<UserQueryResult> = self.conn.query_row(
+            "SELECT userId, hash, salt, online_name, avatar_url, email, token, flags FROM users WHERE username=?1",
+            rusqlite::params![username],
+            |r| {
                 Ok(UserQueryResult {
                     user_id: r.get(0).unwrap(),
                     hash: r.get(1).unwrap(),
                     salt: r.get(2).unwrap(),
                     online_name: r.get(3).unwrap(),
                     avatar_url: r.get(4).unwrap(),
+                    email: r.get(5).unwrap(),
+                    token: r.get(6).unwrap(),
+                    flags: r.get(7).unwrap(),
                 })
-            });
+            },
+        );
 
         if let Err(e) = res {
             self.log(&format!("Error querying username row: {}", e));
@@ -119,6 +146,12 @@ impl DatabaseManager {
         }
 
         let res = res.unwrap();
+
+        if check_token && self.config.read().is_email_validated() {
+            if res.token != token {
+                return Err(DbError::WrongToken);
+            }
+        }
 
         let config = argon2::Config::default();
         let hash = argon2::hash_raw(password.as_bytes(), &res.salt, &config).expect("Password hashing failed!");
@@ -140,7 +173,7 @@ impl DatabaseManager {
             }
         }
 
-        if list_servers.len() == 0 && Config::is_create_empty() {
+        if list_servers.len() == 0 && self.config.read().is_create_empty() {
             // Create missing server
             let cur_max_res: rusqlite::Result<u16> = self.conn.query_row("SELECT MAX(serverId) FROM servers", NO_PARAMS, |r| r.get(0));
 
@@ -183,7 +216,7 @@ impl DatabaseManager {
             }
         }
 
-        if list_worlds.len() == 0 && Config::is_create_empty() {
+        if list_worlds.len() == 0 && self.config.read().is_create_empty() {
             // Create missing world
             let cur_max_res: rusqlite::Result<u16> = self.conn.query_row("SELECT MAX(worldId) FROM worlds", NO_PARAMS, |r| r.get(0));
 

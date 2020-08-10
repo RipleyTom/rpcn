@@ -79,7 +79,6 @@ impl UdpServerInstance {
         self.log_manager.lock().write(&format!("UdpServerInstance: {}", s));
     }
 
-
     fn server_proc(&mut self) {
         let mut recv_buf = [0; 65535];
         let mut send_buf = [0; 65535];
