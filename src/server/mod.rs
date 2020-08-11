@@ -116,6 +116,7 @@ impl Server {
                 }
 
                 let (stream, peer_addr) = accept_result.unwrap();
+                stream.set_keepalive(Some(std::time::Duration::new(30, 0))).unwrap();
                 self.log(&format!("New client from {}", peer_addr));
 
                 let acceptor = acceptor.clone();
