@@ -45,7 +45,7 @@ impl DatabaseManager {
 
         let conn = rusqlite::Connection::open("db/rpcnv3.db").expect("Failed to open \"db/rpcnv3.db\"!");
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS users ( userId INTEGER PRIMARY KEY NOT NULL, username TEXT NOT NULL, hash BLOB NOT NULL, salt BLOB NOT NULL, online_name TEXT NOT NULL, avatar_url TEXT NOT NULL, email TEXT NOT NULL, token TEXT NOT NULL, flags UNSIGNED SMALLINT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS users ( userId INTEGER PRIMARY KEY NOT NULL, username TEXT NOT NULL COLLATE NOCASE, hash BLOB NOT NULL, salt BLOB NOT NULL, online_name TEXT NOT NULL, avatar_url TEXT NOT NULL, email TEXT NOT NULL, token TEXT NOT NULL, flags UNSIGNED SMALLINT NOT NULL)",
             NO_PARAMS,
         )
         .expect("Failed to create users table!");
