@@ -56,6 +56,7 @@ pub struct Client {
     signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
     authentified: bool,
     client_info: ClientInfo,
+    post_reply_notifications: Vec<Vec<u8>>,
 }
 
 #[repr(u8)]
@@ -166,6 +167,7 @@ impl Client {
             signaling_infos,
             authentified: false,
             client_info,
+            post_reply_notifications: Vec::new(),
         }
     }
 
@@ -278,6 +280,12 @@ impl Client {
                 let _ = self.channel_sender.send(reply.clone()).await;
 
                 self.log_verbose(&format!("Returning: {}({})", res.is_ok(), reply[4]));
+
+                // Send post command notifications if any
+                for notif in &self.post_reply_notifications {
+                    let _ = self.channel_sender.send(notif.clone()).await;
+                }
+                self.post_reply_notifications.clear();
 
                 return res;
             }
@@ -528,7 +536,12 @@ impl Client {
             let _ = channel_copy.send(notif.clone()).await;
         }
     }
-    async fn signal_connections(&self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>) {
+
+    fn self_notification(&mut self, notif: &Vec<u8>) {
+        self.post_reply_notifications.push(notif.clone());
+    }
+
+    async fn signal_connections(&mut self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>) {
         if let None = sig_param {
             return;
         }
@@ -580,7 +593,8 @@ impl Client {
                             }
                         }
                         if tosend {
-                            self.send_notification(&s_notif, &self_id).await;
+                            self.self_notification(&s_notif); // Special function that will post the notification after the reply
+                            // self.send_notification(&s_notif, &self_id).await;
                         }
                     }
                 }
@@ -684,7 +698,7 @@ impl Client {
             {
                 let mut room_manager = self.room_manager.write();
                 if !room_manager.room_exists(room_id) {
-                    self.log("User requested to leave a room it wasn't in!");
+                    self.log("User requested to join a room that doesn't exist!");
                     reply.push(ErrorType::InvalidInput as u8);
                     return Ok(());
                 }
