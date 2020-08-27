@@ -130,7 +130,6 @@ struct RoomGroupConfig {
     with_label: bool,
     label: [u8; 8],
     with_password: bool,
-
     group_id: u8,
     num_members: u32,
 }

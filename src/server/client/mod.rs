@@ -84,6 +84,7 @@ enum CommandType {
     GetRoomDataInternal,
     SetRoomDataInternal,
     PingRoomOwner,
+    SendRoomMessage,
     UpdateDomainBans = 0x0100,
 }
 
@@ -94,6 +95,7 @@ enum NotificationType {
     RoomDestroyed,
     SignalP2PEstablished,
     _SignalP2PDisconnected,
+    RoomMessageReceived,
 }
 
 #[repr(u8)]
@@ -125,6 +127,7 @@ pub enum ErrorType {
     AlreadyLoggedIn,
     DbFail,
     NotFound,
+    Unsupported,
 }
 
 impl Client {
@@ -336,6 +339,7 @@ impl Client {
             CommandType::GetRoomDataInternal => return self.req_get_roomdata_internal(data, reply),
             CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply),
             CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
+            CommandType::SendRoomMessage => return self.req_send_room_message(data, reply).await,
             CommandType::UpdateDomainBans => return self.req_admin_update_domain_bans(),
             _ => {
                 self.log("Unknown command received");
@@ -473,7 +477,7 @@ impl Client {
             }
             reply.push(ErrorType::NoError as u8);
         } else {
-            reply.push(ErrorType::ErrorLogin as u8);    
+            reply.push(ErrorType::ErrorLogin as u8);
         }
 
         Err(())
@@ -594,7 +598,7 @@ impl Client {
                         }
                         if tosend {
                             self.self_notification(&s_notif); // Special function that will post the notification after the reply
-                            // self.send_notification(&s_notif, &self_id).await;
+                                                              // self.send_notification(&s_notif, &self_id).await;
                         }
                     }
                 }
@@ -915,6 +919,139 @@ impl Client {
         reply.extend(&(finished_data.len() as u32).to_le_bytes());
         reply.extend(finished_data);
 
+        Ok(())
+    }
+    async fn req_send_room_message(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+        if let Ok(msg_req) = data.get_flatbuffer::<SendRoomMessageRequest>() {
+            let room_id = msg_req.roomId();
+            let (notif, member_id, users);
+            let mut dst_vec: Vec<u16> = Vec::new();
+            {
+                let room_manager = self.room_manager.read();
+                if !room_manager.room_exists(room_id) {
+                    self.log("User requested to send a message to a room that doesn't exist!");
+                    reply.push(ErrorType::InvalidInput as u8);
+                    return Ok(());
+                }
+
+                {
+                    let room = room_manager.get_room(room_id.clone());
+                    let m_id = room.get_member_id(self.client_info.user_id);
+                    if m_id.is_err() {
+                        self.log("User requested to send a message to a room that he's not a member of!");
+                        reply.push(ErrorType::InvalidInput as u8);
+                        return Ok(());
+                    }
+                    member_id = m_id.unwrap();
+                    users = room.get_room_users();
+                }
+
+                let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
+
+                if let Some(dst) = msg_req.dst() {
+                    for i in 0..dst.len() {
+                        dst_vec.push(dst.get(i));
+                    }
+                }
+                let dst = Some(builder.create_vector(&dst_vec));
+
+                let mut npid = None;
+                if (msg_req.option() & 0x01) != 0 {
+                    npid = Some(builder.create_string(&self.client_info.npid));
+                }
+                let mut online_name = None;
+                if (msg_req.option() & 0x02) != 0 {
+                    online_name = Some(builder.create_string(&self.client_info.online_name));
+                }
+                let mut avatar_url = None;
+                if (msg_req.option() & 0x04) != 0 {
+                    avatar_url = Some(builder.create_string(&self.client_info.avatar_url));
+                }
+
+                let src_user_info = UserInfo2::create(
+                    &mut builder,
+                    &UserInfo2Args {
+                        npId: npid,
+                        onlineName: online_name,
+                        avatarUrl: avatar_url,
+                    },
+                );
+
+                let mut msg_vec: Vec<u8> = Vec::new();
+                if let Some(msg) = msg_req.msg() {
+                    for i in 0..msg.len() {
+                        msg_vec.push(*msg.get(i).unwrap());
+                    }
+                }
+                let msg = Some(builder.create_vector(&msg_vec));
+
+                let resp = RoomMessageInfo::create(
+                    &mut builder,
+                    &RoomMessageInfoArgs {
+                        filtered: false,
+                        castType: msg_req.castType(),
+                        dst,
+                        srcMember: Some(src_user_info),
+                        msg,
+                    },
+                );
+                builder.finish(resp, None);
+                let finished_data = builder.finished_data().to_vec();
+
+                let mut n_msg: Vec<u8> = Vec::new();
+                n_msg.extend(&room_id.to_le_bytes());
+                n_msg.extend(&member_id.to_le_bytes());
+                n_msg.extend(&(finished_data.len() as u32).to_le_bytes());
+                n_msg.extend(finished_data);
+                notif = Client::create_notification(NotificationType::RoomMessageReceived, &n_msg);
+            }
+
+            match msg_req.castType() {
+                1 => {
+                    // SCE_NP_MATCHING2_CASTTYPE_BROADCAST
+                    let user_ids: HashSet<i64> = users.iter().filter_map(|x| if *x.1 != self.client_info.user_id { Some(x.1.clone()) } else { None }).collect();
+                    self.send_notification(&notif, &user_ids).await;
+                    self.self_notification(&notif);
+                }
+                2 | 3 => {
+                    // SCE_NP_MATCHING2_CASTTYPE_UNICAST & SCE_NP_MATCHING2_CASTTYPE_MULTICAST
+                    let mut found_self = false;
+                    let user_ids: HashSet<i64> = users
+                        .iter()
+                        .filter_map(|x| {
+                            if !dst_vec.iter().any(|dst| *dst == *x.0) {
+                                None
+                            } else if *x.1 != self.client_info.user_id {
+                                Some(x.1.clone())
+                            } else {
+                                found_self = true;
+                                None
+                            }
+                        })
+                        .collect();
+                    self.send_notification(&notif, &user_ids).await;
+                    if found_self {
+                        self.self_notification(&notif);
+                    };
+                }
+                4 => {
+                    // SCE_NP_MATCHING2_CASTTYPE_MULTICAST_TEAM
+                    reply.push(ErrorType::Unsupported as u8);
+                    return Ok(());
+                }
+                _ => {
+                    self.log("Invalid broadcast type in send_room_message!");
+                    reply.push(ErrorType::InvalidInput as u8);
+                    return Err(()); // This shouldn't happen, closing connection
+                }
+            }
+
+            reply.push(ErrorType::NoError as u8);
+        } else {
+            self.log("Error while extracting data from SendRoomMessage command");
+            reply.push(ErrorType::Malformed as u8);
+            return Err(());
+        }
         Ok(())
     }
 }

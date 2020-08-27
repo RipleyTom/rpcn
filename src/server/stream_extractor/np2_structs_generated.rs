@@ -3244,3 +3244,251 @@ impl<'a: 'b, 'b> GetPingInfoResponseBuilder<'a, 'b> {
   }
 }
 
+pub enum SendRoomMessageRequestOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+pub struct SendRoomMessageRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SendRoomMessageRequest<'a> {
+    type Inner = SendRoomMessageRequest<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> SendRoomMessageRequest<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        SendRoomMessageRequest {
+            _tab: table,
+        }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args SendRoomMessageRequestArgs<'args>) -> flatbuffers::WIPOffset<SendRoomMessageRequest<'bldr>> {
+      let mut builder = SendRoomMessageRequestBuilder::new(_fbb);
+      builder.add_roomId(args.roomId);
+      if let Some(x) = args.msg { builder.add_msg(x); }
+      if let Some(x) = args.dst { builder.add_dst(x); }
+      builder.add_option(args.option);
+      builder.add_castType(args.castType);
+      builder.finish()
+    }
+
+    pub const VT_ROOMID: flatbuffers::VOffsetT = 4;
+    pub const VT_CASTTYPE: flatbuffers::VOffsetT = 6;
+    pub const VT_DST: flatbuffers::VOffsetT = 8;
+    pub const VT_MSG: flatbuffers::VOffsetT = 10;
+    pub const VT_OPTION: flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub fn roomId(&self) -> u64 {
+    self._tab.get::<u64>(SendRoomMessageRequest::VT_ROOMID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn castType(&self) -> u8 {
+    self._tab.get::<u8>(SendRoomMessageRequest::VT_CASTTYPE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn dst(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(SendRoomMessageRequest::VT_DST, None)
+  }
+  #[inline]
+  pub fn msg(&self) -> Option<&'a [u8]> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(SendRoomMessageRequest::VT_MSG, None).map(|v| v.safe_slice())
+  }
+  #[inline]
+  pub fn option(&self) -> u8 {
+    self._tab.get::<u8>(SendRoomMessageRequest::VT_OPTION, Some(0)).unwrap()
+  }
+}
+
+pub struct SendRoomMessageRequestArgs<'a> {
+    pub roomId: u64,
+    pub castType: u8,
+    pub dst: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a ,  u16>>>,
+    pub msg: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a ,  u8>>>,
+    pub option: u8,
+}
+impl<'a> Default for SendRoomMessageRequestArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        SendRoomMessageRequestArgs {
+            roomId: 0,
+            castType: 0,
+            dst: None,
+            msg: None,
+            option: 0,
+        }
+    }
+}
+pub struct SendRoomMessageRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> SendRoomMessageRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_roomId(&mut self, roomId: u64) {
+    self.fbb_.push_slot::<u64>(SendRoomMessageRequest::VT_ROOMID, roomId, 0);
+  }
+  #[inline]
+  pub fn add_castType(&mut self, castType: u8) {
+    self.fbb_.push_slot::<u8>(SendRoomMessageRequest::VT_CASTTYPE, castType, 0);
+  }
+  #[inline]
+  pub fn add_dst(&mut self, dst: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u16>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SendRoomMessageRequest::VT_DST, dst);
+  }
+  #[inline]
+  pub fn add_msg(&mut self, msg: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SendRoomMessageRequest::VT_MSG, msg);
+  }
+  #[inline]
+  pub fn add_option(&mut self, option: u8) {
+    self.fbb_.push_slot::<u8>(SendRoomMessageRequest::VT_OPTION, option, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SendRoomMessageRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    SendRoomMessageRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SendRoomMessageRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+pub enum RoomMessageInfoOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+pub struct RoomMessageInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for RoomMessageInfo<'a> {
+    type Inner = RoomMessageInfo<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> RoomMessageInfo<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        RoomMessageInfo {
+            _tab: table,
+        }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args RoomMessageInfoArgs<'args>) -> flatbuffers::WIPOffset<RoomMessageInfo<'bldr>> {
+      let mut builder = RoomMessageInfoBuilder::new(_fbb);
+      if let Some(x) = args.msg { builder.add_msg(x); }
+      if let Some(x) = args.srcMember { builder.add_srcMember(x); }
+      if let Some(x) = args.dst { builder.add_dst(x); }
+      builder.add_castType(args.castType);
+      builder.add_filtered(args.filtered);
+      builder.finish()
+    }
+
+    pub const VT_FILTERED: flatbuffers::VOffsetT = 4;
+    pub const VT_CASTTYPE: flatbuffers::VOffsetT = 6;
+    pub const VT_DST: flatbuffers::VOffsetT = 8;
+    pub const VT_SRCMEMBER: flatbuffers::VOffsetT = 10;
+    pub const VT_MSG: flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub fn filtered(&self) -> bool {
+    self._tab.get::<bool>(RoomMessageInfo::VT_FILTERED, Some(false)).unwrap()
+  }
+  #[inline]
+  pub fn castType(&self) -> u8 {
+    self._tab.get::<u8>(RoomMessageInfo::VT_CASTTYPE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn dst(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomMessageInfo::VT_DST, None)
+  }
+  #[inline]
+  pub fn srcMember(&self) -> Option<UserInfo2<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2<'a>>>(RoomMessageInfo::VT_SRCMEMBER, None)
+  }
+  #[inline]
+  pub fn msg(&self) -> Option<&'a [u8]> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomMessageInfo::VT_MSG, None).map(|v| v.safe_slice())
+  }
+}
+
+pub struct RoomMessageInfoArgs<'a> {
+    pub filtered: bool,
+    pub castType: u8,
+    pub dst: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a ,  u16>>>,
+    pub srcMember: Option<flatbuffers::WIPOffset<UserInfo2<'a >>>,
+    pub msg: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a ,  u8>>>,
+}
+impl<'a> Default for RoomMessageInfoArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        RoomMessageInfoArgs {
+            filtered: false,
+            castType: 0,
+            dst: None,
+            srcMember: None,
+            msg: None,
+        }
+    }
+}
+pub struct RoomMessageInfoBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> RoomMessageInfoBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_filtered(&mut self, filtered: bool) {
+    self.fbb_.push_slot::<bool>(RoomMessageInfo::VT_FILTERED, filtered, false);
+  }
+  #[inline]
+  pub fn add_castType(&mut self, castType: u8) {
+    self.fbb_.push_slot::<u8>(RoomMessageInfo::VT_CASTTYPE, castType, 0);
+  }
+  #[inline]
+  pub fn add_dst(&mut self, dst: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u16>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomMessageInfo::VT_DST, dst);
+  }
+  #[inline]
+  pub fn add_srcMember(&mut self, srcMember: flatbuffers::WIPOffset<UserInfo2<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<UserInfo2>>(RoomMessageInfo::VT_SRCMEMBER, srcMember);
+  }
+  #[inline]
+  pub fn add_msg(&mut self, msg: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomMessageInfo::VT_MSG, msg);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomMessageInfoBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    RoomMessageInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<RoomMessageInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+

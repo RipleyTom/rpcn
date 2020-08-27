@@ -207,3 +207,19 @@ table GetPingInfoResponse {
     roomId:uint64;
     rtt:uint32;
 }
+
+table SendRoomMessageRequest {
+    roomId:uint64;
+    castType:uint8;
+    dst:[uint16];
+    msg:[uint8];
+    option:uint8;
+}
+
+table RoomMessageInfo {
+    filtered:bool;
+    castType:uint8;
+    dst:[uint16];
+    srcMember:UserInfo2;
+    msg:[uint8];
+}
