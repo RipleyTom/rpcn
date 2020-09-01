@@ -85,6 +85,7 @@ enum CommandType {
     SetRoomDataInternal,
     PingRoomOwner,
     SendRoomMessage,
+    RequestSignalingInfos,
     UpdateDomainBans = 0x0100,
 }
 
@@ -93,8 +94,8 @@ enum NotificationType {
     UserJoinedRoom,
     UserLeftRoom,
     RoomDestroyed,
-    SignalP2PEstablished,
-    _SignalP2PDisconnected,
+    SignalP2PConnect,
+    _SignalP2PDisconnect,
     RoomMessageReceived,
 }
 
@@ -340,6 +341,7 @@ impl Client {
             CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply),
             CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
             CommandType::SendRoomMessage => return self.req_send_room_message(data, reply).await,
+            CommandType::RequestSignalingInfos => return self.req_signaling_infos(data, reply),
             CommandType::UpdateDomainBans => return self.req_admin_update_domain_bans(),
             _ => {
                 self.log("Unknown command received");
@@ -577,7 +579,7 @@ impl Client {
                 s_msg.extend(&from.0.to_le_bytes()); // +8..+10 member ID
                 s_msg.extend(&port_p2p.to_be_bytes()); // +10..+12 port
                 s_msg.extend(&addr_p2p); // +12..+16 addr
-                let mut s_notif = Client::create_notification(NotificationType::SignalP2PEstablished, &s_msg);
+                let mut s_notif = Client::create_notification(NotificationType::SignalP2PConnect, &s_msg);
                 self.send_notification(&s_notif, &user_ids).await;
 
                 // Notifies user that connection has been established with all other occupants
@@ -1052,6 +1054,32 @@ impl Client {
             reply.push(ErrorType::Malformed as u8);
             return Err(());
         }
+        Ok(())
+    }
+    fn req_signaling_infos(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+        let npid = data.get_string(false);
+        if data.error() || npid.len() > 16 {
+            self.log("Error while extracting data from GetSignalingInfos command");
+            reply.push(ErrorType::Malformed as u8);
+            return Err(());
+        }
+
+        let user_id = self.db.lock().get_user_id(&npid);
+        if user_id.is_err() {
+            reply.push(ErrorType::NotFound as u8);
+            return Ok(());
+        }
+
+        let user_id = user_id.unwrap();
+        let sig_infos = self.signaling_infos.read();
+        if let Some(entry) = sig_infos.get(&user_id) {
+            reply.push(ErrorType::NoError as u8);
+            reply.extend(&entry.addr_p2p); // +12..+16 addr
+            reply.extend(&((entry.port_p2p).to_be_bytes())); // +10..+12 port
+        } else {
+            reply.push(ErrorType::NotFound as u8);
+        }
+
         Ok(())
     }
 }

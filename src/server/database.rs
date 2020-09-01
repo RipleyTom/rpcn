@@ -74,7 +74,7 @@ impl DatabaseManager {
     pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str, email: &str) -> Result<String, DbError> {
         let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE username=?1", rusqlite::params![username], |r| r.get(0));
         if let Err(e) = count {
-            self.log(&format!("Error querying username count: {}", e));
+            self.log(&format!("Unexpected error querying username count: {}", e));
             return Err(DbError::Internal);
         }
         if count.unwrap() != 0 {
@@ -85,7 +85,7 @@ impl DatabaseManager {
         let email_lower = email.to_ascii_lowercase();
         let count_email: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE lower(email)=?1", rusqlite::params![email_lower], |r| r.get(0));
         if let Err(e) = count_email {
-            self.log(&format!("Error querying email count: {}", e));
+            self.log(&format!("Unexpected error querying email count: {}", e));
             return Err(DbError::Internal);
         }
         if count_email.unwrap() != 0 {
@@ -116,7 +116,7 @@ impl DatabaseManager {
             "INSERT INTO users ( username, hash, salt, online_name, avatar_url, email, token, flags ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8 )",
             rusqlite::params![username, hash, salt_slice, online_name, avatar_url, email, token_str, flags],
         ) {
-            self.log(&format!("Internal DB Error: {}", e));
+            self.log(&format!("Unexpected error inserting a new user: {}", e));
             Err(DbError::Internal)
         } else {
             Ok(token_str)
@@ -141,7 +141,12 @@ impl DatabaseManager {
         );
 
         if let Err(e) = res {
-            self.log(&format!("Error querying username row: {}", e));
+            if e == rusqlite::Error::QueryReturnedNoRows {
+                self.log(&format!("No row for username {} found", username));
+                return Err(DbError::Empty);
+            }
+
+            self.log(&format!("Unexpected error querying username row: {}", e));
             return Err(DbError::Internal);
         }
 
@@ -161,6 +166,23 @@ impl DatabaseManager {
         }
 
         Ok(res)
+    }
+    pub fn get_user_id(&mut self, npid: &str) -> Result<i64, DbError> {
+        let res: rusqlite::Result<i64> = self.conn.query_row(
+            "SELECT userId FROM users WHERE username=?1",
+            rusqlite::params![npid],
+            |r| { Ok(r.get(0).unwrap()) });
+
+        if let Err(e) = res {
+            if e == rusqlite::Error::QueryReturnedNoRows {
+                self.log(&format!("Attempted to get the user id of non existent username {}", npid));
+                return Err(DbError::Empty);
+            }
+            self.log(&format!("Unexpected error querying user id: {}", e));
+            return Err(DbError::Internal);
+        }
+
+        Ok(res.unwrap())
     }
     pub fn get_server_list(&mut self, communication_id: &str) -> Result<Vec<u16>, DbError> {
         let mut list_servers = Vec::new();
@@ -196,7 +218,7 @@ impl DatabaseManager {
         {
             let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(1) FROM servers WHERE serverId=?1", rusqlite::params![server_id], |r| r.get(0));
             if let Err(e) = count {
-                self.log(&format!("Error querying for server existence: {}", e));
+                self.log(&format!("Unexpected error querying for server existence: {}", e));
                 return Err(DbError::Internal);
             }
 
@@ -226,9 +248,10 @@ impl DatabaseManager {
             }
 
             self.log(&format!("Creating a world for server id {}", server_id));
-            self.conn
-                .execute("INSERT INTO worlds ( worldId, serverId ) VALUES (?1, ?2)", rusqlite::params!(new_wid, server_id))
-                .expect("Failed to insert world");
+            if let Err(e) = self.conn.execute("INSERT INTO worlds ( worldId, serverId ) VALUES (?1, ?2)", rusqlite::params!(new_wid, server_id)) {
+                self.log(&format!("Unexpected error inserting a world: {}", e));
+                return Err(DbError::Internal);
+            }
             return self.get_world_list(server_id);
         }
 
