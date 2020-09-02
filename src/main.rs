@@ -17,6 +17,9 @@ pub struct Config {
     host: String,
     port: String,
     banned_domains: HashSet<String>,
+    email_host: String,
+    email_login: String,
+    email_password: String,
 }
 
 impl Config {
@@ -29,6 +32,9 @@ impl Config {
             host: "0.0.0.0".to_string(),
             port: "31313".to_string(),
             banned_domains: HashSet::new(),
+            email_host: String::new(),
+            email_login: String::new(),
+            email_password: String::new(),
         }
     }
 
@@ -74,6 +80,22 @@ impl Config {
         &self.port
     }
 
+    pub fn set_email_auth(&mut self, email_data: &str) -> Result<(), ()> {
+        let email_tokens: Vec<&str> = email_data.split("::").collect();
+        if email_tokens.len() != 3 {
+            return Err(());
+        }
+
+        self.email_host = String::from(email_tokens[0]);
+        self.email_login = String::from(email_tokens[1]);
+        self.email_password = String::from(email_tokens[2]);
+
+        Ok(())
+    }
+    pub fn get_email_auth(&self) -> (String, String, String) {
+        (self.email_host.clone(), self.email_login.clone(), self.email_password.clone())
+    }
+
     pub fn load_domains_banlist(&mut self) {
         if let Ok(file_emails) = File::open("domains_banlist.txt") {
             let br = BufReader::new(file_emails);
@@ -94,6 +116,7 @@ fn main() {
         .arg(Arg::with_name("nocreate").long("nocreate").takes_value(false).help("Disables automated creation on request"))
         .arg(Arg::with_name("noemail").long("noemail").takes_value(false).help("Disables email validation"))
         .arg(Arg::with_name("noudp").long("noudp").takes_value(false).help("Disables udp server"))
+        .arg(Arg::with_name("emailauth").long("emailauth").takes_value(true).help("Host::Login::Password for email"))
         .arg(Arg::with_name("host").short("h").long("host").takes_value(true).help("Binding address(hostname)"))
         .arg(Arg::with_name("port").short("p").long("port").takes_value(true).help("Binding port"))
         .get_matches();
@@ -124,6 +147,13 @@ fn main() {
 
     if let Some(p_port) = matches.value_of("port") {
         config.set_port(p_port);
+    }
+
+    if let Some(email_data) = matches.value_of("emailauth") {
+        if config.set_email_auth(&email_data).is_err() {
+            println!("Invalid emailauth parameter used, expected Host::Login::Password");
+            return;
+        }
     }
 
     config.load_domains_banlist();

@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use lettre::{EmailAddress, SmtpClient, SmtpTransport, Transport};
+use lettre::smtp::authentication::{Credentials, Mechanism};
 use lettre_email::EmailBuilder;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -431,6 +432,8 @@ impl Client {
             return Err(());
         }
 
+        let mut check_email = email.clone();
+
         if self.config.read().is_email_validated() {
             let tokens: Vec<&str> = email.split('@').collect();
             // This should not happen as email has been validated above
@@ -443,13 +446,18 @@ impl Client {
                 reply.push(ErrorType::InvalidInput as u8);
                 return Err(());
             }
+
+            let alias_split: Vec<&str> = tokens[0].split('+').collect();
+            if alias_split.len() > 1 {
+                check_email = format!("{}%@{}", alias_split[0], tokens[1]); 
+            }
         }
 
-        if let Ok(token) = self.db.lock().add_user(&npid, &password, &online_name, &avatar_url, &email) {
+        if let Ok(token) = self.db.lock().add_user(&npid, &password, &online_name, &avatar_url, &email, &check_email) {
             self.log(&format!("Successfully created account {}", &npid));
             reply.push(ErrorType::NoError as u8);
             if self.config.read().is_email_validated() {
-                if let Err(e) = Client::send_token_mail(&email, &npid, &token) {
+                if let Err(e) = self.send_token_mail(&email, &npid, &token) {
                     self.log(&format!("Error sending email: {}", e));
                 }
             }
@@ -473,7 +481,7 @@ impl Client {
 
         if let Ok(user_data) = self.db.lock().check_user(&login, &password, "", false) {
             if self.config.read().is_email_validated() {
-                if let Err(e) = Client::send_token_mail(&user_data.email, &login, &user_data.token) {
+                if let Err(e) = self.send_token_mail(&user_data.email, &login, &user_data.token) {
                     self.log(&format!("Error sending email: {}", e));
                 }
             }
@@ -498,16 +506,29 @@ impl Client {
 
     ///// Helper functions
 
-    fn send_token_mail(email_addr: &str, npid: &str, token: &str) -> Result<(), lettre::smtp::error::Error> {
+    fn send_token_mail(&self, email_addr: &str, npid: &str, token: &str) -> Result<(), lettre::smtp::error::Error> {
         // Send the email
         let email_to_send = EmailBuilder::new()
             .to((email_addr, npid))
-            .from("no_reply@rpcs3.net")
+            .from("np@rpcs3.net")
             .subject("Your token for RPCN")
-            .text(format!("Your token is:\n{}", token))
+            .text(format!("Your token for username {} is:\n{}", npid, token))
             .build()
             .unwrap();
-        let mut mailer = SmtpTransport::new(SmtpClient::new_unencrypted_localhost().unwrap());
+        let (host, login, password) = self.config.read().get_email_auth();
+
+        let mut smtp_client;
+        if host.len() == 0 {
+            smtp_client = SmtpClient::new_unencrypted_localhost().unwrap();
+        } else {
+            smtp_client = SmtpClient::new_simple(&host).unwrap();
+
+            if login.len() != 0 {
+                smtp_client = smtp_client.credentials(Credentials::new(login, password)).authentication_mechanism(Mechanism::Plain).hello_name(lettre::smtp::extension::ClientId::new("np.rpcs3.net".to_string()));
+            }
+        }
+
+        let mut mailer = SmtpTransport::new(smtp_client);
 
         mailer.send(email_to_send.into())?;
         Ok(())
@@ -1074,8 +1095,8 @@ impl Client {
         let sig_infos = self.signaling_infos.read();
         if let Some(entry) = sig_infos.get(&user_id) {
             reply.push(ErrorType::NoError as u8);
-            reply.extend(&entry.addr_p2p); // +12..+16 addr
-            reply.extend(&((entry.port_p2p).to_be_bytes())); // +10..+12 port
+            reply.extend(&entry.addr_p2p);
+            reply.extend(&((entry.port_p2p).to_le_bytes()));
         } else {
             reply.push(ErrorType::NotFound as u8);
         }

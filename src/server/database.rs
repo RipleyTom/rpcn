@@ -71,7 +71,7 @@ impl DatabaseManager {
         self.log_manager.lock().write(&format!("DB: {}", s));
     }
 
-    pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str, email: &str) -> Result<String, DbError> {
+    pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str, email: &str, check_email: &str) -> Result<String, DbError> {
         let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE username=?1", rusqlite::params![username], |r| r.get(0));
         if let Err(e) = count {
             self.log(&format!("Unexpected error querying username count: {}", e));
@@ -82,8 +82,8 @@ impl DatabaseManager {
             return Err(DbError::Existing);
         }
 
-        let email_lower = email.to_ascii_lowercase();
-        let count_email: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE lower(email)=?1", rusqlite::params![email_lower], |r| r.get(0));
+        let email_lower = check_email.to_ascii_lowercase();
+        let count_email: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE lower(email) LIKE ?1", rusqlite::params![email_lower], |r| r.get(0));
         if let Err(e) = count_email {
             self.log(&format!("Unexpected error querying email count: {}", e));
             return Err(DbError::Internal);
