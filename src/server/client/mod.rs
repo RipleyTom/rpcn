@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use lettre::{EmailAddress, SmtpClient, SmtpTransport, Transport};
 use lettre::smtp::authentication::{Credentials, Mechanism};
+use lettre::{EmailAddress, SmtpClient, SmtpTransport, Transport};
 use lettre_email::EmailBuilder;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -449,7 +449,7 @@ impl Client {
 
             let alias_split: Vec<&str> = tokens[0].split('+').collect();
             if alias_split.len() > 1 {
-                check_email = format!("{}%@{}", alias_split[0], tokens[1]); 
+                check_email = format!("{}%@{}", alias_split[0], tokens[1]);
             }
         }
 
@@ -524,7 +524,10 @@ impl Client {
             smtp_client = SmtpClient::new_simple(&host).unwrap();
 
             if login.len() != 0 {
-                smtp_client = smtp_client.credentials(Credentials::new(login, password)).authentication_mechanism(Mechanism::Plain).hello_name(lettre::smtp::extension::ClientId::new("np.rpcs3.net".to_string()));
+                smtp_client = smtp_client
+                    .credentials(Credentials::new(login, password))
+                    .authentication_mechanism(Mechanism::Plain)
+                    .hello_name(lettre::smtp::extension::ClientId::new("np.rpcs3.net".to_string()));
             }
         }
 
@@ -568,7 +571,7 @@ impl Client {
         self.post_reply_notifications.push(notif.clone());
     }
 
-    async fn signal_connections(&mut self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>) {
+    async fn signal_connections(&mut self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>, owner: u16) {
         if let None = sig_param {
             return;
         }
@@ -577,30 +580,33 @@ impl Client {
             return;
         }
 
+        // Get user signaling
+        let mut addr_p2p = [0; 4];
+        let mut port_p2p = 0;
+        {
+            let sig_infos = self.signaling_infos.read();
+            if let Some(entry) = sig_infos.get(&from.1) {
+                addr_p2p = entry.addr_p2p;
+                port_p2p = entry.port_p2p;
+            }
+        }
+
+        // Create a notification to send to other user(s)
+        let mut s_msg: Vec<u8> = Vec::new();
+        s_msg.extend(&room_id.to_le_bytes()); // +0..+8 room ID
+        s_msg.extend(&from.0.to_le_bytes()); // +8..+10 member ID
+        s_msg.extend(&port_p2p.to_be_bytes()); // +10..+12 port
+        s_msg.extend(&addr_p2p); // +12..+16 addr
+        let mut s_notif = Client::create_notification(NotificationType::SignalP2PConnect, &s_msg);
+
+        let mut self_id = HashSet::new();
+        self_id.insert(from.1);
+
         match sig_param.get_type() {
             SignalingType::SignalingMesh => {
                 // Notifies other room members that p2p connection was established
                 let user_ids: HashSet<i64> = to.iter().map(|x| x.1.clone()).collect();
 
-                let mut self_id = HashSet::new();
-                self_id.insert(from.1);
-
-                let mut addr_p2p = [0; 4];
-                let mut port_p2p = 0;
-                {
-                    let sig_infos = self.signaling_infos.read();
-                    if let Some(entry) = sig_infos.get(&from.1) {
-                        addr_p2p = entry.addr_p2p;
-                        port_p2p = entry.port_p2p;
-                    }
-                }
-
-                let mut s_msg: Vec<u8> = Vec::new();
-                s_msg.extend(&room_id.to_le_bytes()); // +0..+8 room ID
-                s_msg.extend(&from.0.to_le_bytes()); // +8..+10 member ID
-                s_msg.extend(&port_p2p.to_be_bytes()); // +10..+12 port
-                s_msg.extend(&addr_p2p); // +12..+16 addr
-                let mut s_notif = Client::create_notification(NotificationType::SignalP2PConnect, &s_msg);
                 self.send_notification(&s_notif, &user_ids).await;
 
                 // Notifies user that connection has been established with all other occupants
@@ -621,9 +627,34 @@ impl Client {
                         }
                         if tosend {
                             self.self_notification(&s_notif); // Special function that will post the notification after the reply
-                                                              // self.send_notification(&s_notif, &self_id).await;
                         }
                     }
+                }
+            }
+            SignalingType::SignalingStar => {
+                let mut hub = sig_param.get_hub();
+                if hub == 0 {
+                    hub = owner;
+                }
+                // Sends notification to hub
+                let user_ids: HashSet<i64> = to.iter().filter_map(|x| if *x.0 == hub { Some(x.1.clone()) } else { None }).collect();
+                self.send_notification(&s_notif, &user_ids).await;
+                // Send notification to user to connect to hub
+                let mut tosend = false;
+                {
+                    let sig_infos = self.signaling_infos.read();
+                    let user_si = sig_infos.get(to.get(&hub).unwrap());
+
+                    if let Some(user_si) = user_si {
+                        s_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&hub.to_le_bytes());
+                        s_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_be_bytes());
+                        s_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
+
+                        tosend = true;
+                    }
+                }
+                if tosend {
+                    self.self_notification(&s_notif); // Special function that will post the notification after the reply
                 }
             }
             _ => panic!("Unimplemented SignalingType({:?})", sig_param.get_type()),
@@ -721,7 +752,7 @@ impl Client {
         if let Ok(join_req) = data.get_flatbuffer::<JoinRoomRequest>() {
             let room_id = join_req.roomId();
             let user_ids: HashSet<i64>;
-            let (notif, member_id, users, siginfo);
+            let (notif, member_id, users, siginfo, owner);
             {
                 let mut room_manager = self.room_manager.write();
                 if !room_manager.room_exists(room_id) {
@@ -734,6 +765,7 @@ impl Client {
                     let room = room_manager.get_room(room_id.clone());
                     users = room.get_room_users();
                     siginfo = room.get_signaling_info();
+                    owner = room.get_owner();
                 }
 
                 let resp = room_manager.join_room(&join_req, &self.client_info);
@@ -764,7 +796,7 @@ impl Client {
             self.send_notification(&notif, &user_ids).await;
 
             // Send signaling stuff if any
-            self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo).await;
+            self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo, owner).await;
         } else {
             self.log("Error while extracting data from JoinRoom command");
             reply.push(ErrorType::Malformed as u8);

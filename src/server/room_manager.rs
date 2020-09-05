@@ -191,7 +191,10 @@ impl SignalParam {
         }
     }
     pub fn get_type(&self) -> SignalingType {
-        return self.sig_type.clone();
+        self.sig_type.clone()
+    }
+    pub fn get_hub(&self) -> u16 {
+        self.hub_member_id
     }
 }
 
@@ -609,6 +612,9 @@ impl Room {
         }
 
         Err(ErrorType::NotFound as u8)
+    }
+    pub fn get_owner(&self) -> u16 {
+        self.owner
     }
 
     pub fn is_match(&self, req: &SearchRoomRequest) -> bool {
