@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -73,7 +74,10 @@ pub struct RoomMemberBinAttr {
 impl RoomMemberBinAttr {
     pub fn from_flatbuffer(fb: &BinAttr) -> RoomMemberBinAttr {
         let data = RoomBinAttr::from_flatbuffer(fb);
-        RoomMemberBinAttr { update_date: 0, data }
+        RoomMemberBinAttr {
+            update_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
+            data,
+        }
     }
 
     pub fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<MemberBinAttrInternal<'a>> {
@@ -91,7 +95,7 @@ impl RoomBinAttrInternal {
     pub fn from_flatbuffer(fb: &BinAttr) -> RoomBinAttrInternal {
         let data = RoomBinAttr::from_flatbuffer(fb);
         RoomBinAttrInternal {
-            update_date: 0,
+            update_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
             update_member_id: 1,
             data,
         }
@@ -232,7 +236,7 @@ impl RoomUser {
             npid: String::new(),
             online_name: String::new(),
             avatar_url: String::new(),
-            join_date: 0, // TODO
+            join_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
             flag_attr: 0,
 
             group_id,
@@ -260,7 +264,7 @@ impl RoomUser {
             npid: String::new(),
             online_name: String::new(),
             avatar_url: String::new(),
-            join_date: 0, // TODO
+            join_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
             flag_attr: 0,
 
             group_id,
