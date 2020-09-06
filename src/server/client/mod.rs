@@ -1,3 +1,5 @@
+mod ticket;
+
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -12,6 +14,7 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_rustls::server::TlsStream;
 
+use crate::server::client::ticket::Ticket;
 use crate::server::database::DatabaseManager;
 use crate::server::log::LogManager;
 use crate::server::room_manager::{RoomManager, SignalParam, SignalingType};
@@ -87,6 +90,7 @@ enum CommandType {
     PingRoomOwner,
     SendRoomMessage,
     RequestSignalingInfos,
+    RequestTicket,
     UpdateDomainBans = 0x0100,
 }
 
@@ -343,6 +347,7 @@ impl Client {
             CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
             CommandType::SendRoomMessage => return self.req_send_room_message(data, reply).await,
             CommandType::RequestSignalingInfos => return self.req_signaling_infos(data, reply),
+            CommandType::RequestTicket => return self.req_ticket(data, reply),
             CommandType::UpdateDomainBans => return self.req_admin_update_domain_bans(),
             _ => {
                 self.log("Unknown command received");
@@ -1112,7 +1117,7 @@ impl Client {
     fn req_signaling_infos(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         let npid = data.get_string(false);
         if data.error() || npid.len() > 16 {
-            self.log("Error while extracting data from GetSignalingInfos command");
+            self.log("Error while extracting data from RequestSignalingInfos command");
             reply.push(ErrorType::Malformed as u8);
             return Err(());
         }
@@ -1129,9 +1134,29 @@ impl Client {
             reply.push(ErrorType::NoError as u8);
             reply.extend(&entry.addr_p2p);
             reply.extend(&((entry.port_p2p).to_le_bytes()));
+            self.log_verbose(&format!("Requesting signaling infos for {} => {:?}:{}", &npid, &entry.addr_p2p, entry.port_p2p));
         } else {
             reply.push(ErrorType::NotFound as u8);
         }
+
+        Ok(())
+    }
+    fn req_ticket(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+        let service_id = data.get_string(false);
+        if data.error() {
+            self.log("Error while extracting data from RequestTicket command");
+            reply.push(ErrorType::Malformed as u8);
+            return Err(());
+        }
+
+        self.log_verbose(&format!("Requested a ticket for <{}>", service_id));
+
+        let ticket = Ticket::new(self.client_info.user_id as u64, &self.client_info.npid, &service_id);
+        let ticket_blob = ticket.generate_blob();
+
+        reply.push(ErrorType::NoError as u8);
+        reply.extend(&(ticket_blob.len() as u32).to_le_bytes());
+        reply.extend(ticket_blob);
 
         Ok(())
     }

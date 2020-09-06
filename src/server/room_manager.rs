@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
-use std::collections::{HashMap, HashSet, VecDeque, BTreeMap};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -75,7 +75,7 @@ impl RoomMemberBinAttr {
     pub fn from_flatbuffer(fb: &BinAttr) -> RoomMemberBinAttr {
         let data = RoomBinAttr::from_flatbuffer(fb);
         RoomMemberBinAttr {
-            update_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
+            update_date: get_time_stamp(),
             data,
         }
     }
@@ -95,7 +95,7 @@ impl RoomBinAttrInternal {
     pub fn from_flatbuffer(fb: &BinAttr) -> RoomBinAttrInternal {
         let data = RoomBinAttr::from_flatbuffer(fb);
         RoomBinAttrInternal {
-            update_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
+            update_date: get_time_stamp(),
             update_member_id: 1,
             data,
         }
@@ -236,7 +236,7 @@ impl RoomUser {
             npid: String::new(),
             online_name: String::new(),
             avatar_url: String::new(),
-            join_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
+            join_date: get_time_stamp(),
             flag_attr: 0,
 
             group_id,
@@ -264,7 +264,7 @@ impl RoomUser {
             npid: String::new(),
             online_name: String::new(),
             avatar_url: String::new(),
-            join_date: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(),
+            join_date: get_time_stamp(),
             flag_attr: 0,
 
             group_id,
@@ -1070,4 +1070,8 @@ impl RoomManager {
 
         Some(self.user_rooms.get(&user).unwrap().clone())
     }
+}
+
+fn get_time_stamp() -> u64 {
+    (SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_micros() + (62135596800 * 1000 * 1000)) as u64
 }
