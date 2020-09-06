@@ -2,7 +2,7 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque, BTreeMap};
 use std::sync::Arc;
 use std::time::SystemTime;
 
@@ -332,7 +332,7 @@ pub struct Room {
     // Data not from stream
     server_id: u16,
     room_id: u64,
-    users: HashMap<u16, RoomUser>,
+    users: BTreeMap<u16, RoomUser>,
     user_cnt: u16,
     owner: u16,
 
@@ -420,7 +420,7 @@ impl Room {
             blocked_users,
             signaling_param,
             server_id: 0,
-            users: HashMap::new(),
+            users: BTreeMap::new(),
             user_cnt: 0,
             owner: 0,
             owner_succession: VecDeque::new(),
