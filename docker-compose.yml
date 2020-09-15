@@ -1,0 +1,18 @@
+version: "3"
+
+services:
+  rpcn:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: rpcn
+    image: rpcn
+    restart: always
+    #ports:
+    #  - "31313:31313"
+    #  - "3657:3657"
+    volumes:
+      - /home/coltonsmith/apps/rpcn/db:/app/rpcn/db
+      - /home/coltonsmith/apps/rpcn/log:/app/rpcn/log
+      - /etc/localtime:/etc/localtime:ro
+    network_mode: host
