@@ -1,5 +1,6 @@
+use std::collections::{HashMap, HashSet};
+use std::convert::TryInto;
 use std::env;
-use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -7,42 +8,45 @@ use clap;
 use clap::{App, Arg};
 
 mod server;
+use server::client::ComId;
 use server::Server;
 
 pub struct Config {
-    create_empty: bool,    // Creates servers/worlds/lobbies if the client queries for ones but there are none
+    create_missing: bool,  // Creates servers/worlds/lobbies if the client queries for ones but there are none or specific id queries
     email_validated: bool, // Requires email validation
     run_udp_server: bool,
     verbose: bool,
     host: String,
     port: String,
-    banned_domains: HashSet<String>,
     email_host: String,
     email_login: String,
     email_password: String,
+    banned_domains: HashSet<String>,
+    server_redirs: HashMap<ComId, ComId>,
 }
 
 impl Config {
     pub fn new() -> Config {
         Config {
-            create_empty: true,
+            create_missing: true,
             email_validated: true,
             run_udp_server: true,
             verbose: false,
             host: "0.0.0.0".to_string(),
             port: "31313".to_string(),
-            banned_domains: HashSet::new(),
             email_host: String::new(),
             email_login: String::new(),
             email_password: String::new(),
+            banned_domains: HashSet::new(),
+            server_redirs: HashMap::new(),
         }
     }
 
-    pub fn set_create_empty(&mut self, create_empty: bool) {
-        self.create_empty = create_empty;
+    pub fn set_create_missing(&mut self, create_missing: bool) {
+        self.create_missing = create_missing;
     }
-    pub fn is_create_empty(&self) -> bool {
-        self.create_empty
+    pub fn is_create_missing(&self) -> bool {
+        self.create_missing
     }
 
     pub fn set_email_validated(&mut self, email_validated: bool) {
@@ -105,6 +109,34 @@ impl Config {
     pub fn is_banned_domain(&self, domain: &str) -> bool {
         self.banned_domains.contains(domain)
     }
+
+    pub fn load_server_redirections(&mut self) {
+        if let Ok(file_redirs) = File::open("server_redirs.txt") {
+            let br = BufReader::new(file_redirs);
+            self.server_redirs = br
+                .lines()
+                .filter_map(|x| {
+                    if let Ok(line_str) = x {
+                        let parsed: Vec<&[u8]> = line_str.trim().split("=>").map(|x| x.as_bytes()).collect();
+                        if parsed.len() != 2 || parsed[0].len() != 9 || parsed[1].len() != 9 {
+                            None
+                        } else {
+                            Some((parsed[0].try_into().unwrap(), parsed[1].try_into().unwrap()))
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+        }
+    }
+
+    pub fn get_server_redirection(&self, com_id: ComId) -> ComId {
+        match self.server_redirs.get(&com_id) {
+            Some(redir) => redir.clone(),
+            None => com_id,
+        }
+    }
 }
 
 fn main() {
@@ -126,7 +158,7 @@ fn main() {
     let mut config = Config::new();
 
     if matches.is_present("nocreate") {
-        config.set_create_empty(false);
+        config.set_create_missing(false);
     }
 
     if matches.is_present("noemail") {
@@ -156,7 +188,16 @@ fn main() {
         }
     }
 
+    let subscriber = tracing_subscriber::FmtSubscriber::builder()
+        .with_max_level(tracing::Level::TRACE)
+        .without_time()
+        .with_target(true)
+        .with_ansi(true)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("Setting default subscriber failed!");
+
     config.load_domains_banlist();
+    config.load_server_redirections();
 
     let mut serv = Server::new(config);
 
