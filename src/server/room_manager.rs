@@ -3,16 +3,14 @@
 #![allow(non_camel_case_types)]
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::sync::Arc;
 use std::time::SystemTime;
 
+use tracing::warn;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use parking_lot::Mutex;
 use rand::Rng;
 
-use crate::server::client::{ClientInfo, ErrorType, EventCause};
-use crate::server::log::LogManager;
+use crate::server::client::{ClientInfo, ComId, ErrorType, EventCause};
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 
@@ -36,6 +34,8 @@ enum SceNpMatching2FlagAttr {
     SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION = 0x04000000,
     SCE_NP_MATCHING2_ROOM_FLAG_ATTR_PROHIBITIVE_MODE = 0x02000000,
 }
+
+const SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER: u32 = 0x80000000;
 
 #[repr(u8)]
 #[derive(FromPrimitive, Clone, Debug)]
@@ -74,10 +74,7 @@ pub struct RoomMemberBinAttr {
 impl RoomMemberBinAttr {
     pub fn from_flatbuffer(fb: &BinAttr) -> RoomMemberBinAttr {
         let data = RoomBinAttr::from_flatbuffer(fb);
-        RoomMemberBinAttr {
-            update_date: get_time_stamp(),
-            data,
-        }
+        RoomMemberBinAttr { update_date: get_time_stamp(), data }
     }
 
     pub fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<MemberBinAttrInternal<'a>> {
@@ -749,55 +746,52 @@ impl Room {
 }
 
 pub struct RoomManager {
-    rooms: HashMap<u64, Room>, // roomid/roomdata
-    room_cnt: u64,
-    world_rooms: HashMap<u32, HashSet<u64>>, // worldid/roomids
-    lobby_rooms: HashMap<u64, HashSet<u64>>, // lobbyid/roomids
-    user_rooms: HashMap<i64, HashSet<u64>>,  // List of user / list of rooms
-    log_manager: Arc<Mutex<LogManager>>,
+    rooms: HashMap<(ComId, u64), Room>,               // (com_id, roomid)/roomdata
+    room_cnt: HashMap<ComId, u64>,                    // counter per com_id
+    world_rooms: HashMap<(ComId, u32), HashSet<u64>>, // (com_id, worldid)/roomids
+    lobby_rooms: HashMap<(ComId, u64), HashSet<u64>>, // (com_id, lobbyid)/roomids
+    user_rooms: HashMap<i64, HashSet<(ComId, u64)>>,  // List of user / list of rooms
 }
 
 impl RoomManager {
-    pub fn new(log_manager: Arc<Mutex<LogManager>>) -> RoomManager {
+    pub fn new() -> RoomManager {
         RoomManager {
             rooms: HashMap::new(),
-            room_cnt: 0,
+            room_cnt: HashMap::new(),
             world_rooms: HashMap::new(),
             lobby_rooms: HashMap::new(),
             user_rooms: HashMap::new(),
-            log_manager,
         }
     }
 
-    fn log(&self, s: &str) {
-        self.log_manager.lock().write(&format!("RoomManager: {}", s));
+    pub fn room_exists(&self, com_id: &ComId, room_id: u64) -> bool {
+        return self.rooms.contains_key(&(*com_id, room_id));
+    }
+    pub fn get_room(&self, com_id: &ComId, room_id: u64) -> &Room {
+        return self.rooms.get(&(*com_id, room_id)).unwrap();
+    }
+    pub fn get_mut_room(&mut self, com_id: &ComId, room_id: u64) -> &mut Room {
+        return self.rooms.get_mut(&(*com_id, room_id)).unwrap();
     }
 
-    pub fn room_exists(&self, room_id: u64) -> bool {
-        return self.rooms.contains_key(&room_id);
-    }
-    pub fn get_room(&self, room_id: u64) -> &Room {
-        return self.rooms.get(&room_id).unwrap();
-    }
-    pub fn get_mut_room(&mut self, room_id: u64) -> &mut Room {
-        return self.rooms.get_mut(&room_id).unwrap();
-    }
-
-    pub fn get_corresponding_world(&self, room_id: u64) -> Result<u32, u8> {
-        if !self.room_exists(room_id) {
+    pub fn get_room_infos(&self, com_id: &ComId, room_id: u64) -> Result<(u16, u32, u64), u8> {
+        if !self.room_exists(com_id, room_id) {
             return Err(ErrorType::NotFound as u8);
         }
-        Ok(self.get_room(room_id).world_id)
+
+        let room = self.get_room(com_id, room_id);
+        Ok((room.server_id, room.world_id, room.lobby_id))
     }
 
-    pub fn create_room(&mut self, req: &CreateJoinRoomRequest, cinfo: &ClientInfo, server_id: u16) -> Vec<u8> {
-        self.room_cnt += 1;
+    pub fn create_room(&mut self, com_id: &ComId, req: &CreateJoinRoomRequest, cinfo: &ClientInfo, server_id: u16) -> Vec<u8> {
+        let room_cnt = self.room_cnt.entry(*com_id).or_insert(0);
+        *room_cnt += 1;
 
         // Creates the room from input fb
         let mut room = Room::from_flatbuffer(req);
         room.user_cnt += 1;
         room.owner = room.user_cnt;
-        room.room_id = self.room_cnt;
+        room.room_id = *room_cnt;
         room.server_id = server_id;
         // Add the user as its owner
         let mut room_user = RoomUser::from_CreateJoinRoomRequest(req);
@@ -806,32 +800,33 @@ impl RoomManager {
         room_user.online_name = cinfo.online_name.clone();
         room_user.avatar_url = cinfo.avatar_url.clone();
         room_user.member_id = room.user_cnt;
+        room_user.flag_attr = SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER;
         // TODO: Group Label, joindate
         room.users.insert(room.user_cnt, room_user);
 
         if room.lobby_id == 0 {
-            let daset = self.world_rooms.entry(room.world_id).or_insert(HashSet::new());
-            daset.insert(self.room_cnt);
+            let daset = self.world_rooms.entry((*com_id, room.world_id)).or_insert(HashSet::new());
+            daset.insert(*room_cnt);
         } else {
-            let daset = self.lobby_rooms.entry(room.lobby_id).or_insert(HashSet::new());
-            daset.insert(self.room_cnt);
+            let daset = self.lobby_rooms.entry((*com_id, room.lobby_id)).or_insert(HashSet::new());
+            daset.insert(*room_cnt);
         }
 
-        self.rooms.insert(self.room_cnt, room);
+        self.rooms.insert((*com_id, *room_cnt), room);
         let user_set = self.user_rooms.entry(cinfo.user_id).or_insert(HashSet::new());
-        user_set.insert(self.room_cnt);
+        user_set.insert((*com_id, *room_cnt));
 
         // Prepare roomDataInternal
         let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
-        let room_data = self.rooms[&self.room_cnt].to_RoomDataInternal(&mut builder);
+        let room_data = self.rooms[&(*com_id, *room_cnt)].to_RoomDataInternal(&mut builder);
 
         builder.finish(room_data, None);
         builder.finished_data().to_vec()
     }
 
-    pub fn join_room(&mut self, req: &JoinRoomRequest, cinfo: &ClientInfo) -> Result<(u16, Vec<u8>), u8> {
-        // TODO: Check password, presence & group label, set join date
-        let room = self.rooms.get_mut(&req.roomId()).unwrap();
+    pub fn join_room(&mut self, com_id: &ComId, req: &JoinRoomRequest, cinfo: &ClientInfo) -> Result<(u16, Vec<u8>), u8> {
+        // TODO: Check password, presence & group label
+        let room = self.rooms.get_mut(&(*com_id, req.roomId())).unwrap();
         room.user_cnt += 1;
         let mut room_user = RoomUser::from_JoinRoomRequest(req);
         room_user.user_id = cinfo.user_id;
@@ -848,7 +843,7 @@ impl RoomManager {
         }
 
         let user_set = self.user_rooms.entry(cinfo.user_id).or_insert(HashSet::new());
-        user_set.insert(room.room_id);
+        user_set.insert((*com_id, room.room_id));
 
         let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
         let room_data = room.to_RoomDataInternal(&mut builder);
@@ -857,24 +852,24 @@ impl RoomManager {
         Ok((room.user_cnt, builder.finished_data().to_vec()))
     }
 
-    pub fn leave_room(&mut self, room_id: u64, user_id: i64) -> Result<(bool, HashSet<i64>), u8> {
-        if !self.room_exists(room_id) {
-            self.log("Attempted to leave a non existing room");
+    pub fn leave_room(&mut self, com_id: &ComId, room_id: u64, user_id: i64) -> Result<(bool, HashSet<i64>), u8> {
+        if !self.room_exists(com_id, room_id) {
+            warn!("Attempted to leave a non existing room");
             return Err(ErrorType::NotFound as u8);
         }
 
         if let Some(user_set) = self.user_rooms.get_mut(&user_id) {
-            if let None = user_set.get(&room_id) {
-                self.log("Couldn't find the room in the user user_rooms set");
+            if let None = user_set.get(&(*com_id, room_id)) {
+                warn!("Couldn't find the room in the user user_rooms set");
                 return Err(ErrorType::NotFound as u8);
             }
-            user_set.remove(&room_id);
+            user_set.remove(&(*com_id, room_id));
         } else {
-            self.log("Couldn't find the user in the user_rooms list");
+            warn!("Couldn't find the user in the user_rooms list");
             return Err(ErrorType::NotFound as u8);
         }
 
-        let room = self.get_mut_room(room_id);
+        let room = self.get_mut_room(com_id, room_id);
         let member_id = room.find_user(user_id);
         assert!(member_id != 0); // This should never happen as it would mean user_rooms is incoherent
 
@@ -900,6 +895,7 @@ impl RoomManager {
                 if room.users.contains_key(&s) {
                     found_successor = true;
                     room.owner = s;
+                    room.users.entry(s).and_modify(|e| e.flag_attr |= SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER);
                     break;
                 }
             }
@@ -922,19 +918,19 @@ impl RoomManager {
                 let lobby_id = room.lobby_id;
                 let world_id = room.world_id;
                 if lobby_id == 0 {
-                    self.world_rooms.get_mut(&world_id).unwrap().remove(&room_id);
+                    self.world_rooms.get_mut(&(*com_id, world_id)).unwrap().remove(&room_id);
                 } else {
-                    self.lobby_rooms.get_mut(&lobby_id).unwrap().remove(&room_id);
+                    self.lobby_rooms.get_mut(&(*com_id, lobby_id)).unwrap().remove(&room_id);
                 }
                 // Remove from global room list
-                self.rooms.remove(&room_id);
+                self.rooms.remove(&(*com_id, room_id));
                 return Ok((true, user_list));
             }
         }
 
         Ok((false, user_list))
     }
-    pub fn search_room(&self, req: &SearchRoomRequest) -> Vec<u8> {
+    pub fn search_room(&self, com_id: &ComId, req: &SearchRoomRequest) -> Vec<u8> {
         let world_id = req.worldId();
         let lobby_id = req.lobbyId();
         let startindex = req.rangeFilter_startIndex();
@@ -942,9 +938,9 @@ impl RoomManager {
 
         let mut list = None;
         if world_id != 0 {
-            list = self.world_rooms.get(&world_id);
+            list = self.world_rooms.get(&(*com_id, world_id));
         } else if lobby_id != 0 {
-            list = self.lobby_rooms.get(&lobby_id);
+            list = self.lobby_rooms.get(&(*com_id, lobby_id));
         }
 
         let mut matching_rooms = Vec::new();
@@ -953,7 +949,7 @@ impl RoomManager {
 
         if let Some(room_list) = list {
             for room_id in room_list.iter() {
-                let room = self.get_room(*room_id);
+                let room = self.get_room(com_id, *room_id);
                 if room.is_match(req) {
                     matching_rooms.push(room);
                     num_found += 1;
@@ -987,11 +983,11 @@ impl RoomManager {
         builder.finished_data().to_vec()
     }
 
-    pub fn set_roomdata_external(&mut self, req: &SetRoomDataExternalRequest) -> Result<(), u8> {
-        if !self.room_exists(req.roomId()) {
+    pub fn set_roomdata_external(&mut self, com_id: &ComId, req: &SetRoomDataExternalRequest) -> Result<(), u8> {
+        if !self.room_exists(com_id, req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
-        let room = self.get_mut_room(req.roomId());
+        let room = self.get_mut_room(com_id, req.roomId());
 
         let mut bin_attr_external: Vec<RoomBinAttr> = Vec::new();
         let mut search_bin_attr: Vec<RoomBinAttr> = Vec::new();
@@ -1019,11 +1015,11 @@ impl RoomManager {
 
         Ok(())
     }
-    pub fn get_roomdata_internal(&self, req: &GetRoomDataInternalRequest) -> Result<Vec<u8>, u8> {
-        if !self.room_exists(req.roomId()) {
+    pub fn get_roomdata_internal(&self, com_id: &ComId, req: &GetRoomDataInternalRequest) -> Result<Vec<u8>, u8> {
+        if !self.room_exists(com_id, req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
-        let room = self.get_room(req.roomId());
+        let room = self.get_room(com_id, req.roomId());
 
         // TODO: only retrieve specified values
 
@@ -1034,11 +1030,11 @@ impl RoomManager {
 
         Ok(builder.finished_data().to_vec())
     }
-    pub fn set_roomdata_internal(&mut self, req: &SetRoomDataInternalRequest) -> Result<(), u8> {
-        if !self.room_exists(req.roomId()) {
+    pub fn set_roomdata_internal(&mut self, com_id: &ComId, req: &SetRoomDataInternalRequest) -> Result<(), u8> {
+        if !self.room_exists(com_id, req.roomId()) {
             return Err(ErrorType::NotFound as u8);
         }
-        let room = self.get_mut_room(req.roomId());
+        let room = self.get_mut_room(com_id, req.roomId());
 
         let flag_filter = req.flagFilter();
         let flag_attr = req.flagAttr();
@@ -1063,7 +1059,7 @@ impl RoomManager {
         Ok(())
     }
 
-    pub fn get_rooms_by_user(&self, user: i64) -> Option<HashSet<u64>> {
+    pub fn get_rooms_by_user(&self, user: i64) -> Option<HashSet<(ComId, u64)>> {
         if !self.user_rooms.contains_key(&user) {
             return None;
         }

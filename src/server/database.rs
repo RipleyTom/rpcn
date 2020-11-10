@@ -1,19 +1,18 @@
 use std::fs;
 use std::sync::Arc;
 
-use parking_lot::Mutex;
+use tracing::{info, warn, error};
 use parking_lot::RwLock;
 use rand::prelude::*;
 use rusqlite;
 use rusqlite::NO_PARAMS;
 
-use crate::server::log::LogManager;
+use crate::server::client::{com_id_to_string, ComId};
 use crate::Config;
 
 pub struct DatabaseManager {
     config: Arc<RwLock<Config>>,
     conn: rusqlite::Connection,
-    log_manager: Arc<Mutex<LogManager>>,
 }
 
 #[derive(Debug)]
@@ -40,56 +39,54 @@ pub struct UserQueryResult {
 }
 
 impl DatabaseManager {
-    pub fn new(config: Arc<RwLock<Config>>, log_manager: Arc<Mutex<LogManager>>) -> DatabaseManager {
+    pub fn new(config: Arc<RwLock<Config>>) -> DatabaseManager {
         let _ = fs::create_dir("db");
 
-        let conn = rusqlite::Connection::open("db/rpcnv3.db").expect("Failed to open \"db/rpcnv3.db\"!");
+        let conn = rusqlite::Connection::open("db/rpcnv4.db").expect("Failed to open \"db/rpcnv4.db\"!");
         conn.execute(
             "CREATE TABLE IF NOT EXISTS users ( userId INTEGER PRIMARY KEY NOT NULL, username TEXT NOT NULL COLLATE NOCASE, hash BLOB NOT NULL, salt BLOB NOT NULL, online_name TEXT NOT NULL, avatar_url TEXT NOT NULL, email TEXT NOT NULL, token TEXT NOT NULL, flags UNSIGNED SMALLINT NOT NULL)",
             NO_PARAMS,
         )
         .expect("Failed to create users table!");
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS servers ( serverId UNSIGNED SMALLINT PRIMARY KEY NOT NULL, communicationId TEXT NOT NULL)",
+            "CREATE TABLE IF NOT EXISTS servers ( communicationId TEXT NOT NULL, serverId UNSIGNED SMALLINT NOT NULL, PRIMARY KEY(communicationId, serverId))",
             NO_PARAMS,
         )
         .expect("Failed to create servers table!");
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS worlds ( worldId UNSIGNED INT PRIMARY KEY NOT NULL, serverId UNSIGNED TINY INT NOT NULL, FOREIGN KEY(serverId) REFERENCES servers(serverId))",
+            "CREATE TABLE IF NOT EXISTS worlds ( communicationId TEXT NOT NULL, serverId UNSIGNED SMALLINT NOT NULL, worldId UNSIGNED INT NOT NULL, PRIMARY KEY(communicationId, worldId), FOREIGN KEY(communicationId, serverId) REFERENCES servers(communicationId, serverId))",
             NO_PARAMS,
         )
         .expect("Failed to create worlds table!");
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS lobbies ( lobbyId UNSIGNED BIGINT PRIMARY KEY NOT NULL, worldId UNSIGNED INT NOT NULL, FOREIGN KEY(worldId) REFERENCES worlds(worldId))",
+            "CREATE TABLE IF NOT EXISTS lobbies ( communicationId TEXT NOT NULL, worldId UNSIGNED INT NOT NULL, lobbyId UNSIGNED BIGINT NOT NULL, PRIMARY KEY(communicationId, lobbyId), FOREIGN KEY(communicationId, worldId) REFERENCES worlds(communicationId, worldId))",
             NO_PARAMS,
         )
         .expect("Failed to create lobbies table!");
-        DatabaseManager { config, conn, log_manager }
-    }
-
-    fn log(&self, s: &str) {
-        self.log_manager.lock().write(&format!("DB: {}", s));
+        DatabaseManager { config, conn }
     }
 
     pub fn add_user(&mut self, username: &str, password: &str, online_name: &str, avatar_url: &str, email: &str, check_email: &str) -> Result<String, DbError> {
         let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE username=?1", rusqlite::params![username], |r| r.get(0));
         if let Err(e) = count {
-            self.log(&format!("Unexpected error querying username count: {}", e));
+            error!("Unexpected error querying username count: {}", e);
             return Err(DbError::Internal);
         }
         if count.unwrap() != 0 {
-            self.log(&format!("Attempted to create an already existing user({})", username));
+            warn!("Attempted to create an already existing user({})", username);
             return Err(DbError::Existing);
         }
 
         let email_lower = check_email.to_ascii_lowercase();
-        let count_email: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(*) FROM users WHERE lower(email) LIKE ?1", rusqlite::params![email_lower], |r| r.get(0));
+        let count_email: rusqlite::Result<i64> = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM users WHERE lower(email) LIKE ?1", rusqlite::params![email_lower], |r| r.get(0));
         if let Err(e) = count_email {
-            self.log(&format!("Unexpected error querying email count: {}", e));
+            error!("Unexpected error querying email count: {}", e);
             return Err(DbError::Internal);
         }
         if count_email.unwrap() != 0 {
-            self.log(&format!("Attempted to create an account with an already existing email({})", email));
+            warn!("Attempted to create an account with an already existing email({})", email);
             return Err(DbError::Existing);
         }
 
@@ -116,7 +113,7 @@ impl DatabaseManager {
             "INSERT INTO users ( username, hash, salt, online_name, avatar_url, email, token, flags ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8 )",
             rusqlite::params![username, hash, salt_slice, online_name, avatar_url, email, token_str, flags],
         ) {
-            self.log(&format!("Unexpected error inserting a new user: {}", e));
+            error!("Unexpected error inserting a new user: {}", e);
             Err(DbError::Internal)
         } else {
             Ok(token_str)
@@ -142,11 +139,11 @@ impl DatabaseManager {
 
         if let Err(e) = res {
             if e == rusqlite::Error::QueryReturnedNoRows {
-                self.log(&format!("No row for username {} found", username));
+                warn!("No row for username {} found", username);
                 return Err(DbError::Empty);
             }
 
-            self.log(&format!("Unexpected error querying username row: {}", e));
+            error!("Unexpected error querying username row: {}", e);
             return Err(DbError::Internal);
         }
 
@@ -168,97 +165,142 @@ impl DatabaseManager {
         Ok(res)
     }
     pub fn get_user_id(&mut self, npid: &str) -> Result<i64, DbError> {
-        let res: rusqlite::Result<i64> = self.conn.query_row(
-            "SELECT userId FROM users WHERE username=?1",
-            rusqlite::params![npid],
-            |r| { Ok(r.get(0).unwrap()) });
+        let res: rusqlite::Result<i64> = self.conn.query_row("SELECT userId FROM users WHERE username=?1", rusqlite::params![npid], |r| Ok(r.get(0).unwrap()));
 
         if let Err(e) = res {
             if e == rusqlite::Error::QueryReturnedNoRows {
-                self.log(&format!("Attempted to get the user id of non existent username {}", npid));
+                warn!("Attempted to get the user id of non existent username {}", npid);
                 return Err(DbError::Empty);
             }
-            self.log(&format!("Unexpected error querying user id: {}", e));
+            error!("Unexpected error querying user id: {}", e);
             return Err(DbError::Internal);
         }
 
         Ok(res.unwrap())
     }
-    pub fn get_server_list(&mut self, communication_id: &str) -> Result<Vec<u16>, DbError> {
+    pub fn create_server(&mut self, com_id: &ComId, server_id: u16) -> Result<(), DbError> {
+        let com_id_str = com_id_to_string(com_id);
+
+        if server_id == 0 {
+            warn!("Attempted to create an invalid server(0) for {}", com_id_str);
+            return Err(DbError::Internal);
+        }
+
+        info!("Creating server {} for {}", server_id, com_id_str);
+        if let Err(e) = self
+            .conn
+            .execute("INSERT INTO servers ( communicationId, serverId ) VALUES (?1, ?2)", rusqlite::params!(com_id_str, server_id))
+        {
+            error!("Unexpected error creating server({}:{}): {}", &com_id_str, server_id, e);
+            return Err(DbError::Internal);
+        }
+
+        Ok(())
+    }
+
+    pub fn get_server_list(&mut self, com_id: &ComId) -> Result<Vec<u16>, DbError> {
+        let com_id_str = com_id_to_string(com_id);
         let mut list_servers = Vec::new();
         {
             let mut stmt = self.conn.prepare("SELECT serverId FROM servers WHERE communicationId=?1").unwrap();
-            let server_iter = stmt.query_map(rusqlite::params![communication_id], |r| r.get(0)).expect("Server query failed!");
+            let server_iter = stmt.query_map(rusqlite::params![com_id_str], |r| r.get(0)).expect("Server query failed!");
 
             for sid in server_iter {
                 list_servers.push(sid.unwrap());
             }
         }
 
-        if list_servers.len() == 0 && self.config.read().is_create_empty() {
-            // Create missing server
-            let cur_max_res: rusqlite::Result<u16> = self.conn.query_row("SELECT MAX(serverId) FROM servers", NO_PARAMS, |r| r.get(0));
-
-            let mut new_sid = 1;
-            if cur_max_res.is_ok() {
-                new_sid = cur_max_res.unwrap() + 1;
-            }
-
-            self.log(&format!("Creating a server for {}", communication_id));
-            self.conn
-                .execute("INSERT INTO servers ( serverId, communicationId ) VALUES (?1, ?2)", rusqlite::params!(new_sid, communication_id))
-                .expect("Failed to insert server");
-            return self.get_server_list(communication_id);
+        if list_servers.len() == 0 && self.config.read().is_create_missing() {
+            // Creates a server so the server list is not empty
+            self.create_server(com_id, 1)?;
+            return self.get_server_list(com_id);
         }
 
         Ok(list_servers)
     }
-    pub fn get_world_list(&mut self, server_id: u16) -> Result<Vec<u32>, DbError> {
+    pub fn get_world_list(&mut self, com_id: &ComId, server_id: u16) -> Result<Vec<u32>, DbError> {
+        let com_id_str = com_id_to_string(com_id);
         // Ensures server exists
         {
-            let count: rusqlite::Result<i64> = self.conn.query_row("SELECT COUNT(1) FROM servers WHERE serverId=?1", rusqlite::params![server_id], |r| r.get(0));
+            let count: rusqlite::Result<i64> = self
+                .conn
+                .query_row("SELECT COUNT(1) FROM servers WHERE communicationId=?1 AND serverId=?2", rusqlite::params![com_id_str, server_id], |r| {
+                    r.get(0)
+                });
             if let Err(e) = count {
-                self.log(&format!("Unexpected error querying for server existence: {}", e));
+                error!("Unexpected error querying for server existence: {}", e);
                 return Err(DbError::Internal);
             }
 
             if count.unwrap() == 0 {
-                self.log(&format!("Attempted to query world list on an unexisting server({})", server_id));
-                return Err(DbError::Empty);
+                // Some games request a specifically hardcoded server, just create it for them
+                if self.config.read().is_create_missing() {
+                    self.create_server(com_id, server_id)?;
+                    return self.get_world_list(com_id, server_id);
+                } else {
+                    warn!("Attempted to query world list on an unexisting server({}:{})", &com_id_str, server_id);
+                    return Err(DbError::Empty);
+                }
             }
         }
 
         let mut list_worlds = Vec::new();
         {
-            let mut stmt = self.conn.prepare("SELECT worldId FROM worlds WHERE serverId=?1").unwrap();
-            let world_iter = stmt.query_map(rusqlite::params![server_id], |r| r.get(0)).expect("World query failed!");
+            let mut stmt = self.conn.prepare("SELECT worldId FROM worlds WHERE communicationId=?1 AND serverId=?2").unwrap();
+            let world_iter = stmt.query_map(rusqlite::params![com_id_str, server_id], |r| r.get(0)).expect("World query failed!");
 
             for wid in world_iter {
                 list_worlds.push(wid.unwrap());
             }
         }
 
-        if list_worlds.len() == 0 && self.config.read().is_create_empty() {
-            // Create missing world
-            let cur_max_res: rusqlite::Result<u16> = self.conn.query_row("SELECT MAX(worldId) FROM worlds", NO_PARAMS, |r| r.get(0));
+        if list_worlds.len() == 0 && self.config.read().is_create_missing() {
+            // Create a world so that the list is not empty
+            let cur_max_res: rusqlite::Result<u16> = self
+                .conn
+                .query_row("SELECT MAX(worldId) FROM worlds WHERE communicationId=?1", rusqlite::params![com_id_str], |r| r.get(0));
 
             let mut new_wid = 1;
             if cur_max_res.is_ok() {
                 new_wid = cur_max_res.unwrap() + 1;
             }
 
-            self.log(&format!("Creating a world for server id {}", server_id));
-            if let Err(e) = self.conn.execute("INSERT INTO worlds ( worldId, serverId ) VALUES (?1, ?2)", rusqlite::params!(new_wid, server_id)) {
-                self.log(&format!("Unexpected error inserting a world: {}", e));
+            info!("Creating world {} for server {}:{}", new_wid, &com_id_str, server_id);
+            if let Err(e) = self.conn.execute(
+                "INSERT INTO worlds ( communicationId, serverId, worldId ) VALUES (?1, ?2, ?3)",
+                rusqlite::params!(com_id_str, server_id, new_wid),
+            ) {
+                error!("Unexpected error inserting a world: {}", e);
                 return Err(DbError::Internal);
             }
-            return self.get_world_list(server_id);
+            return self.get_world_list(com_id, server_id);
         }
 
         Ok(list_worlds)
     }
-    pub fn get_corresponding_server(&mut self, world_id: u32) -> Result<u16, rusqlite::Error> {
-        let serv: rusqlite::Result<u16> = self.conn.query_row("SELECT (serverId) FROM worlds WHERE worldId = ?1", rusqlite::params![world_id], |r| r.get(0));
+    pub fn get_corresponding_server(&mut self, com_id: &ComId, world_id: u32, lobby_id: u64) -> Result<u16, rusqlite::Error> {
+        let com_id_str = com_id_to_string(com_id);
+
+        if world_id == 0 && lobby_id == 0 {
+            warn!("Attempted to get server for com_id {} from world(0) and lobby(0)", &com_id_str);
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+
+        let mut world_id = world_id;
+
+        if world_id == 0 {
+            world_id = self.conn.query_row(
+                "SELECT (worldId) FROM lobbies WHERE communicationId = ?1 AND lobbyId = ?2",
+                rusqlite::params![com_id_str, lobby_id as i64],
+                |r| r.get(0),
+            )?;
+        }
+
+        let serv: rusqlite::Result<u16> = self.conn.query_row(
+            "SELECT (serverId) FROM worlds WHERE communicationId = ?1 AND worldId = ?2",
+            rusqlite::params![com_id_str, world_id],
+            |r| r.get(0),
+        );
 
         serv
     }
