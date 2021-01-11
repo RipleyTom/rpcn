@@ -2,10 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::env;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
-
-use clap;
-use clap::{App, Arg};
+use std::io::Read;
+use std::str::FromStr;
 
 mod server;
 use server::client::ComId;
@@ -13,11 +11,11 @@ use server::Server;
 
 pub struct Config {
     create_missing: bool,  // Creates servers/worlds/lobbies if the client queries for ones but there are none or specific id queries
-    email_validated: bool, // Requires email validation
     run_udp_server: bool,
-    verbose: bool,
+    verbosity: tracing::Level,
     host: String,
     port: String,
+    email_validated: bool, // Requires email validation
     email_host: String,
     email_login: String,
     email_password: String,
@@ -29,81 +27,117 @@ impl Config {
     pub fn new() -> Config {
         Config {
             create_missing: true,
-            email_validated: true,
             run_udp_server: true,
-            verbose: false,
+            verbosity: tracing::Level::INFO,
             host: "0.0.0.0".to_string(),
             port: "31313".to_string(),
+            email_validated: false,
             email_host: String::new(),
             email_login: String::new(),
             email_password: String::new(),
             banned_domains: HashSet::new(),
             server_redirs: HashMap::new(),
         }
-    }
+	}
 
-    pub fn set_create_missing(&mut self, create_missing: bool) {
-        self.create_missing = create_missing;
-    }
+	pub fn load_config_file(&mut self) -> Result<(), std::io::Error> {
+		let mut file = File::open("rpcn.cfg")?;
+		let mut buf_file = String::new();
+		file.read_to_string(&mut buf_file)?;
+
+		let config_data: HashMap<&str, &str> = buf_file.lines().filter_map(|l| {
+			if l.is_empty() || l.chars().nth(0).unwrap() == '#' {
+				return None;
+			}
+
+			let name_and_value: Vec<&str> = l.trim().splitn(2, '=').collect();
+			if name_and_value.len() != 2 {
+				return None;
+			}
+			Some((name_and_value[0], name_and_value[1]))
+		}).collect();
+
+		let set_bool = |name: &str, d_bool: &mut bool| {
+			if let Some(data) = config_data.get(name) {
+				match data {
+					s if s.eq_ignore_ascii_case("true") => *d_bool = true,
+					s if s.eq_ignore_ascii_case("false") => *d_bool = false,
+					s => println!("Invalid value({}) for configuration entry {}, defaulting to {}", s, name, *d_bool),
+				}
+			} else {
+				println!("Configuration entry for {} was not found, defaulting to {}", name, d_bool);
+			}
+		};
+
+		let set_string = |name: &str, d_str: &mut String| {
+			if let Some(data) = config_data.get(name) {
+				*d_str = String::from(*data);
+			} else {
+				println!("Configuration entry for {} was not found, defaulting to {}", name, d_str);
+			}
+		};
+
+		let set_verbosity = |d_verbosity: &mut tracing::Level| {
+			if let Some(data) = config_data.get("Verbosity") {
+				if let Ok(level) = tracing::Level::from_str(data) {
+					*d_verbosity = level;
+				} else {
+					println!("Config value given for Verbosity({}) is invalid, defaulting to {}!", data, d_verbosity);
+				}
+			} else {
+				println!("Configuration entry for Verbosity was not found, defaulting to {}", d_verbosity);
+			}
+		};
+
+		set_bool("CreateMissing", &mut self.create_missing);
+		set_bool("RunUdpServer", &mut self.run_udp_server);
+		set_verbosity(&mut self.verbosity);
+		set_bool("EmailValidated", &mut self.email_validated);
+		set_string("EmailHost", &mut self.email_host);
+		set_string("EmailLogin", &mut self.email_login);
+		set_string("EmailPassword", &mut self.email_password);
+		set_string("Host", &mut self.host);
+		set_string("Port", &mut self.port);
+		set_string("EmailHost", &mut self.email_host);
+		set_string("EmailLogin", &mut self.email_login);
+		set_string("EmailPassword", &mut self.email_password);
+
+		Ok(())
+	}
+	
     pub fn is_create_missing(&self) -> bool {
         self.create_missing
     }
 
-    pub fn set_email_validated(&mut self, email_validated: bool) {
-        self.email_validated = email_validated;
-    }
     pub fn is_email_validated(&self) -> bool {
         self.email_validated
     }
 
-    pub fn set_run_udp_server(&mut self, udp_server: bool) {
-        self.run_udp_server = udp_server;
-    }
     pub fn is_run_udp_server(&self) -> bool {
         self.run_udp_server
     }
 
-    pub fn set_verbose(&mut self, verbose: bool) {
-        self.verbose = verbose;
-    }
-    pub fn is_verbose(&self) -> bool {
-        self.verbose
+    pub fn get_verbosity(&self) -> &tracing::Level {
+        &self.verbosity
     }
 
-    pub fn set_host(&mut self, host: &str) {
-        self.host = host.to_string();
-    }
     pub fn get_host(&self) -> &String {
         &self.host
     }
 
-    pub fn set_port(&mut self, port: &str) {
-        self.port = port.to_string();
-    }
     pub fn get_port(&self) -> &String {
         &self.port
     }
 
-    pub fn set_email_auth(&mut self, email_data: &str) -> Result<(), ()> {
-        let email_tokens: Vec<&str> = email_data.split("::").collect();
-        if email_tokens.len() != 3 {
-            return Err(());
-        }
-
-        self.email_host = String::from(email_tokens[0]);
-        self.email_login = String::from(email_tokens[1]);
-        self.email_password = String::from(email_tokens[2]);
-
-        Ok(())
-    }
     pub fn get_email_auth(&self) -> (String, String, String) {
         (self.email_host.clone(), self.email_login.clone(), self.email_password.clone())
     }
 
     pub fn load_domains_banlist(&mut self) {
-        if let Ok(file_emails) = File::open("domains_banlist.txt") {
-            let br = BufReader::new(file_emails);
-            self.banned_domains = br.lines().map(|x| x.unwrap().trim().to_string()).collect();
+        if let Ok(mut file_emails) = File::open("domains_banlist.txt") {
+			let mut buf_file = String::new();
+			let _ = file_emails.read_to_string(&mut buf_file);
+            self.banned_domains = buf_file.lines().map(|x| x.trim().to_string()).collect();
         }
     }
     pub fn is_banned_domain(&self, domain: &str) -> bool {
@@ -111,21 +145,18 @@ impl Config {
     }
 
     pub fn load_server_redirections(&mut self) {
-        if let Ok(file_redirs) = File::open("server_redirs.txt") {
-            let br = BufReader::new(file_redirs);
-            self.server_redirs = br
+        if let Ok(mut file_redirs) = File::open("server_redirs.txt") {
+			let mut buf_file = String::new();
+			let _ = file_redirs.read_to_string(&mut buf_file);
+            self.server_redirs = buf_file
                 .lines()
-                .filter_map(|x| {
-                    if let Ok(line_str) = x {
-                        let parsed: Vec<&[u8]> = line_str.trim().split("=>").map(|x| x.as_bytes()).collect();
+                .filter_map(|line| {
+                        let parsed: Vec<&[u8]> = line.trim().split("=>").map(|x| x.as_bytes()).collect();
                         if parsed.len() != 2 || parsed[0].len() != 9 || parsed[1].len() != 9 {
                             None
                         } else {
                             Some((parsed[0].try_into().unwrap(), parsed[1].try_into().unwrap()))
                         }
-                    } else {
-                        None
-                    }
                 })
                 .collect();
         }
@@ -140,56 +171,15 @@ impl Config {
 }
 
 fn main() {
-    let matches = App::new("RPCN")
-        .version(clap::crate_version!())
-        .author(clap::crate_authors!())
-        .about("Matchmaking server")
-        .arg(Arg::with_name("verbose").short("v").long("verbose").takes_value(false).help("Enables verbose output"))
-        .arg(Arg::with_name("nocreate").long("nocreate").takes_value(false).help("Disables automated creation on request"))
-        .arg(Arg::with_name("noemail").long("noemail").takes_value(false).help("Disables email validation"))
-        .arg(Arg::with_name("noudp").long("noudp").takes_value(false).help("Disables udp server"))
-        .arg(Arg::with_name("emailauth").long("emailauth").takes_value(true).help("Host::Login::Password for email"))
-        .arg(Arg::with_name("host").short("h").long("host").takes_value(true).help("Binding address(hostname)"))
-        .arg(Arg::with_name("port").short("p").long("port").takes_value(true).help("Binding port"))
-        .get_matches();
-
     println!("RPCN v{}", env!("CARGO_PKG_VERSION"));
 
-    let mut config = Config::new();
-
-    if matches.is_present("nocreate") {
-        config.set_create_missing(false);
-    }
-
-    if matches.is_present("noemail") {
-        config.set_email_validated(false);
-    }
-
-    if matches.is_present("noudp") {
-        config.set_run_udp_server(false);
-    }
-
-    if matches.is_present("verbose") {
-        config.set_verbose(true);
-    }
-
-    if let Some(p_host) = matches.value_of("host") {
-        config.set_host(p_host);
-    }
-
-    if let Some(p_port) = matches.value_of("port") {
-        config.set_port(p_port);
-    }
-
-    if let Some(email_data) = matches.value_of("emailauth") {
-        if config.set_email_auth(&email_data).is_err() {
-            println!("Invalid emailauth parameter used, expected Host::Login::Password");
-            return;
-        }
-    }
+	let mut config = Config::new();
+	if let Err(e) = config.load_config_file() {
+		println!("An error happened reading the config file rpcn.cfg: {}\nDefault values will be used for every settings!", e);
+	}
 
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
-        .with_max_level(tracing::Level::TRACE)
+        .with_max_level(*config.get_verbosity())
         .without_time()
         .with_target(true)
         .with_ansi(true)

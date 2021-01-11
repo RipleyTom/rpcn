@@ -192,7 +192,7 @@ impl Client {
     ///// Logging functions
     #[allow(dead_code)]
     fn dump_packet(&self, packet: &Vec<u8>, source: &str) {
-        if !self.config.read().is_verbose() {
+        if *self.config.read().get_verbosity() != tracing::Level::TRACE {
             return;
         }
         trace!("Dumping packet({}):", source);
