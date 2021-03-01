@@ -14,10 +14,6 @@ pub struct StreamExtractor {
     error: Cell<bool>,
 }
 
-unsafe fn read_slice<T>(bytes: &[u8]) -> T {
-    std::ptr::read_unaligned(bytes.as_ptr() as *const T)
-}
-
 impl StreamExtractor {
     pub fn new(vec: Vec<u8>) -> StreamExtractor {
         StreamExtractor {
@@ -75,23 +71,16 @@ impl StreamExtractor {
         com_id
     }
 
-    pub fn get_flatbuffer<'a, T: flatbuffers::Follow<'a> + 'a>(&'a self) -> Result<T::Inner, bool> {
+    pub fn get_flatbuffer<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&'a self) -> Result<T::Inner, ()> {
         let size = self.get::<u32>();
         if (size as usize + self.i.get()) > self.vec.len() {
-            return Err(self.error.get());
+			self.error.set(true);
+            return Err(());
         }
 
-        let ret = flatbuffers::get_root::<T>(&self.vec[self.i.get()..]);
+        let ret = flatbuffers::root::<T>(&self.vec[self.i.get()..]);
         self.i.set(self.i.get() + size as usize);
 
-        if self.i.get() > self.vec.len() {
-            self.error.set(true);
-        }
-
-        if self.error.get() {
-            Err(self.error.get())
-        } else {
-            Ok(ret)
-        }
+		ret.map_err(|_| ())
     }
 }

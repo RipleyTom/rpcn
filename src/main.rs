@@ -137,7 +137,7 @@ impl Config {
         if let Ok(mut file_emails) = File::open("domains_banlist.txt") {
 			let mut buf_file = String::new();
 			let _ = file_emails.read_to_string(&mut buf_file);
-            self.banned_domains = buf_file.lines().map(|x| x.trim().to_string()).collect();
+            self.banned_domains = buf_file.lines().map(|x| x.trim().to_ascii_lowercase()).collect();
         }
     }
     pub fn is_banned_domain(&self, domain: &str) -> bool {

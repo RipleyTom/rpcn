@@ -223,3 +223,19 @@ table RoomMessageInfo {
     srcMember:UserInfo2;
     msg:[uint8];
 }
+
+table MessageDetails {
+    communicationId:string;
+    msgId:uint64;
+    mainType:uint16;
+    subType:uint16;
+    msgFeatures:uint32;
+    subject:string;
+    body:string;
+    data:[uint8];
+}
+
+table SendMessageRequest {
+    message:[uint8] (nested_flatbuffer: "MessageDetails");
+    npids:[string];
+}
