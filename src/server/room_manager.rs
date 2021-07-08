@@ -67,14 +67,14 @@ impl RoomBinAttr {
         BinAttr::create(builder, &BinAttrArgs { id: self.id, data: Some(final_attr) })
     }
 }
-pub struct RoomMemberBinAttr {
+pub struct RoomMemberBinAttrInternal {
     update_date: u64,
     data: RoomBinAttr,
 }
-impl RoomMemberBinAttr {
-    pub fn from_flatbuffer(fb: &BinAttr) -> RoomMemberBinAttr {
+impl RoomMemberBinAttrInternal {
+    pub fn from_flatbuffer(fb: &BinAttr) -> RoomMemberBinAttrInternal {
         let data = RoomBinAttr::from_flatbuffer(fb);
-        RoomMemberBinAttr { update_date: get_time_stamp(), data }
+        RoomMemberBinAttrInternal { update_date: get_time_stamp(), data }
     }
 
     pub fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<MemberBinAttrInternal<'a>> {
@@ -126,7 +126,7 @@ impl RoomIntAttr {
     }
 }
 
-struct RoomGroupConfig {
+pub struct RoomGroupConfig {
     slot_num: u32,
     with_label: bool,
     label: [u8; 8],
@@ -199,7 +199,7 @@ impl SignalParam {
     }
 }
 
-struct RoomUser {
+pub struct RoomUser {
     user_id: i64,
     npid: String,
     online_name: String,
@@ -208,22 +208,22 @@ struct RoomUser {
     flag_attr: u32,
 
     group_id: u8,
-    member_attr: Vec<RoomMemberBinAttr>,
-    team_id: u8,
+    pub member_attr: Vec<RoomMemberBinAttrInternal>,
+    pub team_id: u8,
 
     member_id: u16,
 }
 impl RoomUser {
     pub fn from_CreateJoinRoomRequest(fb: &CreateJoinRoomRequest) -> RoomUser {
         let group_id = 0;
-        let mut member_attr: Vec<RoomMemberBinAttr> = Vec::new();
+        let mut member_attr: Vec<RoomMemberBinAttrInternal> = Vec::new();
 
         if let Some(_vec) = fb.joinRoomGroupLabel() {
             // Add group to room and set id TODO
         }
         if let Some(vec) = fb.roomMemberBinAttrInternal() {
             for i in 0..vec.len() {
-                member_attr.push(RoomMemberBinAttr::from_flatbuffer(&vec.get(i)));
+                member_attr.push(RoomMemberBinAttrInternal::from_flatbuffer(&vec.get(i)));
             }
         }
         let team_id = fb.teamId();
@@ -244,14 +244,14 @@ impl RoomUser {
     }
     pub fn from_JoinRoomRequest(fb: &JoinRoomRequest) -> RoomUser {
         let group_id = 0;
-        let mut member_attr: Vec<RoomMemberBinAttr> = Vec::new();
+        let mut member_attr: Vec<RoomMemberBinAttrInternal> = Vec::new();
 
         if let Some(_vec) = fb.joinRoomGroupLabel() {
             // Find/Create corresponding group and set id
         }
         if let Some(vec) = fb.roomMemberBinAttrInternal() {
             for i in 0..vec.len() {
-                member_attr.push(RoomMemberBinAttr::from_flatbuffer(&vec.get(i)));
+                member_attr.push(RoomMemberBinAttrInternal::from_flatbuffer(&vec.get(i)));
             }
         }
         let team_id = fb.teamId();
@@ -314,14 +314,14 @@ pub struct Room {
     world_id: u32,
     lobby_id: u64,
     max_slot: u16,
-    flag_attr: u32,
-    bin_attr_internal: Vec<RoomBinAttrInternal>,
+    pub flag_attr: u32,
+    pub bin_attr_internal: Vec<RoomBinAttrInternal>,
     bin_attr_external: Vec<RoomBinAttr>,
     search_bin_attr: Vec<RoomBinAttr>,
     search_int_attr: Vec<RoomIntAttr>,
     room_password: Option<[u8; 8]>,
-    group_config: Vec<RoomGroupConfig>,
-    password_slot_mask: u64,
+    pub group_config: Vec<RoomGroupConfig>,
+    pub password_slot_mask: u64,
     allowed_users: Vec<String>,
     blocked_users: Vec<String>,
     signaling_param: Option<SignalParam>,
@@ -329,7 +329,7 @@ pub struct Room {
     // Data not from stream
     server_id: u16,
     room_id: u64,
-    users: BTreeMap<u16, RoomUser>,
+    pub users: BTreeMap<u16, RoomUser>,
     user_cnt: u16,
     owner: u16,
 
@@ -907,6 +907,7 @@ impl RoomManager {
                 for key in room.users.keys() {
                     if random_user == 0 {
                         room.owner = key.clone();
+                        break;
                     }
                     random_user -= 1;
                 }
@@ -1039,13 +1040,15 @@ impl RoomManager {
         let flag_filter = req.flagFilter();
         let flag_attr = req.flagAttr();
         room.flag_attr = (flag_attr & flag_filter) | (room.flag_attr & !flag_filter);
-        let mut bin_attr_internal: Vec<RoomBinAttrInternal> = Vec::new();
-        if let Some(vec) = req.roomBinAttrInternal() {
-            for i in 0..vec.len() {
-                bin_attr_internal.push(RoomBinAttrInternal::from_flatbuffer(&vec.get(i)));
+        if req.roomBinAttrInternal().is_some() && req.roomBinAttrInternal().unwrap().len() > 0 {
+            let mut bin_attr_internal: Vec<RoomBinAttrInternal> = Vec::new();
+            if let Some(vec) = req.roomBinAttrInternal() {
+                for i in 0..vec.len() {
+                    bin_attr_internal.push(RoomBinAttrInternal::from_flatbuffer(&vec.get(i)));
+                }
             }
+            room.bin_attr_internal = bin_attr_internal;
         }
-        room.bin_attr_internal = bin_attr_internal;
         // Group stuff TODO
         room.password_slot_mask = req.passwordSlotMask();
         let mut succession_list: VecDeque<u16> = VecDeque::new();
@@ -1055,6 +1058,28 @@ impl RoomManager {
             }
         }
         room.owner_succession = succession_list;
+
+        Ok(())
+    }
+    pub fn set_roommemberdata_internal(&mut self, com_id: &ComId, req: &SetRoomMemberDataInternalRequest, member_id: u16) -> Result<(), u8> {
+        if !self.room_exists(com_id, req.roomId()) {
+            return Err(ErrorType::NotFound as u8);
+        }
+        let room = self.get_mut_room(com_id, req.roomId());
+        let user = room.users.get_mut(&member_id).unwrap();
+
+        let team_id = req.teamId();
+        if team_id != 0 {
+            user.team_id = team_id;
+        }
+
+        let mut bin_attr_internal: Vec<RoomMemberBinAttrInternal> = Vec::new();
+        if let Some(vec) = req.roomMemberBinAttrInternal() {
+            for i in 0..vec.len() {
+                bin_attr_internal.push(RoomMemberBinAttrInternal::from_flatbuffer(&vec.get(i)));
+            }
+        }
+        user.member_attr = bin_attr_internal;
 
         Ok(())
     }

@@ -13,7 +13,7 @@ use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
 use tokio_rustls::server::TlsStream;
-use tracing::{info, info_span, trace, warn, error, Instrument};
+use tracing::{error, info, info_span, trace, warn, Instrument};
 
 use crate::server::client::ticket::Ticket;
 use crate::server::database::DatabaseManager;
@@ -22,6 +22,8 @@ use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::stream_extractor::StreamExtractor;
 use crate::Config;
+
+use super::room_manager::Room;
 
 pub const HEADER_SIZE: u16 = 9;
 
@@ -88,6 +90,7 @@ enum CommandType {
     SetRoomDataExternal,
     GetRoomDataInternal,
     SetRoomDataInternal,
+    SetRoomMemberDataInternal,
     PingRoomOwner,
     SendRoomMessage,
     RequestSignalingInfos,
@@ -100,6 +103,8 @@ enum NotificationType {
     UserJoinedRoom,
     UserLeftRoom,
     RoomDestroyed,
+    UpdatedRoomDataInternal,
+    UpdatedRoomMemberDataInternal,
     SignalP2PConnect,
     _SignalP2PDisconnect,
     RoomMessageReceived,
@@ -187,6 +192,15 @@ impl Client {
             client_info,
             post_reply_notifications: Vec::new(),
         }
+    }
+
+    pub fn get_users_but_self(&self, users: &HashMap<u16, i64>) -> HashSet<i64> {
+        return users.iter().filter_map(|x| if *x.1 != self.client_info.user_id { Some(x.1.clone()) } else { None }).collect();
+    }
+
+    pub fn get_room_users_but_self(&self, room: &Room) -> HashSet<i64> {
+        let users = room.get_room_users();
+        return self.get_users_but_self(&users);
     }
 
     ///// Logging functions
@@ -342,7 +356,8 @@ impl Client {
             CommandType::SearchRoom => return self.req_search_room(data, reply),
             CommandType::SetRoomDataExternal => return self.req_set_roomdata_external(data, reply),
             CommandType::GetRoomDataInternal => return self.req_get_roomdata_internal(data, reply),
-            CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply),
+            CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply).await,
+            CommandType::SetRoomMemberDataInternal => return self.req_set_roommemberdata_internal(data, reply).await,
             CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
             CommandType::SendRoomMessage => return self.req_send_room_message(data, reply).await,
             CommandType::RequestSignalingInfos => return self.req_signaling_infos(data, reply),
@@ -967,7 +982,7 @@ impl Client {
         }
         Ok(())
     }
-    fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+    async fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
         let com_id = self.get_com_id_with_redir(data);
         let setdata_req = data.get_flatbuffer::<SetRoomDataInternalRequest>();
 
@@ -978,11 +993,160 @@ impl Client {
         }
         let setdata_req = setdata_req.unwrap();
 
-        if let Err(e) = self.room_manager.write().set_roomdata_internal(&com_id, &setdata_req) {
-            reply.push(e);
-        } else {
-            reply.push(ErrorType::NoError as u8);
+        let room_id = setdata_req.roomId();
+        {
+            let mut room_manager = self.room_manager.write();
+            if !room_manager.room_exists(&com_id, room_id) {
+                warn!("User requested SetRoomDataInternal for room that doesn't exist!");
+                reply.push(ErrorType::InvalidInput as u8);
+                return Ok(());
+            }
+            if let Err(e) = room_manager.set_roomdata_internal(&com_id, &setdata_req) {
+                reply.push(e);
+            } else {
+                reply.push(ErrorType::NoError as u8);
+            }
         }
+
+        let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
+        let user_ids;
+        {
+            let room_manager = self.room_manager.read();
+            let room = room_manager.get_room(&com_id, room_id.clone());
+            user_ids = self.get_room_users_but_self(&room);
+
+            let mut new_room_group = None;
+            if room.group_config.len() != 0 {
+                let mut group_list = Vec::new();
+                for group in &room.group_config {
+                    group_list.push(group.to_flatbuffer(&mut builder));
+                }
+                new_room_group = Some(builder.create_vector(&group_list));
+            }
+
+            let mut final_internalbinattr = None;
+
+            // dbg!(room.bin_attr_internal.len());
+            if room.bin_attr_internal.len() != 0 {
+                let mut bin_list = Vec::new();
+                for bin in &room.bin_attr_internal {
+                    bin_list.push(bin.to_flatbuffer(&mut builder));
+                }
+                final_internalbinattr = Some(builder.create_vector(&bin_list));
+            }
+
+            let room_data_internal = room.to_RoomDataInternal(&mut builder);
+            let resp = RoomDataInternalUpdateInfo::create(
+                &mut builder,
+                &RoomDataInternalUpdateInfoArgs {
+                    newRoomDataInternal: Some(room_data_internal),
+                    newFlagAttr: setdata_req.flagAttr(),
+                    prevFlagAttr: room.flag_attr,
+                    newRoomPasswordSlotMask: setdata_req.passwordSlotMask(),
+                    prevRoomPasswordSlotMask: room.password_slot_mask,
+                    newRoomGroup: new_room_group,
+                    newRoomBinAttrInternal: final_internalbinattr,
+                },
+            );
+            builder.finish(resp, None);
+        }
+
+        let finished_data = builder.finished_data().to_vec();
+
+        let mut n_msg: Vec<u8> = Vec::new();
+        n_msg.extend(&room_id.to_le_bytes());
+        n_msg.extend(&(finished_data.len() as u32).to_le_bytes());
+        n_msg.extend(finished_data);
+        let notif = Client::create_notification(NotificationType::UpdatedRoomDataInternal, &n_msg);
+
+        self.send_notification(&notif, &user_ids).await;
+        self.self_notification(&notif);
+
+        Ok(())
+    }
+    async fn req_set_roommemberdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+        let com_id = self.get_com_id_with_redir(data);
+        let setdata_req = data.get_flatbuffer::<SetRoomMemberDataInternalRequest>();
+
+        if data.error() || setdata_req.is_err() {
+            warn!("Error while extracting data from SetRoomMemberDataInternal command");
+            reply.push(ErrorType::Malformed as u8);
+            return Err(());
+        }
+        let setdata_req = setdata_req.unwrap();
+
+        let mut member_id = setdata_req.memberId();
+        let room_id = setdata_req.roomId();
+        {
+            let mut room_manager = self.room_manager.write();
+            if !room_manager.room_exists(&com_id, room_id) {
+                warn!("User requested SetRoomMemberDataInternal for room that doesn't exist!");
+                reply.push(ErrorType::InvalidInput as u8);
+                return Ok(());
+            }
+
+            let room = room_manager.get_room(&com_id, room_id.clone());
+            if member_id == 0 {
+                let member_id_res = room.get_member_id(self.client_info.user_id);
+                if member_id_res.is_err() {
+                    warn!("Couldn't find memberId of user that called SetRoomMemberDataInternal");
+                    reply.push(ErrorType::InvalidInput as u8);
+                    return Ok(());
+                }
+                member_id = member_id_res.unwrap();
+            }
+
+            if let Err(e) = room_manager.set_roommemberdata_internal(&com_id, &setdata_req, member_id) {
+                reply.push(e);
+            } else {
+                reply.push(ErrorType::NoError as u8);
+            }
+        }
+
+        let mut builder = flatbuffers::FlatBufferBuilder::new_with_capacity(1024);
+        let user_ids;
+        {
+            let room_manager = self.room_manager.read();
+            let room = room_manager.get_room(&com_id, room_id.clone());
+            let user = room.users.get(&member_id).unwrap();
+
+            let member_internal = user.to_RoomMemberDataInternal(&mut builder);
+
+            user_ids = self.get_room_users_but_self(&room);
+
+            let mut bin_attr = None;
+            if user.member_attr.len() != 0 {
+                let mut bin_attrs = Vec::new();
+                for i in 0..user.member_attr.len() {
+                    bin_attrs.push(user.member_attr[i].to_flatbuffer(&mut builder));
+                }
+                bin_attr = Some(builder.create_vector(&bin_attrs));
+            }
+
+            let resp = RoomMemberDataInternalUpdateInfo::create(
+                &mut builder,
+                &RoomMemberDataInternalUpdateInfoArgs {
+                    newRoomMemberDataInternal: Some(member_internal),
+                    newFlagAttr: setdata_req.flagAttr(),
+                    prevFlagAttr: room.flag_attr,
+                    newTeamId: user.team_id,
+                    newRoomMemberBinAttrInternal: bin_attr,
+                },
+            );
+            builder.finish(resp, None);
+        }
+
+        let finished_data = builder.finished_data().to_vec();
+
+        let mut n_msg: Vec<u8> = Vec::new();
+        n_msg.extend(&room_id.to_le_bytes());
+        n_msg.extend(&(finished_data.len() as u32).to_le_bytes());
+        n_msg.extend(finished_data);
+        let notif = Client::create_notification(NotificationType::UpdatedRoomMemberDataInternal, &n_msg);
+
+        self.send_notification(&notif, &user_ids).await;
+        self.self_notification(&notif);
+
         Ok(())
     }
     fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
@@ -1117,7 +1281,7 @@ impl Client {
         match msg_req.castType() {
             1 => {
                 // SCE_NP_MATCHING2_CASTTYPE_BROADCAST
-                let user_ids: HashSet<i64> = users.iter().filter_map(|x| if *x.1 != self.client_info.user_id { Some(x.1.clone()) } else { None }).collect();
+                let user_ids = self.get_users_but_self(&users);
                 self.send_notification(&notif, &user_ids).await;
                 self.self_notification(&notif);
             }
