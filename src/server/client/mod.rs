@@ -33,7 +33,7 @@ use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::stream_extractor::StreamExtractor;
 use crate::Config;
 
-pub const HEADER_SIZE: u16 = 9;
+pub const HEADER_SIZE: u16 = 13;
 
 pub type ComId = [u8; 9];
 
@@ -244,7 +244,7 @@ impl Client {
 
 					let command = u16::from_le_bytes([header_data[1], header_data[2]]);
 					let packet_size = u16::from_le_bytes([header_data[3], header_data[4]]);
-					let packet_id = u32::from_le_bytes([header_data[5], header_data[6], header_data[7], header_data[8]]);
+					let packet_id = u64::from_le_bytes([header_data[5], header_data[6], header_data[7], header_data[8], header_data[9], header_data[10], header_data[11], header_data[12]]);
 					let npid_span = info_span!("", npid = %self.client_info.npid);
 					if self.interpret_command(command, packet_size, packet_id).instrument(npid_span).await.is_err() {
 						info!("Disconnecting client");
@@ -285,7 +285,7 @@ impl Client {
 		}
 	}
 
-	async fn interpret_command(&mut self, command: u16, length: u16, packet_id: u32) -> Result<(), ()> {
+	async fn interpret_command(&mut self, command: u16, length: u16, packet_id: u64) -> Result<(), ()> {
 		if length < HEADER_SIZE {
 			warn!("Malformed packet(size < {})", HEADER_SIZE);
 			return Err(());
@@ -317,7 +317,7 @@ impl Client {
 
 				//self.dump_packet(&reply, "output");
 
-				info!("Returning: {}({})", res.is_ok(), reply[9]);
+				info!("Returning: {}({})", res.is_ok(), reply[HEADER_SIZE as usize]);
 				let _ = self.channel_sender.send(reply).await;
 
 				// Send post command notifications if any
