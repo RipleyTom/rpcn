@@ -167,6 +167,15 @@ table LeaveRoomRequest {
     optData:PresenceOptionData;
 }
 
+table GetRoomDataExternalListRequest {
+    roomIds:[uint64];
+    attrIds:[uint16];
+}
+
+table GetRoomDataExternalListResponse {
+    rooms:[RoomDataExternal];
+}
+
 table SetRoomDataExternalRequest {
     roomId:uint64;
     roomSearchableIntAttrExternal:[IntAttr];

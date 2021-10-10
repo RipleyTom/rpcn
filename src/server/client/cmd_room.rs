@@ -194,6 +194,26 @@ impl Client {
 		reply.extend(resp);
 		Ok(())
 	}
+	pub fn req_get_roomdata_external_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+		let com_id = self.get_com_id_with_redir(data);
+		let getdata_req = data.get_flatbuffer::<GetRoomDataExternalListRequest>();
+
+		if data.error() || getdata_req.is_err() {
+			warn!("Error while extracting data from GetRoomDataExternalList command");
+			reply.push(ErrorType::Malformed as u8);
+			return Err(());
+		}
+		let getdata_req = getdata_req.unwrap();
+
+		let resp = self.room_manager.read().get_roomdata_external_list(&com_id, &getdata_req);
+
+		reply.push(ErrorType::NoError as u8);
+		reply.extend(&(resp.len() as u32).to_le_bytes());
+		reply.extend(resp);
+
+		Ok(())
+	}
+
 	pub fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
 		let com_id = self.get_com_id_with_redir(data);
 		let setdata_req = data.get_flatbuffer::<SetRoomDataExternalRequest>();

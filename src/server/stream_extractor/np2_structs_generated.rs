@@ -3060,6 +3060,202 @@ impl std::fmt::Debug for LeaveRoomRequest<'_> {
       ds.finish()
   }
 }
+pub enum GetRoomDataExternalListRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetRoomDataExternalListRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for GetRoomDataExternalListRequest<'a> {
+    type Inner = GetRoomDataExternalListRequest<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self { _tab: flatbuffers::Table { buf, loc } }
+    }
+}
+
+impl<'a> GetRoomDataExternalListRequest<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        GetRoomDataExternalListRequest { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args GetRoomDataExternalListRequestArgs<'args>) -> flatbuffers::WIPOffset<GetRoomDataExternalListRequest<'bldr>> {
+      let mut builder = GetRoomDataExternalListRequestBuilder::new(_fbb);
+      if let Some(x) = args.attrIds { builder.add_attrIds(x); }
+      if let Some(x) = args.roomIds { builder.add_roomIds(x); }
+      builder.finish()
+    }
+
+    pub const VT_ROOMIDS: flatbuffers::VOffsetT = 4;
+    pub const VT_ATTRIDS: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn roomIds(&self) -> Option<flatbuffers::Vector<'a, u64>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(GetRoomDataExternalListRequest::VT_ROOMIDS, None)
+  }
+  #[inline]
+  pub fn attrIds(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(GetRoomDataExternalListRequest::VT_ATTRIDS, None)
+  }
+}
+
+impl flatbuffers::Verifiable for GetRoomDataExternalListRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>(&"roomIds", Self::VT_ROOMIDS, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>(&"attrIds", Self::VT_ATTRIDS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetRoomDataExternalListRequestArgs<'a> {
+    pub roomIds: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+    pub attrIds: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
+}
+impl<'a> Default for GetRoomDataExternalListRequestArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        GetRoomDataExternalListRequestArgs {
+            roomIds: None,
+            attrIds: None,
+        }
+    }
+}
+pub struct GetRoomDataExternalListRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> GetRoomDataExternalListRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_roomIds(&mut self, roomIds: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomDataExternalListRequest::VT_ROOMIDS, roomIds);
+  }
+  #[inline]
+  pub fn add_attrIds(&mut self, attrIds: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u16>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomDataExternalListRequest::VT_ATTRIDS, attrIds);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetRoomDataExternalListRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    GetRoomDataExternalListRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<GetRoomDataExternalListRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl std::fmt::Debug for GetRoomDataExternalListRequest<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut ds = f.debug_struct("GetRoomDataExternalListRequest");
+      ds.field("roomIds", &self.roomIds());
+      ds.field("attrIds", &self.attrIds());
+      ds.finish()
+  }
+}
+pub enum GetRoomDataExternalListResponseOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetRoomDataExternalListResponse<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for GetRoomDataExternalListResponse<'a> {
+    type Inner = GetRoomDataExternalListResponse<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self { _tab: flatbuffers::Table { buf, loc } }
+    }
+}
+
+impl<'a> GetRoomDataExternalListResponse<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        GetRoomDataExternalListResponse { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args GetRoomDataExternalListResponseArgs<'args>) -> flatbuffers::WIPOffset<GetRoomDataExternalListResponse<'bldr>> {
+      let mut builder = GetRoomDataExternalListResponseBuilder::new(_fbb);
+      if let Some(x) = args.rooms { builder.add_rooms(x); }
+      builder.finish()
+    }
+
+    pub const VT_ROOMS: flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub fn rooms(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal<'a>>>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal>>>>(GetRoomDataExternalListResponse::VT_ROOMS, None)
+  }
+}
+
+impl flatbuffers::Verifiable for GetRoomDataExternalListResponse<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<RoomDataExternal>>>>(&"rooms", Self::VT_ROOMS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetRoomDataExternalListResponseArgs<'a> {
+    pub rooms: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal<'a>>>>>,
+}
+impl<'a> Default for GetRoomDataExternalListResponseArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        GetRoomDataExternalListResponseArgs {
+            rooms: None,
+        }
+    }
+}
+pub struct GetRoomDataExternalListResponseBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> GetRoomDataExternalListResponseBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_rooms(&mut self, rooms: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<RoomDataExternal<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomDataExternalListResponse::VT_ROOMS, rooms);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetRoomDataExternalListResponseBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    GetRoomDataExternalListResponseBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<GetRoomDataExternalListResponse<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl std::fmt::Debug for GetRoomDataExternalListResponse<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut ds = f.debug_struct("GetRoomDataExternalListResponse");
+      ds.field("rooms", &self.rooms());
+      ds.finish()
+  }
+}
 pub enum SetRoomDataExternalRequestOffset {}
 #[derive(Copy, Clone, PartialEq)]
 

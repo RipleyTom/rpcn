@@ -977,6 +977,36 @@ impl RoomManager {
 		builder.finished_data().to_vec()
 	}
 
+	pub fn get_roomdata_external_list(&self, com_id: &ComId, req: &GetRoomDataExternalListRequest) -> Vec<u8> {
+		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+
+		let mut list_roomdataexternal = Default::default();
+
+		if let Some(roomids) = req.roomIds() {
+			let mut room_list = Vec::new();
+			for room_id in roomids {
+				if self.room_exists(com_id, room_id) {
+					room_list.push(self.get_room(com_id, room_id));
+				}
+			}
+
+			let mut vec_roomdataexternal = Vec::new();
+			for room in &room_list {
+				vec_roomdataexternal.push(room.to_RoomDataExternal(&mut builder, 7));
+			}
+			list_roomdataexternal = Some(builder.create_vector(&vec_roomdataexternal));
+		}
+
+		let resp = GetRoomDataExternalListResponse::create(
+			&mut builder,
+			&GetRoomDataExternalListResponseArgs {
+				rooms: list_roomdataexternal,
+			},
+		);
+		builder.finish(resp, None);
+		builder.finished_data().to_vec()
+	}
+
 	pub fn set_roomdata_external(&mut self, com_id: &ComId, req: &SetRoomDataExternalRequest) -> Result<(), u8> {
 		if !self.room_exists(com_id, req.roomId()) {
 			return Err(ErrorType::NotFound as u8);
