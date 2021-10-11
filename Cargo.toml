@@ -1,17 +1,16 @@
 [package]
 name = "rpcn"
-version = "0.3.5"
+version = "0.4.0"
 authors = ["RipleyTom <RipleyTom@users.noreply.github.com>"]
 edition = "2018"
 
 [dependencies]
-clap = "2.33"
 num-traits = "0.2"
 num-derive = "0.3"
 rand = "0.7"
 libsqlite3-sys = "0.16"
 rust-argon2 = "0.5"
-flatbuffers = "0.6"
+flatbuffers = "2.0"
 parking_lot = "0.10"
 chrono = "0.4"
 ring = "0.16"

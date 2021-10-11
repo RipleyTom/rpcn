@@ -29,7 +29,7 @@ mod stream_extractor;
 
 // use client::tls_stream::TlsStream;
 
-const PROTOCOL_VERSION: u32 = 10;
+const PROTOCOL_VERSION: u32 = 13;
 
 pub struct Server {
     config: Arc<RwLock<Config>>,
@@ -89,7 +89,7 @@ impl Server {
         servinfo_vec.push(PacketType::ServerInfo as u8);
         servinfo_vec.extend(&0u16.to_le_bytes());
         servinfo_vec.extend(&(4 + HEADER_SIZE as u16).to_le_bytes());
-        servinfo_vec.extend(&0u32.to_le_bytes());
+        servinfo_vec.extend(&0u64.to_le_bytes());
         servinfo_vec.extend(&PROTOCOL_VERSION.to_le_bytes());
         let servinfo_vec: Arc<Vec<u8>> = Arc::new(servinfo_vec);
 

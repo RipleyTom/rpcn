@@ -13,6 +13,7 @@ jobs:
       run: cargo test --release --verbose
     - run: mkdir artifact
     - run: cp target/release/rpcn artifact/rpcn
+    - run: cp rpcn.cfg artifact/rpcn.cfg
     - name: Upload artifact
       uses: actions/upload-artifact@v1.0.0
       with:
@@ -29,6 +30,7 @@ jobs:
       run: cargo test --release --verbose
     - run: mkdir artifact-win
     - run: copy target/release/rpcn.exe artifact-win/rpcn.exe
+    - run: copy rpcn.cfg artifact-win/rpcn.cfg
     - name: Upload artifact
       uses: actions/upload-artifact@v1.0.0
       with:
