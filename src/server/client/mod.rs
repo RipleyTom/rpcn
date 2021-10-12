@@ -10,7 +10,7 @@ mod notifications;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use lettre::smtp::authentication::{Credentials, Mechanism};
 use lettre::{EmailAddress, SmtpClient, SmtpTransport, Transport};
@@ -21,6 +21,7 @@ use parking_lot::{Mutex, RwLock};
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
+use tokio::time::timeout;
 use tokio_rustls::server::TlsStream;
 use tracing::{error, info, info_span, trace, warn, Instrument};
 
@@ -234,7 +235,16 @@ impl Client {
 		loop {
 			let mut header_data = [0; HEADER_SIZE as usize];
 
-			let r = self.tls_reader.read_exact(&mut header_data).await;
+			let r;
+			if !self.authentified {
+				let timeout_r = timeout(Duration::from_secs(10), self.tls_reader.read_exact(&mut header_data)).await;
+				if let Err(_) = timeout_r {
+					break;
+				}
+				r = timeout_r.unwrap();
+			} else {
+				r = self.tls_reader.read_exact(&mut header_data).await;
+			}
 
 			match r {
 				Ok(_) => {
@@ -245,7 +255,16 @@ impl Client {
 
 					let command = u16::from_le_bytes([header_data[1], header_data[2]]);
 					let packet_size = u16::from_le_bytes([header_data[3], header_data[4]]);
-					let packet_id = u64::from_le_bytes([header_data[5], header_data[6], header_data[7], header_data[8], header_data[9], header_data[10], header_data[11], header_data[12]]);
+					let packet_id = u64::from_le_bytes([
+						header_data[5],
+						header_data[6],
+						header_data[7],
+						header_data[8],
+						header_data[9],
+						header_data[10],
+						header_data[11],
+						header_data[12],
+					]);
 					let npid_span = info_span!("", npid = %self.client_info.npid);
 					if self.interpret_command(command, packet_size, packet_id).instrument(npid_span).await.is_err() {
 						info!("Disconnecting client");

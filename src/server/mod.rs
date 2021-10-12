@@ -81,7 +81,7 @@ impl Server {
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))?;
 
         // Setup Tokio
-        let mut runtime = runtime::Builder::new().threaded_scheduler().enable_io().build()?;
+        let mut runtime = runtime::Builder::new().threaded_scheduler().enable_all().build()?;
         let handle = runtime.handle().clone();
         let acceptor = TlsAcceptor::from(Arc::new(server_config));
 
