@@ -502,7 +502,7 @@ impl DatabaseManager {
 		Ok(())
 	}
 
-	pub fn get_token_sent_time(&mut self, user_id: i64) -> Result<u32, DbError> {
+	pub fn get_token_sent_time(&mut self, user_id: i64) -> Result<Option<u32>, DbError> {
 		self.conn
 			.query_row("SELECT (token_last_sent) FROM dates WHERE user = ?1", rusqlite::params![user_id], |r| r.get(0))
 			.map_err(|e| {
