@@ -244,7 +244,7 @@ impl Client {
 				})?;
 
 				if let Some(last_token_sent_timestamp) = last_token_sent_timestamp {
-					if (Client::get_timestamp_seconds() - last_token_sent_timestamp) < (24*60*60) {
+					if (Client::get_timestamp_seconds() - last_token_sent_timestamp) < (24 * 60 * 60) {
 						warn!("User {} attempted to get token again too soon!", login);
 						reply.push(ErrorType::TooSoon as u8);
 						return Err(());

@@ -1,7 +1,7 @@
 // Friend/Block Commands
 
-use crate::server::client::*;
 use crate::server::client::notifications::NotificationType;
+use crate::server::client::*;
 use crate::server::database::{DbError, FriendStatus};
 
 impl Client {
