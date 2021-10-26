@@ -254,7 +254,7 @@ impl Client {
 		}
 		Ok(())
 	}
-	pub fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub async fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
 		let com_id = self.get_com_id_with_redir(data);
 		let setdata_req = data.get_flatbuffer::<SetRoomDataInternalRequest>();
 
@@ -265,11 +265,55 @@ impl Client {
 		}
 		let setdata_req = setdata_req.unwrap();
 
-		if let Err(e) = self.room_manager.write().set_roomdata_internal(&com_id, &setdata_req) {
-			reply.push(e);
-		} else {
-			reply.push(ErrorType::NoError as u8);
+		let room_id = setdata_req.roomId();
+		let res = self.room_manager.write().set_roomdata_internal(&com_id, &setdata_req, self.client_info.user_id);
+
+		match res {
+			Ok((users, notif_data)) => {
+				reply.push(ErrorType::NoError as u8);
+
+				let mut n_msg: Vec<u8> = Vec::new();
+				n_msg.extend(&room_id.to_le_bytes());
+				n_msg.extend(&(notif_data.len() as u32).to_le_bytes());
+				n_msg.extend(notif_data);
+				let notif = Client::create_notification(NotificationType::UpdatedRoomDataInternal, &n_msg);
+				self.send_notification(&notif, &users).await;
+				self.self_notification(&notif);
+			}
+			Err(e) => reply.push(e),
 		}
+
+		Ok(())
+	}
+	pub async fn req_set_roommemberdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+		let com_id = self.get_com_id_with_redir(data);
+		let setdata_req = data.get_flatbuffer::<SetRoomMemberDataInternalRequest>();
+
+		if data.error() || setdata_req.is_err() {
+			warn!("Error while extracting data from SetRoomMemberDataInternal command");
+			reply.push(ErrorType::Malformed as u8);
+			return Err(());
+		}
+		let setdata_req = setdata_req.unwrap();
+
+		let room_id = setdata_req.roomId();
+		let res = self.room_manager.write().set_roommemberdata_internal(&com_id, &setdata_req, self.client_info.user_id);
+
+		match res {
+			Ok((users, notif_data)) => {
+				reply.push(ErrorType::NoError as u8);
+
+				let mut n_msg: Vec<u8> = Vec::new();
+				n_msg.extend(&room_id.to_le_bytes());
+				n_msg.extend(&(notif_data.len() as u32).to_le_bytes());
+				n_msg.extend(notif_data);
+				let notif = Client::create_notification(NotificationType::UpdatedRoomMemberDataInternal, &n_msg);
+				self.send_notification(&notif, &users).await;
+				self.self_notification(&notif);
+			}
+			Err(e) => reply.push(e),
+		}
+
 		Ok(())
 	}
 	pub fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {

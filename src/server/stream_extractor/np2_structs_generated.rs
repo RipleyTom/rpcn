@@ -218,31 +218,31 @@ impl std::fmt::Debug for IntAttr<'_> {
       ds.finish()
   }
 }
-pub enum MemberBinAttrInternalOffset {}
+pub enum RoomMemberBinAttrInternalOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct MemberBinAttrInternal<'a> {
+pub struct RoomMemberBinAttrInternal<'a> {
   pub _tab: flatbuffers::Table<'a>,
 }
 
-impl<'a> flatbuffers::Follow<'a> for MemberBinAttrInternal<'a> {
-    type Inner = MemberBinAttrInternal<'a>;
+impl<'a> flatbuffers::Follow<'a> for RoomMemberBinAttrInternal<'a> {
+    type Inner = RoomMemberBinAttrInternal<'a>;
     #[inline]
     fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
         Self { _tab: flatbuffers::Table { buf, loc } }
     }
 }
 
-impl<'a> MemberBinAttrInternal<'a> {
+impl<'a> RoomMemberBinAttrInternal<'a> {
     #[inline]
     pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-        MemberBinAttrInternal { _tab: table }
+        RoomMemberBinAttrInternal { _tab: table }
     }
     #[allow(unused_mut)]
     pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
         _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-        args: &'args MemberBinAttrInternalArgs<'args>) -> flatbuffers::WIPOffset<MemberBinAttrInternal<'bldr>> {
-      let mut builder = MemberBinAttrInternalBuilder::new(_fbb);
+        args: &'args RoomMemberBinAttrInternalArgs<'args>) -> flatbuffers::WIPOffset<RoomMemberBinAttrInternal<'bldr>> {
+      let mut builder = RoomMemberBinAttrInternalBuilder::new(_fbb);
       builder.add_updateDate(args.updateDate);
       if let Some(x) = args.data { builder.add_data(x); }
       builder.finish()
@@ -253,15 +253,15 @@ impl<'a> MemberBinAttrInternal<'a> {
 
   #[inline]
   pub fn updateDate(&self) -> u64 {
-    self._tab.get::<u64>(MemberBinAttrInternal::VT_UPDATEDATE, Some(0)).unwrap()
+    self._tab.get::<u64>(RoomMemberBinAttrInternal::VT_UPDATEDATE, Some(0)).unwrap()
   }
   #[inline]
   pub fn data(&self) -> Option<BinAttr<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<BinAttr>>(MemberBinAttrInternal::VT_DATA, None)
+    self._tab.get::<flatbuffers::ForwardsUOffset<BinAttr>>(RoomMemberBinAttrInternal::VT_DATA, None)
   }
 }
 
-impl flatbuffers::Verifiable for MemberBinAttrInternal<'_> {
+impl flatbuffers::Verifiable for RoomMemberBinAttrInternal<'_> {
   #[inline]
   fn run_verifier(
     v: &mut flatbuffers::Verifier, pos: usize
@@ -274,50 +274,50 @@ impl flatbuffers::Verifiable for MemberBinAttrInternal<'_> {
     Ok(())
   }
 }
-pub struct MemberBinAttrInternalArgs<'a> {
+pub struct RoomMemberBinAttrInternalArgs<'a> {
     pub updateDate: u64,
     pub data: Option<flatbuffers::WIPOffset<BinAttr<'a>>>,
 }
-impl<'a> Default for MemberBinAttrInternalArgs<'a> {
+impl<'a> Default for RoomMemberBinAttrInternalArgs<'a> {
     #[inline]
     fn default() -> Self {
-        MemberBinAttrInternalArgs {
+        RoomMemberBinAttrInternalArgs {
             updateDate: 0,
             data: None,
         }
     }
 }
-pub struct MemberBinAttrInternalBuilder<'a: 'b, 'b> {
+pub struct RoomMemberBinAttrInternalBuilder<'a: 'b, 'b> {
   fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> MemberBinAttrInternalBuilder<'a, 'b> {
+impl<'a: 'b, 'b> RoomMemberBinAttrInternalBuilder<'a, 'b> {
   #[inline]
   pub fn add_updateDate(&mut self, updateDate: u64) {
-    self.fbb_.push_slot::<u64>(MemberBinAttrInternal::VT_UPDATEDATE, updateDate, 0);
+    self.fbb_.push_slot::<u64>(RoomMemberBinAttrInternal::VT_UPDATEDATE, updateDate, 0);
   }
   #[inline]
   pub fn add_data(&mut self, data: flatbuffers::WIPOffset<BinAttr<'b >>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<BinAttr>>(MemberBinAttrInternal::VT_DATA, data);
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<BinAttr>>(RoomMemberBinAttrInternal::VT_DATA, data);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> MemberBinAttrInternalBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomMemberBinAttrInternalBuilder<'a, 'b> {
     let start = _fbb.start_table();
-    MemberBinAttrInternalBuilder {
+    RoomMemberBinAttrInternalBuilder {
       fbb_: _fbb,
       start_: start,
     }
   }
   #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<MemberBinAttrInternal<'a>> {
+  pub fn finish(self) -> flatbuffers::WIPOffset<RoomMemberBinAttrInternal<'a>> {
     let o = self.fbb_.end_table(self.start_);
     flatbuffers::WIPOffset::new(o.value())
   }
 }
 
-impl std::fmt::Debug for MemberBinAttrInternal<'_> {
+impl std::fmt::Debug for RoomMemberBinAttrInternal<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let mut ds = f.debug_struct("MemberBinAttrInternal");
+    let mut ds = f.debug_struct("RoomMemberBinAttrInternal");
       ds.field("updateDate", &self.updateDate());
       ds.field("data", &self.data());
       ds.finish()
@@ -887,8 +887,8 @@ impl<'a> RoomMemberDataInternal<'a> {
     self._tab.get::<u32>(RoomMemberDataInternal::VT_FLAGATTR, Some(0)).unwrap()
   }
   #[inline]
-  pub fn roomMemberBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MemberBinAttrInternal<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MemberBinAttrInternal>>>>(RoomMemberDataInternal::VT_ROOMMEMBERBINATTRINTERNAL, None)
+  pub fn roomMemberBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomMemberBinAttrInternal<'a>>>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomMemberBinAttrInternal>>>>(RoomMemberDataInternal::VT_ROOMMEMBERBINATTRINTERNAL, None)
   }
 }
 
@@ -906,7 +906,7 @@ impl flatbuffers::Verifiable for RoomMemberDataInternal<'_> {
      .visit_field::<u8>(&"roomGroup", Self::VT_ROOMGROUP, false)?
      .visit_field::<u8>(&"natType", Self::VT_NATTYPE, false)?
      .visit_field::<u32>(&"flagAttr", Self::VT_FLAGATTR, false)?
-     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MemberBinAttrInternal>>>>(&"roomMemberBinAttrInternal", Self::VT_ROOMMEMBERBINATTRINTERNAL, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<RoomMemberBinAttrInternal>>>>(&"roomMemberBinAttrInternal", Self::VT_ROOMMEMBERBINATTRINTERNAL, false)?
      .finish();
     Ok(())
   }
@@ -919,7 +919,7 @@ pub struct RoomMemberDataInternalArgs<'a> {
     pub roomGroup: u8,
     pub natType: u8,
     pub flagAttr: u32,
-    pub roomMemberBinAttrInternal: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MemberBinAttrInternal<'a>>>>>,
+    pub roomMemberBinAttrInternal: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomMemberBinAttrInternal<'a>>>>>,
 }
 impl<'a> Default for RoomMemberDataInternalArgs<'a> {
     #[inline]
@@ -970,7 +970,7 @@ impl<'a: 'b, 'b> RoomMemberDataInternalBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(RoomMemberDataInternal::VT_FLAGATTR, flagAttr, 0);
   }
   #[inline]
-  pub fn add_roomMemberBinAttrInternal(&mut self, roomMemberBinAttrInternal: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MemberBinAttrInternal<'b >>>>) {
+  pub fn add_roomMemberBinAttrInternal(&mut self, roomMemberBinAttrInternal: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<RoomMemberBinAttrInternal<'b >>>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomMemberDataInternal::VT_ROOMMEMBERBINATTRINTERNAL, roomMemberBinAttrInternal);
   }
   #[inline]
@@ -3564,6 +3564,139 @@ impl std::fmt::Debug for SetRoomDataInternalRequest<'_> {
       ds.finish()
   }
 }
+pub enum SetRoomMemberDataInternalRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SetRoomMemberDataInternalRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SetRoomMemberDataInternalRequest<'a> {
+    type Inner = SetRoomMemberDataInternalRequest<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self { _tab: flatbuffers::Table { buf, loc } }
+    }
+}
+
+impl<'a> SetRoomMemberDataInternalRequest<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        SetRoomMemberDataInternalRequest { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args SetRoomMemberDataInternalRequestArgs<'args>) -> flatbuffers::WIPOffset<SetRoomMemberDataInternalRequest<'bldr>> {
+      let mut builder = SetRoomMemberDataInternalRequestBuilder::new(_fbb);
+      builder.add_roomId(args.roomId);
+      if let Some(x) = args.roomMemberBinAttrInternal { builder.add_roomMemberBinAttrInternal(x); }
+      builder.add_memberId(args.memberId);
+      builder.add_teamId(args.teamId);
+      builder.finish()
+    }
+
+    pub const VT_ROOMID: flatbuffers::VOffsetT = 4;
+    pub const VT_MEMBERID: flatbuffers::VOffsetT = 6;
+    pub const VT_TEAMID: flatbuffers::VOffsetT = 8;
+    pub const VT_ROOMMEMBERBINATTRINTERNAL: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub fn roomId(&self) -> u64 {
+    self._tab.get::<u64>(SetRoomMemberDataInternalRequest::VT_ROOMID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn memberId(&self) -> u16 {
+    self._tab.get::<u16>(SetRoomMemberDataInternalRequest::VT_MEMBERID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn teamId(&self) -> u8 {
+    self._tab.get::<u8>(SetRoomMemberDataInternalRequest::VT_TEAMID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn roomMemberBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetRoomMemberDataInternalRequest::VT_ROOMMEMBERBINATTRINTERNAL, None)
+  }
+}
+
+impl flatbuffers::Verifiable for SetRoomMemberDataInternalRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u64>(&"roomId", Self::VT_ROOMID, false)?
+     .visit_field::<u16>(&"memberId", Self::VT_MEMBERID, false)?
+     .visit_field::<u8>(&"teamId", Self::VT_TEAMID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<BinAttr>>>>(&"roomMemberBinAttrInternal", Self::VT_ROOMMEMBERBINATTRINTERNAL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SetRoomMemberDataInternalRequestArgs<'a> {
+    pub roomId: u64,
+    pub memberId: u16,
+    pub teamId: u8,
+    pub roomMemberBinAttrInternal: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>>>,
+}
+impl<'a> Default for SetRoomMemberDataInternalRequestArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        SetRoomMemberDataInternalRequestArgs {
+            roomId: 0,
+            memberId: 0,
+            teamId: 0,
+            roomMemberBinAttrInternal: None,
+        }
+    }
+}
+pub struct SetRoomMemberDataInternalRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> SetRoomMemberDataInternalRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_roomId(&mut self, roomId: u64) {
+    self.fbb_.push_slot::<u64>(SetRoomMemberDataInternalRequest::VT_ROOMID, roomId, 0);
+  }
+  #[inline]
+  pub fn add_memberId(&mut self, memberId: u16) {
+    self.fbb_.push_slot::<u16>(SetRoomMemberDataInternalRequest::VT_MEMBERID, memberId, 0);
+  }
+  #[inline]
+  pub fn add_teamId(&mut self, teamId: u8) {
+    self.fbb_.push_slot::<u8>(SetRoomMemberDataInternalRequest::VT_TEAMID, teamId, 0);
+  }
+  #[inline]
+  pub fn add_roomMemberBinAttrInternal(&mut self, roomMemberBinAttrInternal: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<BinAttr<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetRoomMemberDataInternalRequest::VT_ROOMMEMBERBINATTRINTERNAL, roomMemberBinAttrInternal);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SetRoomMemberDataInternalRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    SetRoomMemberDataInternalRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SetRoomMemberDataInternalRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl std::fmt::Debug for SetRoomMemberDataInternalRequest<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut ds = f.debug_struct("SetRoomMemberDataInternalRequest");
+      ds.field("roomId", &self.roomId());
+      ds.field("memberId", &self.memberId());
+      ds.field("teamId", &self.teamId());
+      ds.field("roomMemberBinAttrInternal", &self.roomMemberBinAttrInternal());
+      ds.finish()
+  }
+}
 pub enum GetRoomDataInternalRequestOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -3904,6 +4037,286 @@ impl std::fmt::Debug for RoomUpdateInfo<'_> {
       ds.field("eventCause", &self.eventCause());
       ds.field("errorCode", &self.errorCode());
       ds.field("optData", &self.optData());
+      ds.finish()
+  }
+}
+pub enum RoomDataInternalUpdateInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RoomDataInternalUpdateInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for RoomDataInternalUpdateInfo<'a> {
+    type Inner = RoomDataInternalUpdateInfo<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self { _tab: flatbuffers::Table { buf, loc } }
+    }
+}
+
+impl<'a> RoomDataInternalUpdateInfo<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        RoomDataInternalUpdateInfo { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args RoomDataInternalUpdateInfoArgs<'args>) -> flatbuffers::WIPOffset<RoomDataInternalUpdateInfo<'bldr>> {
+      let mut builder = RoomDataInternalUpdateInfoBuilder::new(_fbb);
+      builder.add_prevRoomPasswordSlotMask(args.prevRoomPasswordSlotMask);
+      if let Some(x) = args.newRoomBinAttrInternal { builder.add_newRoomBinAttrInternal(x); }
+      if let Some(x) = args.newRoomGroup { builder.add_newRoomGroup(x); }
+      builder.add_prevFlagAttr(args.prevFlagAttr);
+      if let Some(x) = args.newRoomDataInternal { builder.add_newRoomDataInternal(x); }
+      builder.finish()
+    }
+
+    pub const VT_NEWROOMDATAINTERNAL: flatbuffers::VOffsetT = 4;
+    pub const VT_PREVFLAGATTR: flatbuffers::VOffsetT = 6;
+    pub const VT_PREVROOMPASSWORDSLOTMASK: flatbuffers::VOffsetT = 8;
+    pub const VT_NEWROOMGROUP: flatbuffers::VOffsetT = 10;
+    pub const VT_NEWROOMBINATTRINTERNAL: flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub fn newRoomDataInternal(&self) -> Option<RoomDataInternal<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<RoomDataInternal>>(RoomDataInternalUpdateInfo::VT_NEWROOMDATAINTERNAL, None)
+  }
+  #[inline]
+  pub fn prevFlagAttr(&self) -> u32 {
+    self._tab.get::<u32>(RoomDataInternalUpdateInfo::VT_PREVFLAGATTR, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn prevRoomPasswordSlotMask(&self) -> u64 {
+    self._tab.get::<u64>(RoomDataInternalUpdateInfo::VT_PREVROOMPASSWORDSLOTMASK, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn newRoomGroup(&self) -> Option<&'a [u8]> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomDataInternalUpdateInfo::VT_NEWROOMGROUP, None).map(|v| v.safe_slice())
+  }
+  #[inline]
+  pub fn newRoomBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomDataInternalUpdateInfo::VT_NEWROOMBINATTRINTERNAL, None)
+  }
+}
+
+impl flatbuffers::Verifiable for RoomDataInternalUpdateInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<RoomDataInternal>>(&"newRoomDataInternal", Self::VT_NEWROOMDATAINTERNAL, false)?
+     .visit_field::<u32>(&"prevFlagAttr", Self::VT_PREVFLAGATTR, false)?
+     .visit_field::<u64>(&"prevRoomPasswordSlotMask", Self::VT_PREVROOMPASSWORDSLOTMASK, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>(&"newRoomGroup", Self::VT_NEWROOMGROUP, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>(&"newRoomBinAttrInternal", Self::VT_NEWROOMBINATTRINTERNAL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RoomDataInternalUpdateInfoArgs<'a> {
+    pub newRoomDataInternal: Option<flatbuffers::WIPOffset<RoomDataInternal<'a>>>,
+    pub prevFlagAttr: u32,
+    pub prevRoomPasswordSlotMask: u64,
+    pub newRoomGroup: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+    pub newRoomBinAttrInternal: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
+}
+impl<'a> Default for RoomDataInternalUpdateInfoArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        RoomDataInternalUpdateInfoArgs {
+            newRoomDataInternal: None,
+            prevFlagAttr: 0,
+            prevRoomPasswordSlotMask: 0,
+            newRoomGroup: None,
+            newRoomBinAttrInternal: None,
+        }
+    }
+}
+pub struct RoomDataInternalUpdateInfoBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> RoomDataInternalUpdateInfoBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_newRoomDataInternal(&mut self, newRoomDataInternal: flatbuffers::WIPOffset<RoomDataInternal<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<RoomDataInternal>>(RoomDataInternalUpdateInfo::VT_NEWROOMDATAINTERNAL, newRoomDataInternal);
+  }
+  #[inline]
+  pub fn add_prevFlagAttr(&mut self, prevFlagAttr: u32) {
+    self.fbb_.push_slot::<u32>(RoomDataInternalUpdateInfo::VT_PREVFLAGATTR, prevFlagAttr, 0);
+  }
+  #[inline]
+  pub fn add_prevRoomPasswordSlotMask(&mut self, prevRoomPasswordSlotMask: u64) {
+    self.fbb_.push_slot::<u64>(RoomDataInternalUpdateInfo::VT_PREVROOMPASSWORDSLOTMASK, prevRoomPasswordSlotMask, 0);
+  }
+  #[inline]
+  pub fn add_newRoomGroup(&mut self, newRoomGroup: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomDataInternalUpdateInfo::VT_NEWROOMGROUP, newRoomGroup);
+  }
+  #[inline]
+  pub fn add_newRoomBinAttrInternal(&mut self, newRoomBinAttrInternal: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u16>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomDataInternalUpdateInfo::VT_NEWROOMBINATTRINTERNAL, newRoomBinAttrInternal);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomDataInternalUpdateInfoBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    RoomDataInternalUpdateInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<RoomDataInternalUpdateInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl std::fmt::Debug for RoomDataInternalUpdateInfo<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut ds = f.debug_struct("RoomDataInternalUpdateInfo");
+      ds.field("newRoomDataInternal", &self.newRoomDataInternal());
+      ds.field("prevFlagAttr", &self.prevFlagAttr());
+      ds.field("prevRoomPasswordSlotMask", &self.prevRoomPasswordSlotMask());
+      ds.field("newRoomGroup", &self.newRoomGroup());
+      ds.field("newRoomBinAttrInternal", &self.newRoomBinAttrInternal());
+      ds.finish()
+  }
+}
+pub enum RoomMemberDataInternalUpdateInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RoomMemberDataInternalUpdateInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for RoomMemberDataInternalUpdateInfo<'a> {
+    type Inner = RoomMemberDataInternalUpdateInfo<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self { _tab: flatbuffers::Table { buf, loc } }
+    }
+}
+
+impl<'a> RoomMemberDataInternalUpdateInfo<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        RoomMemberDataInternalUpdateInfo { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args RoomMemberDataInternalUpdateInfoArgs<'args>) -> flatbuffers::WIPOffset<RoomMemberDataInternalUpdateInfo<'bldr>> {
+      let mut builder = RoomMemberDataInternalUpdateInfoBuilder::new(_fbb);
+      if let Some(x) = args.newRoomMemberBinAttrInternal { builder.add_newRoomMemberBinAttrInternal(x); }
+      builder.add_prevFlagAttr(args.prevFlagAttr);
+      if let Some(x) = args.newRoomMemberDataInternal { builder.add_newRoomMemberDataInternal(x); }
+      builder.add_prevTeamId(args.prevTeamId);
+      builder.finish()
+    }
+
+    pub const VT_NEWROOMMEMBERDATAINTERNAL: flatbuffers::VOffsetT = 4;
+    pub const VT_PREVFLAGATTR: flatbuffers::VOffsetT = 6;
+    pub const VT_PREVTEAMID: flatbuffers::VOffsetT = 8;
+    pub const VT_NEWROOMMEMBERBINATTRINTERNAL: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub fn newRoomMemberDataInternal(&self) -> Option<RoomMemberDataInternal<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<RoomMemberDataInternal>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERDATAINTERNAL, None)
+  }
+  #[inline]
+  pub fn prevFlagAttr(&self) -> u32 {
+    self._tab.get::<u32>(RoomMemberDataInternalUpdateInfo::VT_PREVFLAGATTR, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn prevTeamId(&self) -> u8 {
+    self._tab.get::<u8>(RoomMemberDataInternalUpdateInfo::VT_PREVTEAMID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn newRoomMemberBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERBINATTRINTERNAL, None)
+  }
+}
+
+impl flatbuffers::Verifiable for RoomMemberDataInternalUpdateInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<RoomMemberDataInternal>>(&"newRoomMemberDataInternal", Self::VT_NEWROOMMEMBERDATAINTERNAL, false)?
+     .visit_field::<u32>(&"prevFlagAttr", Self::VT_PREVFLAGATTR, false)?
+     .visit_field::<u8>(&"prevTeamId", Self::VT_PREVTEAMID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>(&"newRoomMemberBinAttrInternal", Self::VT_NEWROOMMEMBERBINATTRINTERNAL, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RoomMemberDataInternalUpdateInfoArgs<'a> {
+    pub newRoomMemberDataInternal: Option<flatbuffers::WIPOffset<RoomMemberDataInternal<'a>>>,
+    pub prevFlagAttr: u32,
+    pub prevTeamId: u8,
+    pub newRoomMemberBinAttrInternal: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
+}
+impl<'a> Default for RoomMemberDataInternalUpdateInfoArgs<'a> {
+    #[inline]
+    fn default() -> Self {
+        RoomMemberDataInternalUpdateInfoArgs {
+            newRoomMemberDataInternal: None,
+            prevFlagAttr: 0,
+            prevTeamId: 0,
+            newRoomMemberBinAttrInternal: None,
+        }
+    }
+}
+pub struct RoomMemberDataInternalUpdateInfoBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> RoomMemberDataInternalUpdateInfoBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_newRoomMemberDataInternal(&mut self, newRoomMemberDataInternal: flatbuffers::WIPOffset<RoomMemberDataInternal<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<RoomMemberDataInternal>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERDATAINTERNAL, newRoomMemberDataInternal);
+  }
+  #[inline]
+  pub fn add_prevFlagAttr(&mut self, prevFlagAttr: u32) {
+    self.fbb_.push_slot::<u32>(RoomMemberDataInternalUpdateInfo::VT_PREVFLAGATTR, prevFlagAttr, 0);
+  }
+  #[inline]
+  pub fn add_prevTeamId(&mut self, prevTeamId: u8) {
+    self.fbb_.push_slot::<u8>(RoomMemberDataInternalUpdateInfo::VT_PREVTEAMID, prevTeamId, 0);
+  }
+  #[inline]
+  pub fn add_newRoomMemberBinAttrInternal(&mut self, newRoomMemberBinAttrInternal: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u16>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERBINATTRINTERNAL, newRoomMemberBinAttrInternal);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomMemberDataInternalUpdateInfoBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    RoomMemberDataInternalUpdateInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<RoomMemberDataInternalUpdateInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl std::fmt::Debug for RoomMemberDataInternalUpdateInfo<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut ds = f.debug_struct("RoomMemberDataInternalUpdateInfo");
+      ds.field("newRoomMemberDataInternal", &self.newRoomMemberDataInternal());
+      ds.field("prevFlagAttr", &self.prevFlagAttr());
+      ds.field("prevTeamId", &self.prevTeamId());
+      ds.field("newRoomMemberBinAttrInternal", &self.newRoomMemberBinAttrInternal());
       ds.finish()
   }
 }

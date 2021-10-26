@@ -29,7 +29,7 @@ mod stream_extractor;
 
 // use client::tls_stream::TlsStream;
 
-const PROTOCOL_VERSION: u32 = 13;
+const PROTOCOL_VERSION: u32 = 14;
 
 pub struct Server {
     config: Arc<RwLock<Config>>,
