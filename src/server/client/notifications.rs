@@ -5,6 +5,8 @@ pub enum NotificationType {
 	UserJoinedRoom,
 	UserLeftRoom,
 	RoomDestroyed,
+	UpdatedRoomDataInternal,
+	UpdatedRoomMemberDataInternal,
 	SignalP2PConnect,
 	_SignalP2PDisconnect,
 	FriendQuery,  // Other user sent a friend request

@@ -106,6 +106,7 @@ enum CommandType {
 	SetRoomDataExternal,
 	GetRoomDataInternal,
 	SetRoomDataInternal,
+	SetRoomMemberDataInternal,
 	PingRoomOwner,
 	SendRoomMessage,
 	RequestSignalingInfos,
@@ -149,6 +150,7 @@ pub enum ErrorType {
 	CreationBannedEmailProvider, // Specific to Account Creation: the email provider is banned
 	CreationExistingEmail,       // Specific to Account Creation: that email is already registered to an account
 	AlreadyJoined,               // User tried to join a room he's already part of
+	Unauthorized,                // User attempted an unauthorized operation
 	DbFail,                      // Generic failure on db side
 	EmailFail,                   // Generic failure related to email
 	NotFound,                    // Object of the query was not found(room, user, etc)
@@ -398,7 +400,8 @@ impl Client {
 			CommandType::GetRoomDataExternalList => return self.req_get_roomdata_external_list(data, reply),
 			CommandType::SetRoomDataExternal => return self.req_set_roomdata_external(data, reply),
 			CommandType::GetRoomDataInternal => return self.req_get_roomdata_internal(data, reply),
-			CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply),
+			CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply).await,
+			CommandType::SetRoomMemberDataInternal => return self.req_set_roommemberdata_internal(data, reply).await,
 			CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
 			CommandType::SendRoomMessage => return self.req_send_room_message(data, reply).await,
 			CommandType::RequestSignalingInfos => return self.req_signaling_infos(data, reply),
