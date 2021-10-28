@@ -272,7 +272,7 @@ impl RoomUser {
 			member_id: 0,
 		}
 	}
-	pub fn to_RoomMemberDataInternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<RoomMemberDataInternal<'a>> {
+	pub fn to_RoomMemberDataInternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>, room: &Room) -> flatbuffers::WIPOffset<RoomMemberDataInternal<'a>> {
 		let npid = builder.create_string(&self.npid);
 		let online_name = builder.create_string(&self.online_name);
 		let avatar_url = builder.create_string(&self.avatar_url);
@@ -286,13 +286,22 @@ impl RoomUser {
 			},
 		);
 
-		let mut bin_attr = None;
+		let bin_attr;
 		if self.member_attr.len() != 0 {
 			let mut bin_attrs = Vec::new();
 			for (_id, binattr) in &self.member_attr {
 				bin_attrs.push(binattr.to_flatbuffer(builder));
 			}
 			bin_attr = Some(builder.create_vector(&bin_attrs));
+		} else {
+			bin_attr = None;
+		}
+
+		let room_group;
+		if self.group_id != 0 {
+			room_group = Some(room.group_config.get(&self.group_id).unwrap().to_flatbuffer(builder));
+		} else {
+			room_group = None;
 		}
 
 		RoomMemberDataInternal::create(
@@ -302,7 +311,7 @@ impl RoomUser {
 				joinDate: self.join_date,
 				memberId: self.member_id,
 				teamId: self.team_id,
-				roomGroup: self.group_id,
+				roomGroup: room_group,
 				natType: 2, // todo
 				flagAttr: self.flag_attr,
 				roomMemberBinAttrInternal: bin_attr,
@@ -322,7 +331,7 @@ pub struct Room {
 	search_bin_attr: Vec<RoomBinAttr>,
 	search_int_attr: Vec<RoomIntAttr>,
 	room_password: Option<[u8; 8]>,
-	group_config: Vec<RoomGroupConfig>,
+	group_config: BTreeMap<u8, RoomGroupConfig>,
 	password_slot_mask: u64,
 	allowed_users: Vec<String>,
 	blocked_users: Vec<String>,
@@ -349,7 +358,7 @@ impl Room {
 		let mut search_bin_attr: Vec<RoomBinAttr> = Vec::new();
 		let mut search_int_attr: Vec<RoomIntAttr> = Vec::new();
 		let mut room_password = None;
-		let mut group_config: Vec<RoomGroupConfig> = Vec::new();
+		let mut group_config: BTreeMap<u8, RoomGroupConfig> = BTreeMap::new();
 		let password_slot_mask;
 		let mut allowed_users: Vec<String> = Vec::new();
 		let mut blocked_users: Vec<String> = Vec::new();
@@ -386,7 +395,8 @@ impl Room {
 		}
 		if let Some(vec) = fb.groupConfig() {
 			for i in 0..vec.len() {
-				group_config.push(RoomGroupConfig::from_flatbuffer(&vec.get(i), (i + 1) as u8));
+				let group_id = (i + 1) as u8;
+				group_config.insert(group_id, RoomGroupConfig::from_flatbuffer(&vec.get(i), group_id));
 			}
 		}
 		password_slot_mask = fb.passwordSlotMask();
@@ -432,14 +442,14 @@ impl Room {
 		if self.users.len() != 0 {
 			let mut member_list = Vec::new();
 			for user in &self.users {
-				member_list.push(user.1.to_RoomMemberDataInternal(builder));
+				member_list.push(user.1.to_RoomMemberDataInternal(builder, self));
 			}
 			final_member_list = Some(builder.create_vector(&member_list));
 		}
 		let mut final_group_list = None;
 		if self.group_config.len() != 0 {
 			let mut group_list = Vec::new();
-			for group in &self.group_config {
+			for (_id, group) in &self.group_config {
 				group_list.push(group.to_flatbuffer(builder));
 			}
 			final_group_list = Some(builder.create_vector(&group_list));
@@ -505,7 +515,7 @@ impl Room {
 		let mut final_group_list = None;
 		if self.group_config.len() != 0 {
 			let mut group_list = Vec::new();
-			for group in &self.group_config {
+			for (_id, group) in &self.group_config {
 				group_list.push(group.to_flatbuffer(builder));
 			}
 			final_group_list = Some(builder.create_vector(&group_list));
@@ -578,7 +588,7 @@ impl Room {
 		// Builds flatbuffer
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 
-		let member_internal = user.to_RoomMemberDataInternal(&mut builder);
+		let member_internal = user.to_RoomMemberDataInternal(&mut builder, self);
 
 		let opt_data = dc_opt_data(&mut builder, user_opt_data);
 
@@ -1123,44 +1133,53 @@ impl RoomManager {
 		if !self.room_exists(com_id, req.roomId()) {
 			return Err(ErrorType::NotFound as u8);
 		}
-		let room = self.get_mut_room(com_id, req.roomId());
-		let member_id = room.get_member_id(user_id)?;
-		let target_member_id = if req.memberId() == 0 { member_id } else { req.memberId() };
-
-		// You can only change a member's binattrs if they are your own or you are room owner
-		if (member_id != target_member_id) && (member_id != room.owner) {
-			return Err(ErrorType::Unauthorized as u8);
-		}
-
-		if !room.users.contains_key(&target_member_id) {
-			return Err(ErrorType::NotFound as u8);
-		}
-
-		let user = room.users.get_mut(&target_member_id).unwrap();
-
-		let team_id = req.teamId();
-		let prev_team_id = user.team_id;
-		if team_id != 0 {
-			user.team_id = team_id;
-		}
 
 		let new_binattr;
-		if let Some(fb_member_binattr) = req.roomMemberBinAttrInternal() {
-			let mut vec_new_binattr = Vec::new();
-			for i in 0..fb_member_binattr.len() {
-				let member_binattr = RoomMemberBinAttr::from_flatbuffer(&fb_member_binattr.get(i));
-				let member_binattr_id = member_binattr.data.id;
-				user.member_attr.insert(member_binattr_id, member_binattr);
-				vec_new_binattr.push(member_binattr_id);
+		let target_member_id;
+		let prev_team_id;
+		{
+			// Update RoomMemberData
+			let room = self.get_mut_room(com_id, req.roomId());
+			let member_id = room.get_member_id(user_id)?;
+			target_member_id = if req.memberId() == 0 { member_id } else { req.memberId() };
+
+			// You can only change a member's binattrs if they are your own or you are room owner
+			if (member_id != target_member_id) && (member_id != room.owner) {
+				return Err(ErrorType::Unauthorized as u8);
 			}
-			new_binattr = Some(vec_new_binattr);
-		} else {
-			new_binattr = None;
+
+			if !room.users.contains_key(&target_member_id) {
+				return Err(ErrorType::NotFound as u8);
+			}
+
+			let user = room.users.get_mut(&target_member_id).unwrap();
+
+			let team_id = req.teamId();
+			prev_team_id = user.team_id;
+			if team_id != 0 {
+				user.team_id = team_id;
+			}
+
+			if let Some(fb_member_binattr) = req.roomMemberBinAttrInternal() {
+				let mut vec_new_binattr = Vec::new();
+				for i in 0..fb_member_binattr.len() {
+					let member_binattr = RoomMemberBinAttr::from_flatbuffer(&fb_member_binattr.get(i));
+					let member_binattr_id = member_binattr.data.id;
+					user.member_attr.insert(member_binattr_id, member_binattr);
+					vec_new_binattr.push(member_binattr_id);
+				}
+				new_binattr = Some(vec_new_binattr);
+			} else {
+				new_binattr = None;
+			}
 		}
 
 		// Build the notification buffer
+		let room = self.get_room(com_id, req.roomId());
+		let user = room.users.get(&target_member_id).unwrap();
+
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let member_internal = user.to_RoomMemberDataInternal(&mut builder);
+		let member_internal = user.to_RoomMemberDataInternal(&mut builder, room);
 		let fb_new_binattr = if let Some(vec_new_binattr) = new_binattr {
 			Some(builder.create_vector(&vec_new_binattr))
 		} else {
