@@ -341,7 +341,6 @@ pub struct Room {
 	server_id: u16,
 	room_id: u64,
 	users: BTreeMap<u16, RoomUser>,
-	user_cnt: u16,
 	owner: u16,
 
 	// Set by SetInternal
@@ -432,7 +431,6 @@ impl Room {
 			signaling_param,
 			server_id: 0,
 			users: BTreeMap::new(),
-			user_cnt: 0,
 			owner: 0,
 			owner_succession: VecDeque::new(),
 		}
@@ -803,8 +801,8 @@ impl RoomManager {
 
 		// Creates the room from input fb
 		let mut room = Room::from_flatbuffer(req);
-		room.user_cnt += 1;
-		room.owner = room.user_cnt;
+		let member_id: u16 = 1; // initial creator always gets member id 1
+		room.owner = member_id;
 		room.room_id = *room_cnt;
 		room.server_id = server_id;
 		// Add the user as its owner
@@ -813,10 +811,10 @@ impl RoomManager {
 		room_user.npid = cinfo.npid.clone();
 		room_user.online_name = cinfo.online_name.clone();
 		room_user.avatar_url = cinfo.avatar_url.clone();
-		room_user.member_id = room.user_cnt;
+		room_user.member_id = member_id;
 		room_user.flag_attr = SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER;
 		// TODO: Group Label, joindate
-		room.users.insert(room.user_cnt, room_user);
+		room.users.insert(member_id, room_user);
 
 		if room.lobby_id == 0 {
 			let daset = self.world_rooms.entry((*com_id, room.world_id)).or_insert(HashSet::new());
@@ -839,17 +837,26 @@ impl RoomManager {
 	}
 
 	pub fn join_room(&mut self, com_id: &ComId, req: &JoinRoomRequest, cinfo: &ClientInfo) -> Result<(u16, Vec<u8>), u8> {
-		// TODO: Check password, presence & group label
 		let room = self.rooms.get_mut(&(*com_id, req.roomId())).unwrap();
-		room.user_cnt += 1;
+
+		// Determine lowest member id available
+		// TODO: check if password was submitted and use id associated with password slotmask
+		let mut member_id: u16 = 1;
+		for i in 1..=u16::MAX {
+			if !room.users.contains_key(&i) {
+				member_id = i;
+				break;
+			}
+		}
+
 		let mut room_user = RoomUser::from_JoinRoomRequest(req);
 		room_user.user_id = cinfo.user_id;
 		room_user.npid = cinfo.npid.clone();
 		room_user.online_name = cinfo.online_name.clone();
 		room_user.avatar_url = cinfo.avatar_url.clone();
-		room_user.member_id = room.user_cnt;
-		// TODO: Group Label, joindate
-		room.users.insert(room.user_cnt, room_user);
+		room_user.member_id = member_id;
+		// TODO: Group Label
+		room.users.insert(member_id, room_user);
 
 		// Set full flag if necessary
 		if room.users.len() == room.max_slot as usize {
@@ -863,7 +870,7 @@ impl RoomManager {
 		let room_data = room.to_RoomDataInternal(&mut builder);
 
 		builder.finish(room_data, None);
-		Ok((room.user_cnt, builder.finished_data().to_vec()))
+		Ok((member_id, builder.finished_data().to_vec()))
 	}
 
 	pub fn leave_room(&mut self, com_id: &ComId, room_id: u64, user_id: i64) -> Result<(bool, HashSet<i64>), u8> {
