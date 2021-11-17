@@ -318,7 +318,7 @@ impl DatabaseManager {
 
 		if list_worlds.len() == 0 && self.config.read().is_create_missing() {
 			// Create a world so that the list is not empty
-			let cur_max_res: rusqlite::Result<u16> = self
+			let cur_max_res: rusqlite::Result<u32> = self
 				.conn
 				.query_row("SELECT MAX(worldId) FROM worlds WHERE communicationId=?1", rusqlite::params![com_id_str], |r| r.get(0));
 
