@@ -2,7 +2,7 @@
 name = "rpcn"
 version = "0.5.0"
 authors = ["RipleyTom <RipleyTom@users.noreply.github.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 num-traits = "0.2"
