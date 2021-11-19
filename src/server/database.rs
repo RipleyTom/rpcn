@@ -4,7 +4,6 @@ use std::sync::Arc;
 use parking_lot::RwLock;
 use rand::prelude::*;
 use rusqlite;
-use rusqlite::NO_PARAMS;
 use tracing::{error, info, warn};
 
 use crate::server::client::*;
@@ -79,32 +78,32 @@ impl DatabaseManager {
 		let conn = rusqlite::Connection::open("db/rpcnv4.db").expect("Failed to open \"db/rpcnv4.db\"!");
 		conn.execute(
             "CREATE TABLE IF NOT EXISTS users ( userId INTEGER PRIMARY KEY NOT NULL, username TEXT NOT NULL COLLATE NOCASE, hash BLOB NOT NULL, salt BLOB NOT NULL, online_name TEXT NOT NULL, avatar_url TEXT NOT NULL, email TEXT NOT NULL, email_check TEXT NOT NULL, token TEXT NOT NULL, rst_token TEXT, flags UNSIGNED SMALLINT NOT NULL)",
-            NO_PARAMS,
+            [],
 		)
 		.expect("Failed to create users table!");
 		conn.execute(
 			"CREATE TABLE IF NOT EXISTS friends ( user1 INTEGER NOT NULL, user2 INTEGER NOT NULL, status INTEGER NOT NULL, PRIMARY KEY(user1, user2), FOREIGN KEY(user1) REFERENCES users(userId), FOREIGN KEY(user2) REFERENCES users(userId))",
-			NO_PARAMS,
+			[],
 		)
 		.expect("Failed to create friends table!");
 		conn.execute(
 			"CREATE TABLE IF NOT EXISTS dates ( user INTEGER NOT NULL, creation INTEGER NOT NULL, last_login INTEGER, token_last_sent INTEGER, rst_emit INTEGER, PRIMARY KEY(user), FOREIGN KEY(user) REFERENCES users(userId))",
-			NO_PARAMS,
+			[],
 		)
 		.expect("Failed to create dates table!");
 		conn.execute(
 			"CREATE TABLE IF NOT EXISTS servers ( communicationId TEXT NOT NULL, serverId INTEGER NOT NULL, PRIMARY KEY(communicationId, serverId))",
-			NO_PARAMS,
+			[],
 		)
 		.expect("Failed to create servers table!");
 		conn.execute(
             "CREATE TABLE IF NOT EXISTS worlds ( communicationId TEXT NOT NULL, serverId INTEGER NOT NULL, worldId INTEGER NOT NULL, PRIMARY KEY(communicationId, worldId), FOREIGN KEY(communicationId, serverId) REFERENCES servers(communicationId, serverId))",
-            NO_PARAMS,
+            [],
         )
         .expect("Failed to create worlds table!");
 		conn.execute(
             "CREATE TABLE IF NOT EXISTS lobbies ( communicationId TEXT NOT NULL, worldId INTEGER NOT NULL, lobbyId INTEGER NOT NULL, PRIMARY KEY(communicationId, lobbyId), FOREIGN KEY(communicationId, worldId) REFERENCES worlds(communicationId, worldId))",
-            NO_PARAMS,
+            [],
         )
         .expect("Failed to create lobbies table!");
 		DatabaseManager { config, conn }
