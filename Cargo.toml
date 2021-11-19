@@ -8,13 +8,13 @@ edition = "2021"
 num-traits = "0.2"
 num-derive = "0.3"
 rand = "0.7"
-libsqlite3-sys = "0.16"
+libsqlite3-sys = "0.23"
 rust-argon2 = "0.5"
 flatbuffers = "2.0"
 parking_lot = "0.10"
 chrono = "0.4"
 ring = "0.16"
-rusqlite = { version = "0.20", features = [ "bundled" ] }
+rusqlite = { version = "0.26", features = [ "bundled" ] }
 tokio = { version = "0.2", features = [ "full" ] }
 tokio-rustls = "0.14"
 futures-util = "0.3"
