@@ -269,12 +269,12 @@ impl Client {
 					]);
 					let npid_span = info_span!("", npid = %self.client_info.npid);
 					if self.interpret_command(command, packet_size, packet_id).instrument(npid_span).await.is_err() {
-						info!("Disconnecting client");
+						info!("Disconnecting client({})", self.client_info.npid);
 						break;
 					}
 				}
 				Err(e) => {
-					info!("Client disconnected: {}", &e);
+					info!("Client({}) disconnected: {}", self.client_info.npid, &e);
 					break;
 				}
 			}
