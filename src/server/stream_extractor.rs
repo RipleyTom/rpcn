@@ -57,6 +57,21 @@ impl StreamExtractor {
 
 		res_s
 	}
+	pub fn get_rawdata(&self) -> Vec<u8> {
+		let mut res_vec = Vec::new();
+
+		let size = self.get::<u32>() as usize;
+		if (size + self.i.get()) > self.vec.len() {
+			self.error.set(true);
+			return res_vec;
+		}
+
+		let cur_i = self.i.get();
+		res_vec.clone_from_slice(&self.vec[cur_i..cur_i + size]);
+		self.i.set(cur_i + size);
+
+		res_vec
+	}
 	pub fn get_com_id(&self) -> ComId {
 		let mut com_id: ComId = [0; 9];
 
@@ -70,7 +85,6 @@ impl StreamExtractor {
 
 		com_id
 	}
-
 	pub fn get_flatbuffer<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&'a self) -> Result<T::Inner, ()> {
 		let size = self.get::<u32>();
 		if (size as usize + self.i.get()) > self.vec.len() {

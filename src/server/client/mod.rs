@@ -551,6 +551,8 @@ impl Client {
 	}
 	fn req_ticket(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
 		let service_id = data.get_string(false);
+		let cookie = data.get_rawdata();
+
 		if data.error() {
 			warn!("Error while extracting data from RequestTicket command");
 			reply.push(ErrorType::Malformed as u8);
@@ -559,7 +561,7 @@ impl Client {
 
 		info!("Requested a ticket for <{}>", service_id);
 
-		let ticket = Ticket::new(self.client_info.user_id as u64, &self.client_info.npid, &service_id);
+		let ticket = Ticket::new(self.client_info.user_id as u64, &self.client_info.npid, &service_id, cookie);
 		let ticket_blob = ticket.generate_blob();
 
 		reply.push(ErrorType::NoError as u8);
