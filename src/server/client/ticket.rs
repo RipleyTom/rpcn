@@ -62,7 +62,7 @@ pub struct Ticket {
 }
 
 impl Ticket {
-	pub fn new(user_id: u64, npid: &str, service_id: &str) -> Ticket {
+	pub fn new(user_id: u64, npid: &str, service_id: &str, cookie: Vec<u8>) -> Ticket {
 		let ticket_id = TICKET_ID_DISPENSER.fetch_add(1, Ordering::SeqCst);
 
 		let serial_str = format!("{}", ticket_id);
@@ -79,24 +79,31 @@ impl Ticket {
 		let mut service_id: Vec<u8> = service_id.as_bytes().to_vec();
 		service_id.resize(0x18, 0);
 
+		let mut user_data = 					vec![
+			TicketData::Binary(serial_vec),
+			TicketData::U32(issuer_id),
+			TicketData::Time(issued_date),
+			TicketData::Time(expire_date),
+			TicketData::U64(user_id),
+			TicketData::BString(online_id),
+			TicketData::Binary(vec!['b' as u8, 'r' as u8, 0, 0]),  // region (yes you're going to brazil)
+			TicketData::BString(vec!['u' as u8, 'n' as u8, 0, 0]), // domain
+			TicketData::Binary(service_id),
+			TicketData::U32(0),  // status
+		];
+
+		if !cookie.is_empty() {
+			user_data.push(TicketData::Binary(cookie));
+		}
+
+		user_data.push(TicketData::Empty());
+		user_data.push(TicketData::Empty());
+
 		Ticket {
 			data: vec![
 				TicketData::Blob(
 					0,
-					vec![
-						TicketData::Binary(serial_vec),
-						TicketData::U32(issuer_id),
-						TicketData::Time(issued_date),
-						TicketData::Time(expire_date),
-						TicketData::U64(user_id),
-						TicketData::BString(online_id),
-						TicketData::Binary(vec!['b' as u8, 'r' as u8, 0, 0]),  // region (yes you're going to brazil)
-						TicketData::BString(vec!['u' as u8, 'n' as u8, 0, 0]), // domain
-						TicketData::Binary(service_id),
-						TicketData::U32(0),  // status
-						TicketData::Empty(), // status_duration
-						TicketData::Empty(), // date_of_birth
-					],
+					user_data,
 				),
 				TicketData::Blob(2, vec![TicketData::Binary(vec![0, 0, 0, 0]), TicketData::Binary([0; 0x38].to_vec())]),
 			],
