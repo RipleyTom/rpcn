@@ -67,7 +67,7 @@ impl StreamExtractor {
 		}
 
 		let cur_i = self.i.get();
-		res_vec.clone_from_slice(&self.vec[cur_i..cur_i + size]);
+		res_vec.extend_from_slice(&self.vec[cur_i..cur_i + size]);
 		self.i.set(cur_i + size);
 
 		res_vec
