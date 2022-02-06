@@ -327,9 +327,9 @@ pub struct Room {
 	max_slot: u16,
 	flag_attr: u32,
 	bin_attr_internal: BTreeMap<u16, RoomBinAttrInternal>,
-	bin_attr_external: Vec<RoomBinAttr>,
-	search_bin_attr: Vec<RoomBinAttr>,
-	search_int_attr: Vec<RoomIntAttr>,
+	bin_attr_external: BTreeMap<u16, RoomBinAttr>,
+	search_bin_attr: BTreeMap<u16, RoomBinAttr>,
+	search_int_attr: BTreeMap<u16, RoomIntAttr>,
 	room_password: Option<[u8; 8]>,
 	group_config: BTreeMap<u8, RoomGroupConfig>,
 	password_slot_mask: u64,
@@ -353,9 +353,9 @@ impl Room {
 		let max_slot = fb.maxSlot() as u16;
 		let flag_attr = fb.flagAttr();
 		let mut bin_attr_internal: BTreeMap<u16, RoomBinAttrInternal> = BTreeMap::new();
-		let mut bin_attr_external: Vec<RoomBinAttr> = Vec::new();
-		let mut search_bin_attr: Vec<RoomBinAttr> = Vec::new();
-		let mut search_int_attr: Vec<RoomIntAttr> = Vec::new();
+		let mut bin_attr_external: BTreeMap<u16, RoomBinAttr> = BTreeMap::new();
+		let mut search_bin_attr: BTreeMap<u16, RoomBinAttr> = BTreeMap::new();
+		let mut search_int_attr: BTreeMap<u16, RoomIntAttr> = BTreeMap::new();
 		let mut room_password = None;
 		let mut group_config: BTreeMap<u8, RoomGroupConfig> = BTreeMap::new();
 		let password_slot_mask;
@@ -372,17 +372,20 @@ impl Room {
 		}
 		if let Some(vec) = fb.roomBinAttrExternal() {
 			for i in 0..vec.len() {
-				bin_attr_external.push(RoomBinAttr::from_flatbuffer(&vec.get(i)));
+				let room_attr_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
+				bin_attr_external.insert(room_attr_from_fb.id, room_attr_from_fb);
 			}
 		}
 		if let Some(vec) = fb.roomSearchableBinAttrExternal() {
 			for i in 0..vec.len() {
-				search_bin_attr.push(RoomBinAttr::from_flatbuffer(&vec.get(i)));
+				let room_attr_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
+				search_bin_attr.insert(room_attr_from_fb.id, room_attr_from_fb);
 			}
 		}
 		if let Some(vec) = fb.roomSearchableIntAttrExternal() {
 			for i in 0..vec.len() {
-				search_int_attr.push(RoomIntAttr::from_flatbuffer(&vec.get(i)));
+				let room_attr_from_fb = RoomIntAttr::from_flatbuffer(&vec.get(i));
+				search_int_attr.insert(room_attr_from_fb.id, room_attr_from_fb);
 			}
 		}
 		if let Some(password) = fb.roomPassword() {
@@ -521,7 +524,7 @@ impl Room {
 		let mut final_searchint = None;
 		if self.search_int_attr.len() != 0 {
 			let mut int_list = Vec::new();
-			for int in &self.search_int_attr {
+			for (_, int) in &self.search_int_attr {
 				int_list.push(int.to_flatbuffer(builder));
 			}
 			final_searchint = Some(builder.create_vector(&int_list));
@@ -529,7 +532,7 @@ impl Room {
 		let mut final_searchbin = None;
 		if self.search_bin_attr.len() != 0 {
 			let mut bin_list = Vec::new();
-			for bin in &self.search_bin_attr {
+			for (_, bin) in &self.search_bin_attr {
 				bin_list.push(bin.to_flatbuffer(builder));
 			}
 			final_searchbin = Some(builder.create_vector(&bin_list));
@@ -537,7 +540,7 @@ impl Room {
 		let mut final_binattrexternal = None;
 		if self.bin_attr_external.len() != 0 {
 			let mut bin_list = Vec::new();
-			for bin in &self.bin_attr_external {
+			for (_, bin) in &self.bin_attr_external {
 				bin_list.push(bin.to_flatbuffer(builder));
 			}
 			final_binattrexternal = Some(builder.create_vector(&bin_list));
@@ -651,14 +654,8 @@ impl Room {
 				let num = intfilter.attr().unwrap().num();
 
 				// Find matching id
-				let mut found_intsearch = None;
-				for searchint in &self.search_int_attr {
-					if searchint.id == id {
-						found_intsearch = Some(searchint);
-						break;
-					}
-				}
-				if let None = found_intsearch {
+				let found_intsearch = self.search_int_attr.get(&id);
+				if found_intsearch.is_none() {
 					return false;
 				}
 				let found_intsearch = found_intsearch.unwrap();
@@ -712,14 +709,8 @@ impl Room {
 				let data = binfilter.attr().unwrap().data().unwrap();
 
 				// Find matching id
-				let mut found_binsearch = None;
-				for searchbin in &self.search_bin_attr {
-					if searchbin.id == id {
-						found_binsearch = Some(searchbin);
-						break;
-					}
-				}
-				if let None = found_binsearch {
+				let found_binsearch = self.search_bin_attr.get(&id);
+				if found_binsearch.is_none() {
 					return false;
 				}
 				let found_binsearch = found_binsearch.unwrap();
@@ -1029,29 +1020,24 @@ impl RoomManager {
 		}
 		let room = self.get_mut_room(com_id, req.roomId());
 
-		let mut bin_attr_external: Vec<RoomBinAttr> = Vec::new();
-		let mut search_bin_attr: Vec<RoomBinAttr> = Vec::new();
-		let mut search_int_attr: Vec<RoomIntAttr> = Vec::new();
-
 		if let Some(vec) = req.roomBinAttrExternal() {
 			for i in 0..vec.len() {
-				bin_attr_external.push(RoomBinAttr::from_flatbuffer(&vec.get(i)));
+				let room_attr_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
+				room.bin_attr_external.insert(room_attr_from_fb.id, room_attr_from_fb);
 			}
 		}
 		if let Some(vec) = req.roomSearchableBinAttrExternal() {
 			for i in 0..vec.len() {
-				search_bin_attr.push(RoomBinAttr::from_flatbuffer(&vec.get(i)));
+				let room_attr_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
+				room.search_bin_attr.insert(room_attr_from_fb.id, room_attr_from_fb);
 			}
 		}
 		if let Some(vec) = req.roomSearchableIntAttrExternal() {
 			for i in 0..vec.len() {
-				search_int_attr.push(RoomIntAttr::from_flatbuffer(&vec.get(i)));
+				let room_attr_from_fb = RoomIntAttr::from_flatbuffer(&vec.get(i));
+				room.search_int_attr.insert(room_attr_from_fb.id, room_attr_from_fb);
 			}
 		}
-
-		room.bin_attr_external = bin_attr_external;
-		room.search_bin_attr = search_bin_attr;
-		room.search_int_attr = search_int_attr;
 
 		Ok(())
 	}
