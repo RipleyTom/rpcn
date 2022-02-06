@@ -167,7 +167,7 @@ impl Config {
 
 	pub fn get_server_redirection(&self, com_id: ComId) -> ComId {
 		match self.server_redirs.get(&com_id) {
-			Some(redir) => redir.clone(),
+			Some(redir) => *redir,
 			None => com_id,
 		}
 	}

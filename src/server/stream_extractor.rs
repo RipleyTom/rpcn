@@ -1,3 +1,4 @@
+#[allow(clippy::all)]
 #[allow(unused_imports)]
 pub mod np2_structs_generated;
 
@@ -23,7 +24,7 @@ impl StreamExtractor {
 		}
 	}
 	pub fn error(&self) -> bool {
-		return self.error.get();
+		self.error.get()
 	}
 
 	pub fn get<T: PrimInt>(&self) -> T {
@@ -51,7 +52,7 @@ impl StreamExtractor {
 
 		self.i.set(self.i.get() + 1);
 
-		if self.i.get() > self.vec.len() || (!empty && res_s.len() == 0) {
+		if self.i.get() > self.vec.len() || (!empty && res_s.is_empty()) {
 			self.error.set(true);
 		}
 

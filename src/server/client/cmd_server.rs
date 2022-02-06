@@ -18,7 +18,7 @@ impl Client {
 		// }
 
 		let servs = self.db.lock().get_server_list(&com_id);
-		if let Err(_) = servs {
+		if servs.is_err() {
 			reply.push(ErrorType::DbFail as u8);
 			return Err(());
 		}
@@ -47,7 +47,7 @@ impl Client {
 		}
 
 		let worlds = self.db.lock().get_world_list(&com_id, server_id);
-		if let Err(_) = worlds {
+		if worlds.is_err() {
 			reply.push(ErrorType::DbFail as u8);
 			return Err(());
 		}

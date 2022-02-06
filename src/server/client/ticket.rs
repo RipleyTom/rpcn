@@ -86,8 +86,8 @@ impl Ticket {
 			TicketData::Time(expire_date),
 			TicketData::U64(user_id),
 			TicketData::BString(online_id),
-			TicketData::Binary(vec!['b' as u8, 'r' as u8, 0, 0]),  // region (yes you're going to brazil)
-			TicketData::BString(vec!['u' as u8, 'n' as u8, 0, 0]), // domain
+			TicketData::Binary(vec![b'b', b'r', 0, 0]),  // region (yes you're going to brazil)
+			TicketData::BString(vec![b'u', b'n', 0, 0]), // domain
 			TicketData::Binary(service_id),
 			TicketData::U32(0),  // status
 		];
@@ -114,7 +114,7 @@ impl Ticket {
 		let mut ticket_blob: Vec<u8> = Vec::new();
 
 		// Version
-		ticket_blob.extend(&(0x21010000 as u32).to_be_bytes());
+		ticket_blob.extend(&(0x21010000u32).to_be_bytes());
 
 		let size: u32 = self.data.iter().map(|x| (x.len() + 4) as u32).sum::<u32>();
 		ticket_blob.extend(&size.to_be_bytes());

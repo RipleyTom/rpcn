@@ -18,7 +18,7 @@ pub enum NotificationType {
 }
 
 impl Client {
-	pub fn create_notification(n_type: NotificationType, data: &Vec<u8>) -> Vec<u8> {
+	pub fn create_notification(n_type: NotificationType, data: &[u8]) -> Vec<u8> {
 		let final_size = data.len() + HEADER_SIZE as usize;
 
 		let mut final_vec = Vec::with_capacity(final_size);
@@ -31,7 +31,7 @@ impl Client {
 		final_vec
 	}
 
-	pub fn create_friend_status_notification(npid: &String, timestamp: u64, online: bool) -> Vec<u8> {
+	pub fn create_friend_status_notification(npid: &str, timestamp: u64, online: bool) -> Vec<u8> {
 		let mut n_msg: Vec<u8> = Vec::new();
 		n_msg.push(if online { 1 } else { 0 });
 		n_msg.extend(&timestamp.to_le_bytes());
@@ -40,7 +40,7 @@ impl Client {
 		Client::create_notification(NotificationType::FriendStatus, &n_msg)
 	}
 
-	pub fn create_new_friend_notification(npid: &String, online: bool) -> Vec<u8> {
+	pub fn create_new_friend_notification(npid: &str, online: bool) -> Vec<u8> {
 		let mut n_msg: Vec<u8> = Vec::new();
 		n_msg.push(if online { 1 } else { 0 });
 		n_msg.extend(npid.as_bytes());
@@ -48,7 +48,7 @@ impl Client {
 		Client::create_notification(NotificationType::FriendNew, &n_msg)
 	}
 
-	pub async fn send_single_notification(&self, notif: &Vec<u8>, user_id: i64) {
+	pub async fn send_single_notification(&self, notif: &[u8], user_id: i64) {
 		let mut channel_copy;
 		let entry;
 		{
@@ -60,16 +60,16 @@ impl Client {
 				return;
 			}
 		}
-		let _ = channel_copy.send(notif.clone()).await;
+		let _ = channel_copy.send(notif.to_vec()).await;
 	}
 
-	pub async fn send_notification(&self, notif: &Vec<u8>, user_list: &HashSet<i64>) {
+	pub async fn send_notification(&self, notif: &[u8], user_list: &HashSet<i64>) {
 		for user_id in user_list {
 			self.send_single_notification(notif, *user_id).await;
 		}
 	}
 
-	pub fn self_notification(&mut self, notif: &Vec<u8>) {
-		self.post_reply_notifications.push(notif.clone());
+	pub fn self_notification(&mut self, notif: &[u8]) {
+		self.post_reply_notifications.push(notif.to_vec());
 	}
 }

@@ -22,7 +22,6 @@ impl Client {
 				create_req.lobbyId()
 			);
 			reply.push(ErrorType::InvalidInput as u8);
-			()
 		})?;
 
 		let resp = self.room_manager.write().create_room(&com_id, &create_req, &self.client_info, server_id);
@@ -78,7 +77,7 @@ impl Client {
 			reply.extend(&(resp.len() as u32).to_le_bytes());
 			reply.extend(resp);
 
-			user_ids = users.iter().map(|x| x.1.clone()).collect();
+			user_ids = users.iter().map(|x| *x.1).collect();
 
 			// Notif other room users a new user has joined
 			let mut n_msg: Vec<u8> = Vec::new();
@@ -114,7 +113,7 @@ impl Client {
 			// We get this in advance in case the room is not destroyed
 			user_data = room.get_room_member_update_info(member_id.unwrap(), event_cause.clone(), opt_data);
 
-			let res = room_manager.leave_room(com_id, room_id, self.client_info.user_id.clone());
+			let res = room_manager.leave_room(com_id, room_id, self.client_info.user_id);
 			if let Err(e) = res {
 				return e;
 			}
@@ -374,7 +373,7 @@ impl Client {
 				return Ok(());
 			}
 			{
-				let room = room_manager.get_room(&com_id, room_id.clone());
+				let room = room_manager.get_room(&com_id, room_id);
 				let m_id = room.get_member_id(self.client_info.user_id);
 				if m_id.is_err() {
 					warn!("User requested to send a message to a room that he's not a member of!");
@@ -448,7 +447,7 @@ impl Client {
 		match msg_req.castType() {
 			1 => {
 				// SCE_NP_MATCHING2_CASTTYPE_BROADCAST
-				let user_ids: HashSet<i64> = users.iter().filter_map(|x| if *x.1 != self.client_info.user_id { Some(x.1.clone()) } else { None }).collect();
+				let user_ids: HashSet<i64> = users.iter().filter_map(|x| if *x.1 != self.client_info.user_id { Some(*x.1) } else { None }).collect();
 				self.send_notification(&notif, &user_ids).await;
 				self.self_notification(&notif);
 			}
@@ -461,7 +460,7 @@ impl Client {
 						if !dst_vec.iter().any(|dst| *dst == *x.0) {
 							None
 						} else if *x.1 != self.client_info.user_id {
-							Some(x.1.clone())
+							Some(*x.1)
 						} else {
 							found_self = true;
 							None

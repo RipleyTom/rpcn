@@ -39,7 +39,7 @@ impl UdpServer {
 		let socket = UdpSocket::bind(&bind_addr).map_err(|e| io::Error::new(e.kind(), format!("Error binding udp server to <{}>", &bind_addr)))?;
 		socket
 			.set_read_timeout(Some(Duration::from_millis(1)))
-			.map_err(|e| io::Error::new(e.kind(), format!("Error setting udp server timeout to 1ms")))?;
+			.map_err(|e| io::Error::new(e.kind(), "Error setting udp server timeout to 1ms"))?;
 
 		UDP_SERVER_RUNNING.store(true, Ordering::SeqCst);
 
@@ -70,7 +70,7 @@ impl UdpServerInstance {
 		let mut send_buf = [0; 65535];
 
 		loop {
-			if UDP_SERVER_RUNNING.load(Ordering::SeqCst) == false {
+			if !UDP_SERVER_RUNNING.load(Ordering::SeqCst) {
 				break;
 			}
 
@@ -128,7 +128,7 @@ impl UdpServerInstance {
 				let mut si = self.signaling_infos.write();
 				let user_si = si.get_mut(&user_id);
 
-				if let None = user_si {
+				if user_si.is_none() {
 					continue;
 				}
 
@@ -137,7 +137,7 @@ impl UdpServerInstance {
 				user_si.addr_p2p = ip_addr;
 			}
 
-			send_buf[0..2].clone_from_slice(&(0 as u16).to_le_bytes()); // VPort 0
+			send_buf[0..2].clone_from_slice(&0u16.to_le_bytes()); // VPort 0
 			send_buf[2..6].clone_from_slice(&ip_addr);
 			send_buf[6..8].clone_from_slice(&src.port().to_be_bytes());
 

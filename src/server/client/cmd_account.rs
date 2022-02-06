@@ -16,12 +16,12 @@ impl Client {
 		let (host, login, password) = self.config.read().get_email_auth();
 
 		let mut smtp_client;
-		if host.len() == 0 {
+		if host.is_empty() {
 			smtp_client = SmtpClient::new_unencrypted_localhost().unwrap();
 		} else {
 			smtp_client = SmtpClient::new_simple(&host).unwrap();
 
-			if login.len() != 0 {
+			if !login.is_empty() {
 				smtp_client = smtp_client
 					.credentials(Credentials::new(login, password))
 					.authentication_mechanism(Mechanism::Plain)
@@ -59,7 +59,6 @@ impl Client {
 
 					let rels = db_lock.get_relationships(user_data.user_id).map_err(|_| {
 						reply.push(ErrorType::DbFail as u8);
-						()
 					})?;
 
 					// Authentified beyond this point
@@ -67,7 +66,6 @@ impl Client {
 					// Update last login time
 					db_lock.update_login_time(user_data.user_id).map_err(|_| {
 						reply.push(ErrorType::DbFail as u8);
-						()
 					})?;
 
 					// Get friends infos
@@ -240,7 +238,6 @@ impl Client {
 				let last_token_sent_timestamp = db_lock.get_token_sent_time(user_data.user_id).map_err(|_| {
 					error!("Unexpected error querying last token sent time");
 					reply.push(ErrorType::DbFail as u8);
-					()
 				})?;
 
 				if let Some(last_token_sent_timestamp) = last_token_sent_timestamp {
