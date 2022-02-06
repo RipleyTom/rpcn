@@ -16,6 +16,7 @@ use crate::server::stream_extractor::np2_structs_generated::*;
 
 #[repr(u8)]
 #[derive(FromPrimitive)]
+#[allow(clippy::enum_variant_names)]
 enum SceNpMatching2Operator {
 	OperatorEq = 1,
 	OperatorNe = 2,
@@ -39,6 +40,7 @@ const SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER: u32 = 0x80000000;
 
 #[repr(u8)]
 #[derive(FromPrimitive, Clone, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum SignalingType {
 	SignalingNone = 0,
 	SignalingMesh = 1,
@@ -53,10 +55,8 @@ impl RoomBinAttr {
 	pub fn from_flatbuffer(fb: &BinAttr) -> RoomBinAttr {
 		let id = fb.id();
 		let mut attr: Vec<u8> = Vec::new();
-		if let Some(fb_attr) = fb.data() {
-			for i in 0..fb_attr.len() {
-				attr.push(fb_attr[i]);
-			}
+		if let Some(fb_attrs) = fb.data() {
+			attr.extend_from_slice(fb_attrs);
 		}
 
 		RoomBinAttr { id, attr }
@@ -140,8 +140,8 @@ impl RoomGroupConfig {
 		let with_label = fb.withLabel();
 		let mut label = [0; 8];
 		if let Some(vec) = fb.label() {
-			for i in 0..8 {
-				label[i] = vec[i];
+			if vec.len() == 8 {
+				label.clone_from_slice(&vec[0..8]);
 			}
 		}
 		let with_password = fb.withPassword();
@@ -187,8 +187,8 @@ impl SignalParam {
 	}
 	pub fn should_signal(&self) -> bool {
 		match self.sig_type {
-			SignalingType::SignalingNone => return false,
-			_ => return (self.flag & 1) != 1,
+			SignalingType::SignalingNone => false,
+			_ => (self.flag & 1) != 1,
 		}
 	}
 	pub fn get_type(&self) -> SignalingType {
@@ -287,9 +287,9 @@ impl RoomUser {
 		);
 
 		let bin_attr;
-		if self.member_attr.len() != 0 {
+		if !self.member_attr.is_empty() {
 			let mut bin_attrs = Vec::new();
-			for (_id, binattr) in &self.member_attr {
+			for binattr in self.member_attr.values() {
 				bin_attrs.push(binattr.to_flatbuffer(builder));
 			}
 			bin_attr = Some(builder.create_vector(&bin_attrs));
@@ -389,11 +389,11 @@ impl Room {
 			}
 		}
 		if let Some(password) = fb.roomPassword() {
-			let mut room_password_data = [0; 8];
-			for i in 0..8 {
-				room_password_data[i] = password[i];
+			if password.len() == 8 {
+				let mut room_password_data = [0; 8];
+				room_password_data.clone_from_slice(&password[0..8]);
+				room_password = Some(room_password_data);
 			}
-			room_password = Some(room_password_data);
 		}
 		if let Some(vec) = fb.groupConfig() {
 			for i in 0..vec.len() {
@@ -440,7 +440,7 @@ impl Room {
 	}
 	pub fn to_RoomDataInternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<RoomDataInternal<'a>> {
 		let mut final_member_list = None;
-		if self.users.len() != 0 {
+		if !self.users.is_empty() {
 			let mut member_list = Vec::new();
 			for user in &self.users {
 				member_list.push(user.1.to_RoomMemberDataInternal(builder, self));
@@ -448,17 +448,17 @@ impl Room {
 			final_member_list = Some(builder.create_vector(&member_list));
 		}
 		let mut final_group_list = None;
-		if self.group_config.len() != 0 {
+		if !self.group_config.is_empty() {
 			let mut group_list = Vec::new();
-			for (_id, group) in &self.group_config {
+			for group in self.group_config.values() {
 				group_list.push(group.to_flatbuffer(builder));
 			}
 			final_group_list = Some(builder.create_vector(&group_list));
 		}
 		let mut final_internalbinattr = None;
-		if self.bin_attr_internal.len() != 0 {
+		if !self.bin_attr_internal.is_empty() {
 			let mut bin_list = Vec::new();
-			for (_id, bin) in &self.bin_attr_internal {
+			for bin in self.bin_attr_internal.values() {
 				bin_list.push(bin.to_flatbuffer(builder));
 			}
 			final_internalbinattr = Some(builder.create_vector(&bin_list));
@@ -471,15 +471,15 @@ impl Room {
 		rbuild.add_roomId(self.room_id);
 		rbuild.add_passwordSlotMask(self.password_slot_mask);
 		rbuild.add_maxSlot(self.max_slot as u32);
-		if self.users.len() != 0 {
+		if !self.users.is_empty() {
 			rbuild.add_memberList(final_member_list.unwrap());
 		}
 		rbuild.add_ownerId(self.owner);
-		if self.group_config.len() != 0 {
+		if !self.group_config.is_empty() {
 			rbuild.add_roomGroup(final_group_list.unwrap());
 		}
 		rbuild.add_flagAttr(self.flag_attr);
-		if self.bin_attr_internal.len() != 0 {
+		if !self.bin_attr_internal.is_empty() {
 			rbuild.add_roomBinAttrInternal(final_internalbinattr.unwrap());
 		}
 		rbuild.finish()
@@ -514,33 +514,33 @@ impl Room {
 			));
 		}
 		let mut final_group_list = None;
-		if self.group_config.len() != 0 {
+		if !self.group_config.is_empty() {
 			let mut group_list = Vec::new();
-			for (_id, group) in &self.group_config {
+			for group in self.group_config.values() {
 				group_list.push(group.to_flatbuffer(builder));
 			}
 			final_group_list = Some(builder.create_vector(&group_list));
 		}
 		let mut final_searchint = None;
-		if self.search_int_attr.len() != 0 {
+		if !self.search_int_attr.is_empty() {
 			let mut int_list = Vec::new();
-			for (_, int) in &self.search_int_attr {
+			for int in self.search_int_attr.values() {
 				int_list.push(int.to_flatbuffer(builder));
 			}
 			final_searchint = Some(builder.create_vector(&int_list));
 		}
 		let mut final_searchbin = None;
-		if self.search_bin_attr.len() != 0 {
+		if !self.search_bin_attr.is_empty() {
 			let mut bin_list = Vec::new();
-			for (_, bin) in &self.search_bin_attr {
+			for bin in self.search_bin_attr.values() {
 				bin_list.push(bin.to_flatbuffer(builder));
 			}
 			final_searchbin = Some(builder.create_vector(&bin_list));
 		}
 		let mut final_binattrexternal = None;
-		if self.bin_attr_external.len() != 0 {
+		if !self.bin_attr_external.is_empty() {
 			let mut bin_list = Vec::new();
-			for (_, bin) in &self.bin_attr_external {
+			for bin in self.bin_attr_external.values() {
 				bin_list.push(bin.to_flatbuffer(builder));
 			}
 			final_binattrexternal = Some(builder.create_vector(&bin_list));
@@ -561,18 +561,18 @@ impl Room {
 		if let Some(owner_info) = final_owner_info {
 			rbuild.add_owner(owner_info);
 		}
-		if self.group_config.len() != 0 {
+		if !self.group_config.is_empty() {
 			rbuild.add_roomGroup(final_group_list.unwrap());
 		}
 		rbuild.add_flagAttr(self.flag_attr);
 		// External stuff
-		if self.search_int_attr.len() != 0 {
+		if !self.search_int_attr.is_empty() {
 			rbuild.add_roomSearchableIntAttrExternal(final_searchint.unwrap());
 		}
-		if self.search_bin_attr.len() != 0 {
+		if !self.search_bin_attr.is_empty() {
 			rbuild.add_roomSearchableBinAttrExternal(final_searchbin.unwrap());
 		}
-		if self.bin_attr_external.len() != 0 {
+		if !self.bin_attr_external.is_empty() {
 			rbuild.add_roomBinAttrExternal(final_binattrexternal.unwrap());
 		}
 
@@ -607,7 +607,7 @@ impl Room {
 	pub fn get_room_users(&self) -> HashMap<u16, i64> {
 		let mut users_vec = HashMap::new();
 		for user in &self.users {
-			users_vec.insert(user.0.clone(), user.1.user_id.clone());
+			users_vec.insert(*user.0, user.1.user_id);
 		}
 
 		users_vec
@@ -615,7 +615,7 @@ impl Room {
 	pub fn get_room_user_ids(&self) -> HashSet<i64> {
 		let mut users = HashSet::new();
 		for user in &self.users {
-			users.insert(user.1.user_id.clone());
+			users.insert(user.1.user_id);
 		}
 
 		users
@@ -623,7 +623,7 @@ impl Room {
 	pub fn get_member_id(&self, user_id: i64) -> Result<u16, u8> {
 		for user in &self.users {
 			if user.1.user_id == user_id {
-				return Ok(user.0.clone());
+				return Ok(*user.0);
 			}
 		}
 
@@ -660,7 +660,7 @@ impl Room {
 				}
 				let found_intsearch = found_intsearch.unwrap();
 				let op = FromPrimitive::from_u8(op);
-				if let None = op {
+				if op.is_none() {
 					panic!("Unsupported op in int search filter!");
 				}
 				let op = op.unwrap();
@@ -715,20 +715,15 @@ impl Room {
 				}
 				let found_binsearch = found_binsearch.unwrap();
 				let op = FromPrimitive::from_u8(op);
-				if let None = op {
+				if op.is_none() {
 					panic!("Unsupported op in int search filter!");
 				}
 				let op = op.unwrap();
 
 				match op {
 					SceNpMatching2Operator::OperatorEq => {
-						if found_binsearch.attr.len() != data.len() {
+						if found_binsearch.attr != data {
 							return false;
-						}
-						for index in 0..found_binsearch.attr.len() {
-							if found_binsearch.attr[index] != data[index] {
-								return false;
-							}
 						}
 					}
 					_ => panic!("Non EQ in binfilter!"),
@@ -740,11 +735,11 @@ impl Room {
 	pub fn find_user(&self, user_id: i64) -> u16 {
 		for user in &self.users {
 			if user.1.user_id == user_id {
-				return user.0.clone();
+				return *user.0;
 			}
 		}
 
-		return 0;
+		0
 	}
 }
 
@@ -768,13 +763,13 @@ impl RoomManager {
 	}
 
 	pub fn room_exists(&self, com_id: &ComId, room_id: u64) -> bool {
-		return self.rooms.contains_key(&(*com_id, room_id));
+		self.rooms.contains_key(&(*com_id, room_id))
 	}
 	pub fn get_room(&self, com_id: &ComId, room_id: u64) -> &Room {
-		return self.rooms.get(&(*com_id, room_id)).unwrap();
+		self.rooms.get(&(*com_id, room_id)).unwrap()
 	}
 	pub fn get_mut_room(&mut self, com_id: &ComId, room_id: u64) -> &mut Room {
-		return self.rooms.get_mut(&(*com_id, room_id)).unwrap();
+		self.rooms.get_mut(&(*com_id, room_id)).unwrap()
 	}
 
 	pub fn get_room_infos(&self, com_id: &ComId, room_id: u64) -> Result<(u16, u32, u64), u8> {
@@ -808,15 +803,15 @@ impl RoomManager {
 		room.users.insert(member_id, room_user);
 
 		if room.lobby_id == 0 {
-			let daset = self.world_rooms.entry((*com_id, room.world_id)).or_insert(HashSet::new());
+			let daset = self.world_rooms.entry((*com_id, room.world_id)).or_insert_with(HashSet::new);
 			daset.insert(*room_cnt);
 		} else {
-			let daset = self.lobby_rooms.entry((*com_id, room.lobby_id)).or_insert(HashSet::new());
+			let daset = self.lobby_rooms.entry((*com_id, room.lobby_id)).or_insert_with(HashSet::new);
 			daset.insert(*room_cnt);
 		}
 
 		self.rooms.insert((*com_id, *room_cnt), room);
-		let user_set = self.user_rooms.entry(cinfo.user_id).or_insert(HashSet::new());
+		let user_set = self.user_rooms.entry(cinfo.user_id).or_insert_with(HashSet::new);
 		user_set.insert((*com_id, *room_cnt));
 
 		// Prepare roomDataInternal
@@ -854,7 +849,7 @@ impl RoomManager {
 			room.flag_attr |= SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32;
 		}
 
-		let user_set = self.user_rooms.entry(cinfo.user_id).or_insert(HashSet::new());
+		let user_set = self.user_rooms.entry(cinfo.user_id).or_insert_with(HashSet::new);
 		user_set.insert((*com_id, room.room_id));
 
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
@@ -871,7 +866,7 @@ impl RoomManager {
 		}
 
 		if let Some(user_set) = self.user_rooms.get_mut(&user_id) {
-			if let None = user_set.get(&(*com_id, room_id)) {
+			if user_set.get(&(*com_id, room_id)).is_none() {
 				warn!("Couldn't find the room in the user user_rooms set");
 				return Err(ErrorType::NotFound as u8);
 			}
@@ -913,9 +908,9 @@ impl RoomManager {
 			}
 
 			// If no successor is found and there are still users, assign ownership randomly
-			if !found_successor && room.users.len() != 0 {
+			if !found_successor && !room.users.is_empty() {
 				let random_user = rand::thread_rng().gen_range(0, room.users.len());
-				room.owner = room.users.keys().nth(random_user).unwrap().clone();
+				room.owner = *room.users.keys().nth(random_user).unwrap();
 				found_successor = true;
 			}
 
@@ -968,7 +963,7 @@ impl RoomManager {
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 
 		let mut list_roomdataexternal = Default::default();
-		if matching_rooms.len() != 0 {
+		if !matching_rooms.is_empty() {
 			let mut room_list = Vec::new();
 			for room in &matching_rooms {
 				room_list.push(room.to_RoomDataExternal(&mut builder, req.option()));
@@ -1098,11 +1093,7 @@ impl RoomManager {
 		// Build the notification buffer
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 		let room_data_internal = room.to_RoomDataInternal(&mut builder);
-		let fb_new_binattr = if let Some(vec_new_binattr) = new_binattr {
-			Some(builder.create_vector(&vec_new_binattr))
-		} else {
-			None
-		};
+		let fb_new_binattr = new_binattr.map(|vec_new_binattr| builder.create_vector(&vec_new_binattr));
 
 		let resp = RoomDataInternalUpdateInfo::create(
 			&mut builder,
@@ -1173,11 +1164,7 @@ impl RoomManager {
 
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 		let member_internal = user.to_RoomMemberDataInternal(&mut builder, room);
-		let fb_new_binattr = if let Some(vec_new_binattr) = new_binattr {
-			Some(builder.create_vector(&vec_new_binattr))
-		} else {
-			None
-		};
+		let fb_new_binattr = new_binattr.map(|vec_new_binattr| builder.create_vector(&vec_new_binattr));
 
 		let resp = RoomMemberDataInternalUpdateInfo::create(
 			&mut builder,

@@ -100,7 +100,7 @@ impl Client {
 		}
 
 		reply.push(ErrorType::NoError as u8);
-		return Ok(());
+		Ok(())
 	}
 
 	pub async fn remove_friend(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
@@ -177,7 +177,7 @@ impl Client {
 		}
 
 		reply.push(ErrorType::NoError as u8);
-		return Ok(());
+		Ok(())
 	}
 
 	pub fn add_block(&mut self, _data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {

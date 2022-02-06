@@ -55,13 +55,13 @@ impl Server {
 
 	pub fn start(&mut self) -> io::Result<()> {
 		// Starts udp signaling helper on dedicated thread
-		let mut udp_serv = UdpServer::new(&self.config.read().get_host(), self.signaling_infos.clone());
+		let mut udp_serv = UdpServer::new(self.config.read().get_host(), self.signaling_infos.clone());
 		if self.config.read().is_run_udp_server() {
 			udp_serv.start()?;
 		}
 
 		// Parse host address
-		let str_addr = self.config.read().get_host().clone() + ":" + &self.config.read().get_port();
+		let str_addr = self.config.read().get_host().clone() + ":" + self.config.read().get_port();
 		let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("{} is not a valid address", &str_addr)))?;
 		let addr = addr
 			.next()
@@ -72,7 +72,7 @@ impl Server {
 		let f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
 		let certif = certs(&mut BufReader::new(&f_cert)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
 		let mut private_key = pkcs8_private_keys(&mut BufReader::new(&f_key)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "key.pem is invalid"))?;
-		if private_key.len() == 0 {
+		if private_key.is_empty() {
 			return Err(io::Error::new(io::ErrorKind::InvalidInput, "key.pem doesn't contain a PKCS8 encoded private key!"));
 		}
 		let mut server_config = ServerConfig::new(NoClientAuth::new());
@@ -85,8 +85,7 @@ impl Server {
 		let handle = runtime.handle().clone();
 		let acceptor = TlsAcceptor::from(Arc::new(server_config));
 
-		let mut servinfo_vec = Vec::new();
-		servinfo_vec.push(PacketType::ServerInfo as u8);
+		let mut servinfo_vec = vec![PacketType::ServerInfo as u8];
 		servinfo_vec.extend(&0u16.to_le_bytes());
 		servinfo_vec.extend(&(4 + HEADER_SIZE as u16).to_le_bytes());
 		servinfo_vec.extend(&0u64.to_le_bytes());

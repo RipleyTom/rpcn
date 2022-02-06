@@ -212,22 +212,20 @@ impl Client {
 
 	// Logging Functions
 	#[allow(dead_code)]
-	fn dump_packet(&self, packet: &Vec<u8>, source: &str) {
+	fn dump_packet(&self, packet: &[u8], source: &str) {
 		if *self.config.read().get_verbosity() != tracing::Level::TRACE {
 			return;
 		}
 		trace!("Dumping packet({}):", source);
 		let mut line = String::new();
 
-		let mut count = 0;
-		for p in packet {
+		for (count, p) in packet.iter().enumerate() {
 			if (count != 0) && (count % 16) == 0 {
 				trace!("{}", line);
 				line.clear();
 			}
 
 			line = format!("{} {:02x}", line, p);
-			count += 1;
 		}
 		trace!("{}", line);
 	}
@@ -240,7 +238,7 @@ impl Client {
 			let r;
 			if !self.authentified {
 				let timeout_r = timeout(Duration::from_secs(10), self.tls_reader.read_exact(&mut header_data)).await;
-				if let Err(_) = timeout_r {
+				if timeout_r.is_err() {
 					break;
 				}
 				r = timeout_r.unwrap();
@@ -348,11 +346,11 @@ impl Client {
 				}
 				self.post_reply_notifications.clear();
 
-				return res;
+				res
 			}
 			Err(e) => {
 				warn!("Read error: {}", e);
-				return Err(());
+				Err(())
 			}
 		}
 	}
@@ -368,9 +366,8 @@ impl Client {
 
 		let command = command.unwrap();
 
-		match command {
-			CommandType::Terminate => return Err(()),
-			_ => {}
+		if let CommandType::Terminate = command {
+			return Err(());
 		}
 
 		if !self.authentified {
@@ -387,31 +384,31 @@ impl Client {
 		}
 
 		match command {
-			CommandType::AddFriend => return self.add_friend(data, reply).await,
-			CommandType::RemoveFriend => return self.remove_friend(data, reply).await,
-			CommandType::AddBlock => return self.add_block(data, reply),
-			CommandType::RemoveBlock => return self.remove_block(data, reply),
-			CommandType::GetServerList => return self.req_get_server_list(data, reply),
-			CommandType::GetWorldList => return self.req_get_world_list(data, reply),
-			CommandType::CreateRoom => return self.req_create_room(data, reply),
-			CommandType::JoinRoom => return self.req_join_room(data, reply).await,
-			CommandType::LeaveRoom => return self.req_leave_room(data, reply).await,
-			CommandType::SearchRoom => return self.req_search_room(data, reply),
-			CommandType::GetRoomDataExternalList => return self.req_get_roomdata_external_list(data, reply),
-			CommandType::SetRoomDataExternal => return self.req_set_roomdata_external(data, reply),
-			CommandType::GetRoomDataInternal => return self.req_get_roomdata_internal(data, reply),
-			CommandType::SetRoomDataInternal => return self.req_set_roomdata_internal(data, reply).await,
-			CommandType::SetRoomMemberDataInternal => return self.req_set_roommemberdata_internal(data, reply).await,
-			CommandType::PingRoomOwner => return self.req_ping_room_owner(data, reply),
-			CommandType::SendRoomMessage => return self.req_send_room_message(data, reply).await,
-			CommandType::RequestSignalingInfos => return self.req_signaling_infos(data, reply),
-			CommandType::RequestTicket => return self.req_ticket(data, reply),
-			CommandType::SendMessage => return self.send_message(data, reply).await,
-			CommandType::UpdateDomainBans => return self.req_admin_update_domain_bans(),
+			CommandType::AddFriend => self.add_friend(data, reply).await,
+			CommandType::RemoveFriend => self.remove_friend(data, reply).await,
+			CommandType::AddBlock => self.add_block(data, reply),
+			CommandType::RemoveBlock => self.remove_block(data, reply),
+			CommandType::GetServerList => self.req_get_server_list(data, reply),
+			CommandType::GetWorldList => self.req_get_world_list(data, reply),
+			CommandType::CreateRoom => self.req_create_room(data, reply),
+			CommandType::JoinRoom => self.req_join_room(data, reply).await,
+			CommandType::LeaveRoom => self.req_leave_room(data, reply).await,
+			CommandType::SearchRoom => self.req_search_room(data, reply),
+			CommandType::GetRoomDataExternalList => self.req_get_roomdata_external_list(data, reply),
+			CommandType::SetRoomDataExternal => self.req_set_roomdata_external(data, reply),
+			CommandType::GetRoomDataInternal => self.req_get_roomdata_internal(data, reply),
+			CommandType::SetRoomDataInternal => self.req_set_roomdata_internal(data, reply).await,
+			CommandType::SetRoomMemberDataInternal => self.req_set_roommemberdata_internal(data, reply).await,
+			CommandType::PingRoomOwner => self.req_ping_room_owner(data, reply),
+			CommandType::SendRoomMessage => self.req_send_room_message(data, reply).await,
+			CommandType::RequestSignalingInfos => self.req_signaling_infos(data, reply),
+			CommandType::RequestTicket => self.req_ticket(data, reply),
+			CommandType::SendMessage => self.send_message(data, reply).await,
+			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
 			_ => {
 				warn!("Unknown command received");
 				reply.push(ErrorType::Invalid as u8);
-				return Err(());
+				Err(())
 			}
 		}
 	}
@@ -431,7 +428,7 @@ impl Client {
 	}
 
 	async fn signal_connections(&mut self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>, owner: u16) {
-		if let None = sig_param {
+		if sig_param.is_none() {
 			return;
 		}
 		let sig_param = sig_param.unwrap();
@@ -464,7 +461,7 @@ impl Client {
 		match sig_param.get_type() {
 			SignalingType::SignalingMesh => {
 				// Notifies other room members that p2p connection was established
-				let user_ids: HashSet<i64> = to.iter().map(|x| x.1.clone()).collect();
+				let user_ids: HashSet<i64> = to.iter().map(|x| *x.1).collect();
 
 				self.send_notification(&s_notif, &user_ids).await;
 
@@ -474,7 +471,7 @@ impl Client {
 						let mut tosend = false; // tosend is there to avoid double locking on signaling_infos
 						{
 							let sig_infos = self.signaling_infos.read();
-							let user_si = sig_infos.get(&user.1);
+							let user_si = sig_infos.get(user.1);
 
 							if let Some(user_si) = user_si {
 								s_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&user.0.to_le_bytes());
@@ -496,7 +493,7 @@ impl Client {
 					hub = owner;
 				}
 				// Sends notification to hub
-				let user_ids: HashSet<i64> = to.iter().filter_map(|x| if *x.0 == hub { Some(x.1.clone()) } else { None }).collect();
+				let user_ids: HashSet<i64> = to.iter().filter_map(|x| if *x.0 == hub { Some(*x.1) } else { None }).collect();
 				self.send_notification(&s_notif, &user_ids).await;
 				// Send notification to user to connect to hub
 				let mut tosend = false;

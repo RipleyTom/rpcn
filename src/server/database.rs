@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 use rand::prelude::*;
-use rusqlite;
 use tracing::{error, info, warn};
 
 use crate::server::client::*;
@@ -196,10 +195,8 @@ impl DatabaseManager {
 
 		let res = res.unwrap();
 
-		if check_token {
-			if res.token != token {
-				return Err(DbError::WrongToken);
-			}
+		if check_token && res.token != token {
+			return Err(DbError::WrongToken);
 		}
 
 		let config = argon2::Config::default();
@@ -271,7 +268,7 @@ impl DatabaseManager {
 			}
 		}
 
-		if list_servers.len() == 0 && self.config.read().is_create_missing() {
+		if list_servers.is_empty() && self.config.read().is_create_missing() {
 			// Creates a server so the server list is not empty
 			self.create_server(com_id, 1)?;
 			return self.get_server_list(com_id);
@@ -315,15 +312,15 @@ impl DatabaseManager {
 			}
 		}
 
-		if list_worlds.len() == 0 && self.config.read().is_create_missing() {
+		if list_worlds.is_empty() && self.config.read().is_create_missing() {
 			// Create a world so that the list is not empty
 			let cur_max_res: rusqlite::Result<u32> = self
 				.conn
 				.query_row("SELECT MAX(worldId) FROM worlds WHERE communicationId=?1", rusqlite::params![com_id_str], |r| r.get(0));
 
 			let mut new_wid = 1;
-			if cur_max_res.is_ok() {
-				new_wid = cur_max_res.unwrap() + 1;
+			if let Ok(cur_max_res) = cur_max_res {
+				new_wid = cur_max_res + 1;
 			}
 
 			info!("Creating world {} for server {}:{}", new_wid, &com_id_str, server_id);
@@ -384,15 +381,15 @@ impl DatabaseManager {
 			.query_row("SELECT (status) FROM friends WHERE user1 = ?1 AND user2 = ?2", rusqlite::params![first, second], |r| r.get(0));
 
 		match status_res {
-			Err(rusqlite::Error::QueryReturnedNoRows) => return Err(DbError::Empty),
+			Err(rusqlite::Error::QueryReturnedNoRows) => Err(DbError::Empty),
 			Err(e) => {
 				error!("Unexpected error querying relationship status: {}", e);
-				return Err(DbError::Internal);
+				Err(DbError::Internal)
 			}
 			Ok(status) => {
 				let (status_first, status_second) = (status >> 8, status & 0xFF);
 				let (status_user, status_friend) = if swapped { (status_second, status_first) } else { (status_first, status_second) };
-				return Ok((status_user, status_friend));
+				Ok((status_user, status_friend))
 			}
 		}
 	}
