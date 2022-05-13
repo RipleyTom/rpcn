@@ -5,20 +5,20 @@ authors = ["RipleyTom <RipleyTom@users.noreply.github.com>"]
 edition = "2021"
 
 [dependencies]
-num-traits = "0.2"
-num-derive = "0.3"
-rand = "0.7"
-libsqlite3-sys = "0.23"
-rust-argon2 = "0.5"
-flatbuffers = "2.0"
-parking_lot = "0.10"
-chrono = "0.4"
-ring = "0.16"
-rusqlite = { version = "0.26", features = [ "bundled" ] }
-tokio = { version = "0.2", features = [ "full" ] }
-tokio-rustls = "0.14"
-futures-util = "0.3"
-lettre = "0.9"
-lettre_email = "0.9"
-tracing = "0.1"
-tracing-subscriber = "0.2"
+num-traits = "0.2.15"
+num-derive = "0.3.3"
+rand = "0.8.5"
+libsqlite3-sys = "0.24.2"
+rust-argon2 = "1.0.0"
+flatbuffers = "2.1.2"
+parking_lot = "0.12.0"
+ring = "0.16.20"
+rusqlite = { version = "0.27.0", features = [ "bundled" ] }
+tokio = { version = "1.18.2", features = [ "full" ] }
+rustls-pemfile = "1.0.0"
+rustls = "0.20.4"
+tokio-rustls = "0.23.4"
+lettre = "0.9.6"
+lettre_email = "0.9.4"
+tracing = "0.1.34"
+tracing-subscriber = "0.3.11"

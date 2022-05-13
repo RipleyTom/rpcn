@@ -7,7 +7,7 @@ use std::time::SystemTime;
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
-use rand::Rng;
+use rand::{thread_rng, Rng};
 use tracing::warn;
 
 use crate::server::client::{ClientInfo, ComId, ErrorType, EventCause};
@@ -909,7 +909,9 @@ impl RoomManager {
 
 			// If no successor is found and there are still users, assign ownership randomly
 			if !found_successor && !room.users.is_empty() {
-				let random_user = rand::thread_rng().gen_range(0, room.users.len());
+				//let random_user = rand::thread_rng().gen_range(low..high, room.users.len());
+				// As far as I know PS3 allows ids, that are 3 to 16 letters, correct if i am wrong.
+				let random_user = rand::thread_rng().gen_range(3..16);
 				room.owner = *room.users.keys().nth(random_user).unwrap();
 				found_successor = true;
 			}

@@ -7,8 +7,9 @@ use std::sync::Arc;
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::runtime;
-use tokio_rustls::rustls::internal::pemfile::{certs, pkcs8_private_keys};
-use tokio_rustls::rustls::{NoClientAuth, ServerConfig};
+use rustls_pemfile::{certs, pkcs8_private_keys};
+//use tokio_rustls::rustls::{NoClientAuth, ServerConfig};
+use rustls::server::{NoClientAuth, ServerConfig};
 use tokio_rustls::TlsAcceptor;
 use tracing::{info, warn};
 
@@ -68,22 +69,27 @@ impl Server {
 			.ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("{} is not a valid address", &str_addr)))?;
 
 		// Setup TLS
-		let f_cert = File::open("cert.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open certificate cert.pem"))?;
-		let f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
-		let certif = certs(&mut BufReader::new(&f_cert)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
+		let mut f_cert = File::open("cert.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open certificate cert.pem"))?;
+		let mut f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
+		let mut certif = certs(&mut BufReader::new(&f_cert)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
 		let mut private_key = pkcs8_private_keys(&mut BufReader::new(&f_key)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "key.pem is invalid"))?;
 		if private_key.is_empty() {
 			return Err(io::Error::new(io::ErrorKind::InvalidInput, "key.pem doesn't contain a PKCS8 encoded private key!"));
 		}
-		let mut server_config = ServerConfig::new(NoClientAuth::new());
-		server_config
-			.set_single_cert(certif, private_key.remove(0))
-			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))?;
+		let mut server_config = ServerConfig::builder()
+        .with_safe_defaults()
+        .with_no_client_auth()
+        .with_single_cert(certif, private_key.remove(0))
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
+		//server_config
+			//.cert_resolver(certif, private_key.remove(0))
+			//.with_single_cert(certif, private_key)
+			//.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))?;
 
 		// Setup Tokio
-		let mut runtime = runtime::Builder::new().threaded_scheduler().enable_all().build()?;
+		let mut runtime = runtime::Builder::new_current_thread().enable_all().build()?;
 		let handle = runtime.handle().clone();
-		let acceptor = TlsAcceptor::from(Arc::new(server_config));
+		let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
 
 		let mut servinfo_vec = vec![PacketType::ServerInfo as u8];
 		servinfo_vec.extend(&0u16.to_le_bytes());
@@ -103,7 +109,7 @@ impl Server {
 				}
 
 				let (stream, peer_addr) = accept_result.unwrap();
-				stream.set_keepalive(Some(std::time::Duration::new(30, 0))).unwrap();
+				stream.set_linger(Some(std::time::Duration::new(30, 0))).unwrap();
 				info!("New client from {}", peer_addr);
 
 				let acceptor = acceptor.clone();
