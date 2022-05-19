@@ -9,6 +9,9 @@ mod server;
 use server::client::ComId;
 use server::Server;
 
+use openssl::ec::EcKey;
+use openssl::pkey::{PKey, Private};
+
 pub struct Config {
 	create_missing: bool, // Creates servers/worlds/lobbies if the client queries for ones but there are none or specific id queries
 	run_udp_server: bool,
@@ -21,6 +24,8 @@ pub struct Config {
 	email_password: String,
 	banned_domains: HashSet<String>,
 	server_redirs: HashMap<ComId, ComId>,
+	sign_tickets: bool,
+	ticket_private_key: Option<PKey<Private>>,
 }
 
 impl Config {
@@ -37,6 +42,8 @@ impl Config {
 			email_password: String::new(),
 			banned_domains: HashSet::new(),
 			server_redirs: HashMap::new(),
+			sign_tickets: false,
+			ticket_private_key: None,
 		}
 	}
 
@@ -104,6 +111,7 @@ impl Config {
 		set_string("EmailHost", &mut self.email_host);
 		set_string("EmailLogin", &mut self.email_login);
 		set_string("EmailPassword", &mut self.email_password);
+		set_bool("SignTickets", &mut self.sign_tickets);
 
 		Ok(())
 	}
@@ -118,6 +126,10 @@ impl Config {
 
 	pub fn is_run_udp_server(&self) -> bool {
 		self.run_udp_server
+	}
+
+	pub fn is_sign_tickets(&self) -> bool {
+		self.ticket_private_key.is_some()
 	}
 
 	pub fn get_verbosity(&self) -> &tracing::Level {
@@ -171,6 +183,20 @@ impl Config {
 			None => com_id,
 		}
 	}
+
+	pub fn load_ticket_private_key(&mut self) -> Result<(), String> {
+		let mut private_key_file = File::open("ticket_private.pem").map_err(|e| format!("Failed to open ticket_private.pem: {}", e))?;
+		let mut private_key_raw = Vec::new();
+		private_key_file.read_to_end(&mut private_key_raw).map_err(|e| format!("Failed to read ticket_private.pem: {}", e))?;
+		let ec_key = EcKey::private_key_from_pem(&private_key_raw).map_err(|e| format!("Failed to read private key from the file: {}", e))?;
+		self.ticket_private_key = Some(PKey::from_ec_key(ec_key).map_err(|e| format!("Failed to convert EC key to PKey: {}", e))?);
+
+		Ok(())
+	}
+
+	pub fn get_ticket_private_key(&self) -> &Option<PKey<Private>> {
+		&self.ticket_private_key
+	}
 }
 
 fn main() {
@@ -181,6 +207,17 @@ fn main() {
 		println!("An error happened reading the config file rpcn.cfg: {}\nDefault values will be used for every settings!", e);
 	}
 
+	if config.is_sign_tickets() {
+		let ticket_key_result = config.load_ticket_private_key();
+		if let Err(e) = ticket_key_result {
+			println!("Failed to load ticket_private.pem:\n{}", e);
+			return;
+		}
+	}
+
+	config.load_domains_banlist();
+	config.load_server_redirections();
+
 	let subscriber = tracing_subscriber::FmtSubscriber::builder()
 		.with_max_level(*config.get_verbosity())
 		.without_time()
@@ -189,10 +226,12 @@ fn main() {
 		.finish();
 	tracing::subscriber::set_global_default(subscriber).expect("Setting default subscriber failed!");
 
-	config.load_domains_banlist();
-	config.load_server_redirections();
-
-	let mut serv = Server::new(config);
+	let serv = Server::new(config);
+	if let Err(e) = serv {
+		println!("Failed to create server: {}", e);
+		return;
+	}
+	let mut serv = serv.unwrap();
 
 	if let Err(e) = serv.start() {
 		println!("Server terminated with error: {}", e);

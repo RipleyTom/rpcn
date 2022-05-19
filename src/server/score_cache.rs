@@ -1,0 +1,366 @@
+use crate::server::client::Client;
+use crate::server::client::ComId;
+use crate::server::database::{Database, DbBoardInfo, DbScoreInfo};
+use crate::server::stream_extractor::np2_structs_generated::*;
+use crate::server::Server;
+use parking_lot::RwLock;
+use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+struct ScoreUserCache {
+	npid: String,
+	online_name: String,
+}
+
+struct ScoreTableCache {
+	sorted_scores: Vec<DbScoreInfo>,
+	npid_lookup: HashMap<i64, HashMap<i32, usize>>,
+	table_info: DbBoardInfo,
+	last_insert: u64,
+}
+
+pub struct ScoresCache {
+	tables: RwLock<HashMap<String, Arc<RwLock<ScoreTableCache>>>>,
+	users: RwLock<HashMap<i64, ScoreUserCache>>,
+}
+
+#[derive(Default)]
+pub struct ScoreRankDataCache {
+	npid: String,
+	online_name: String,
+	pcid: i32,
+	rank: u32,
+	score: i64,
+	has_gamedata: bool,
+	timestamp: u64,
+}
+
+pub struct GetScoreResultCache {
+	pub scores: Vec<ScoreRankDataCache>,
+	pub comments: Option<Vec<String>>,
+	pub infos: Option<Vec<Vec<u8>>>,
+	pub timestamp: u64,
+	pub total_records: u32,
+}
+
+impl Server {
+	pub fn initialize_score(conn: r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<Arc<ScoresCache>, String> {
+		Server::initialize_score_data_handler()?;
+
+		let cache = Arc::new(ScoresCache::new());
+
+		// Populate cache from database
+		let db = Database::new(conn);
+		let tables = db.get_score_tables().map_err(|_| "Failed to read database scores for the cache")?;
+
+		let mut users_list: HashSet<i64> = HashSet::new();
+
+		{
+			let mut cache_data = cache.tables.write();
+			for (table_name, table_info) in tables {
+				let sorted_scores = db
+					.get_scores_from_table(&table_name, &table_info)
+					.map_err(|_| format!("Failed to read scores for table {}", table_name))?;
+				let mut npid_lookup = HashMap::new();
+
+				for (index, score) in sorted_scores.iter().enumerate() {
+					users_list.insert(score.user_id);
+					let user_entry = npid_lookup.entry(score.user_id).or_insert_with(HashMap::new);
+					user_entry.insert(score.character_id, index);
+				}
+
+				cache_data.insert(
+					table_name.clone(),
+					Arc::new(RwLock::new(ScoreTableCache {
+						sorted_scores,
+						npid_lookup,
+						table_info,
+						last_insert: Client::get_psn_timestamp(),
+					})),
+				);
+			}
+		}
+
+		{
+			let vec_userinfo = db
+				.get_username_and_online_name_from_user_ids(&users_list)
+				.map_err(|_| "Failed to acquire all the users informations!")?;
+			let mut users_data = cache.users.write();
+			vec_userinfo.iter().for_each(|u| {
+				users_data.insert(
+					u.0,
+					ScoreUserCache {
+						npid: u.1.clone(),
+						online_name: u.2.clone(),
+					},
+				);
+			});
+		}
+
+		Ok(cache)
+	}
+}
+
+impl ScoreRankDataCache {
+	pub fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<ScoreRankData<'a>> {
+		let str_npid = builder.create_string(&self.npid);
+		let str_online_name = builder.create_string(&self.online_name);
+		ScoreRankData::create(
+			builder,
+			&ScoreRankDataArgs {
+				npId: Some(str_npid),
+				onlineName: Some(str_online_name),
+				pcId: self.pcid,
+				rank: self.rank + 1,
+				score: self.score,
+				hasGameData: self.has_gamedata,
+				recordDate: self.timestamp,
+			},
+		)
+	}
+}
+
+impl GetScoreResultCache {
+	pub fn serialize(&self) -> Vec<u8> {
+		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+
+		let mut vec_ranks = Vec::new();
+		for s in &self.scores {
+			vec_ranks.push(s.to_flatbuffer(&mut builder));
+		}
+		let rank_array = Some(builder.create_vector(&vec_ranks));
+
+		let comment_array = if let Some(ref comments) = self.comments {
+			let mut vec_comments = Vec::new();
+			for c in comments {
+				vec_comments.push(builder.create_string(c));
+			}
+			Some(builder.create_vector(&vec_comments))
+		} else {
+			None
+		};
+
+		let info_array = if let Some(ref game_infos) = self.infos {
+			let mut vec_infos = Vec::new();
+			for i in game_infos {
+				let data = Some(builder.create_vector(i));
+				vec_infos.push(ScoreInfo::create(&mut builder, &ScoreInfoArgs { data }));
+			}
+			Some(builder.create_vector(&vec_infos))
+		} else {
+			None
+		};
+
+		let board_info = GetScoreResponse::create(
+			&mut builder,
+			&GetScoreResponseArgs {
+				rankArray: rank_array,
+				commentArray: comment_array,
+				infoArray: info_array,
+				lastSortDate: self.timestamp,
+				totalRecord: self.total_records,
+			},
+		);
+		builder.finish(board_info, None);
+		builder.finished_data().to_vec()
+	}
+}
+
+impl DbScoreInfo {
+	fn cmp(&self, other: &DbScoreInfo, sort_mode: u32) -> Ordering {
+		let ret_value = if sort_mode == 0 { Ordering::Greater } else { Ordering::Less };
+
+		match self.score.cmp(&other.score) {
+			Ordering::Greater => ret_value,
+			Ordering::Less => ret_value.reverse(),
+			Ordering::Equal => match self.timestamp.cmp(&other.timestamp) {
+				Ordering::Less => Ordering::Greater,
+				Ordering::Greater => Ordering::Less,
+				Ordering::Equal => other.user_id.cmp(&self.user_id),
+			},
+		}
+	}
+}
+
+impl ScoreTableCache {
+	fn from_db(db_info: &DbBoardInfo) -> ScoreTableCache {
+		ScoreTableCache {
+			sorted_scores: Vec::new(),
+			npid_lookup: HashMap::new(),
+			table_info: db_info.clone(),
+			last_insert: 0,
+		}
+	}
+}
+
+impl ScoresCache {
+	fn new() -> ScoresCache {
+		ScoresCache {
+			tables: RwLock::new(HashMap::new()),
+			users: RwLock::new(HashMap::new()),
+		}
+	}
+
+	fn get_table(&self, table_name: &String, db_info: &DbBoardInfo) -> Arc<RwLock<ScoreTableCache>> {
+		{
+			let tables = self.tables.read();
+			if tables.contains_key(table_name) {
+				return tables[table_name].clone();
+			}
+		}
+
+		self.tables
+			.write()
+			.entry(table_name.clone())
+			.or_insert_with(|| Arc::new(RwLock::new(ScoreTableCache::from_db(db_info))))
+			.clone()
+	}
+
+	fn add_user(&self, user_id: i64, npid: &str, online_name: &str) {
+		if self.users.read().contains_key(&user_id) {
+			return;
+		}
+
+		self.users.write().insert(
+			user_id,
+			ScoreUserCache {
+				npid: npid.to_owned(),
+				online_name: online_name.to_owned(),
+			},
+		);
+	}
+
+	pub fn insert_score(&self, db_info: &DbBoardInfo, com_id: &ComId, board_id: u32, score: &DbScoreInfo, npid: &str, online_name: &str) -> u32 {
+		let table_name = Database::get_scoreboard_name(com_id, board_id);
+		let table = self.get_table(&table_name, db_info);
+		let mut table = table.write();
+
+		// First check if the user_id/char_id is already in the cache
+		// Note that the cache function is only called if there was an insertion in the database so no check is needed
+		if table.npid_lookup.contains_key(&score.user_id) && table.npid_lookup[&score.user_id].contains_key(&score.character_id) {
+			let pos = table.npid_lookup[&score.user_id][&score.character_id];
+			table.sorted_scores.remove(pos);
+		}
+
+		if (table.sorted_scores.len() < table.table_info.rank_limit as usize) || score.cmp(table.sorted_scores.last().unwrap(), table.table_info.sort_mode) == Ordering::Greater {
+			let insert_pos = table.sorted_scores.binary_search_by(|probe| probe.cmp(score, table.table_info.sort_mode)).unwrap_err();
+			table.sorted_scores.insert(insert_pos, (*score).clone());
+			table.npid_lookup.entry(score.user_id).or_insert_with(HashMap::new).insert(score.character_id, insert_pos);
+
+			// Set index for everything after insert_pos
+			for i in (insert_pos + 1)..table.sorted_scores.len() {
+				let cur_user_id = table.sorted_scores[i].user_id;
+				let cur_char_id = table.sorted_scores[i].character_id;
+				*table.npid_lookup.get_mut(&cur_user_id).unwrap().get_mut(&cur_char_id).unwrap() = i;
+			}
+
+			if table.sorted_scores.len() > table.table_info.rank_limit as usize {
+				// Remove the last score
+				let last = table.sorted_scores.last().unwrap();
+				let user_id = last.user_id;
+				let char_id = last.character_id;
+
+				let last_index = table.sorted_scores.len() - 1;
+				table.sorted_scores.remove(last_index);
+				table.npid_lookup.get_mut(&user_id).unwrap().remove(&char_id);
+			}
+
+			self.add_user(score.user_id, npid, online_name);
+
+			(insert_pos + 1) as u32
+		} else {
+			table.table_info.rank_limit + 1
+		}
+	}
+
+	pub fn get_score_range(&self, com_id: &ComId, board_id: u32, start_rank: u32, num_ranks: u32, with_comment: bool, with_gameinfo: bool) -> GetScoreResultCache {
+		let mut vec_scores = Vec::new();
+		let mut vec_comments = if with_comment { Some(Vec::new()) } else { None };
+		let mut vec_gameinfos = if with_gameinfo { Some(Vec::new()) } else { None };
+
+		let table_name = Database::get_scoreboard_name(com_id, board_id);
+		let table = self.get_table(&table_name, &Default::default());
+		let table = table.read();
+		let users = self.users.read();
+
+		let start_index = (start_rank - 1) as usize;
+		let end_index = std::cmp::min(start_index + num_ranks as usize, table.sorted_scores.len());
+		for index in start_index..end_index {
+			let cur_score = &table.sorted_scores[index];
+			let cur_user = &users[&cur_score.user_id];
+			vec_scores.push(ScoreRankDataCache {
+				npid: cur_user.npid.clone(),
+				online_name: cur_user.online_name.clone(),
+				pcid: cur_score.character_id,
+				rank: index as u32,
+				score: cur_score.score,
+				has_gamedata: cur_score.data_id.is_some(),
+				timestamp: cur_score.timestamp,
+			});
+			if let Some(ref mut comments) = vec_comments {
+				comments.push(cur_score.comment.clone().unwrap_or_default());
+			}
+			if let Some(ref mut gameinfos) = vec_gameinfos {
+				gameinfos.push(cur_score.game_info.clone().unwrap_or_default());
+			}
+		}
+		GetScoreResultCache {
+			scores: vec_scores,
+			comments: vec_comments,
+			infos: vec_gameinfos,
+			timestamp: table.last_insert,
+			total_records: table.sorted_scores.len() as u32,
+		}
+	}
+
+	pub fn get_score_ids(&self, com_id: &ComId, board_id: u32, npids: &[(i64, i32)], with_comment: bool, with_gameinfo: bool) -> GetScoreResultCache {
+		let mut vec_scores = Vec::new();
+		let mut vec_comments = if with_comment { Some(Vec::new()) } else { None };
+		let mut vec_gameinfos = if with_gameinfo { Some(Vec::new()) } else { None };
+
+		let table_name = Database::get_scoreboard_name(com_id, board_id);
+		let table = self.get_table(&table_name, &Default::default());
+		let table = table.read();
+		let users = self.users.read();
+
+		npids.iter().for_each(|(user_id, pcid)| {
+			if !table.npid_lookup.contains_key(user_id) || !table.npid_lookup[user_id].contains_key(pcid) {
+				vec_scores.push(Default::default());
+				if let Some(ref mut comments) = vec_comments {
+					comments.push(Default::default());
+				}
+				if let Some(ref mut gameinfos) = vec_gameinfos {
+					gameinfos.push(Default::default());
+				}
+			} else {
+				let index = table.npid_lookup[user_id][pcid];
+				let cur_user = &users[user_id];
+				let cur_score = &table.sorted_scores[index];
+				vec_scores.push(ScoreRankDataCache {
+					npid: cur_user.npid.clone(),
+					online_name: cur_user.online_name.clone(),
+					pcid: cur_score.character_id,
+					rank: index as u32,
+					score: cur_score.score,
+					has_gamedata: cur_score.data_id.is_some(),
+					timestamp: cur_score.timestamp,
+				});
+				if let Some(ref mut comments) = vec_comments {
+					comments.push(cur_score.comment.clone().unwrap_or_default());
+				}
+				if let Some(ref mut gameinfos) = vec_gameinfos {
+					gameinfos.push(cur_score.game_info.clone().unwrap_or_default());
+				}
+			}
+		});
+
+		GetScoreResultCache {
+			scores: vec_scores,
+			comments: vec_comments,
+			infos: vec_gameinfos,
+			timestamp: table.last_insert,
+			total_records: table.sorted_scores.len() as u32,
+		}
+	}
+}

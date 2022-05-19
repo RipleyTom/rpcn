@@ -1,6 +1,12 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
+use openssl::hash::MessageDigest;
+use openssl::pkey::{PKey, Private};
+use openssl::sign::Signer;
+
+use tracing::error;
+
 enum TicketData {
 	Empty(),
 	U32(u32),
@@ -55,14 +61,66 @@ impl TicketData {
 	}
 }
 
-static TICKET_ID_DISPENSER: AtomicU64 = AtomicU64::new(1);
-
 pub struct Ticket {
 	data: Vec<TicketData>,
 }
 
+static TICKET_ID_DISPENSER: AtomicU64 = AtomicU64::new(1);
+
+// TODO: get saved value from DB or 1 to initialze dispenser (to ensure continuity after restart)
+// impl Server {
+// 	pub fn initialize_ticket_dispenser() -> Result<(), String> {
+// 		Ok(())
+// 	}
+// }
+
 impl Ticket {
-	pub fn new(user_id: u64, npid: &str, service_id: &str, cookie: Vec<u8>) -> Ticket {
+	fn sign_ticket(user_blob: &TicketData, ec_key: &Option<PKey<Private>>) -> TicketData {
+		let signature = TicketData::Blob(2, vec![TicketData::Binary(vec![0, 0, 0, 0]), TicketData::Binary([0; 56].to_vec())]);
+
+		if ec_key.is_none() {
+			return signature;
+		}
+
+		let signer = Signer::new(MessageDigest::sha224(), ec_key.as_ref().unwrap());
+		if let Err(e) = signer {
+			error!("Failed to create Signer for ticket data: {}", e);
+			return signature;
+		}
+		let mut signer = signer.unwrap();
+
+		let signature_size = signer.len();
+		if let Err(e) = signature_size {
+			error!("Failed to get signature size: {}", e);
+			return signature;
+		}
+		let signature_size = signature_size.unwrap();
+
+		if signature_size != 56 {
+			error!("Signature size({}) isn't what is expected(56)!", signature_size);
+			return signature;
+		}
+
+		let mut vec_sign = [0; 56].to_vec();
+
+		let mut user_rawdata = Vec::new();
+		user_blob.write(&mut user_rawdata);
+
+		let sign_res = signer.sign_oneshot(&mut vec_sign, &user_rawdata);
+		if let Err(e) = sign_res {
+			error!("Failed to sign ticket data: {}", e);
+			return signature;
+		}
+		let sign_res = sign_res.unwrap();
+		if sign_res != 56 {
+			error!("Final signature size ({}) is not what was expected(56)!", sign_res);
+			return signature;
+		}
+
+		TicketData::Blob(2, vec![TicketData::Binary(vec![b'R', b'P', b'C', b'N']), TicketData::Binary(vec_sign)])
+	}
+
+	pub fn new(user_id: u64, npid: &str, service_id: &str, cookie: Vec<u8>, ec_key: &Option<PKey<Private>>) -> Ticket {
 		let ticket_id = TICKET_ID_DISPENSER.fetch_add(1, Ordering::SeqCst);
 
 		let serial_str = format!("{}", ticket_id);
@@ -79,7 +137,7 @@ impl Ticket {
 		let mut service_id: Vec<u8> = service_id.as_bytes().to_vec();
 		service_id.resize(0x18, 0);
 
-		let mut user_data = 					vec![
+		let mut user_data = vec![
 			TicketData::Binary(serial_vec),
 			TicketData::U32(issuer_id),
 			TicketData::Time(issued_date),
@@ -89,7 +147,7 @@ impl Ticket {
 			TicketData::Binary(vec![b'b', b'r', 0, 0]),  // region (yes you're going to brazil)
 			TicketData::BString(vec![b'u', b'n', 0, 0]), // domain
 			TicketData::Binary(service_id),
-			TicketData::U32(0),  // status
+			TicketData::U32(0), // status
 		];
 
 		if !cookie.is_empty() {
@@ -99,15 +157,10 @@ impl Ticket {
 		user_data.push(TicketData::Empty());
 		user_data.push(TicketData::Empty());
 
-		Ticket {
-			data: vec![
-				TicketData::Blob(
-					0,
-					user_data,
-				),
-				TicketData::Blob(2, vec![TicketData::Binary(vec![0, 0, 0, 0]), TicketData::Binary([0; 0x38].to_vec())]),
-			],
-		}
+		let user_blob = TicketData::Blob(0, user_data);
+		let signature = Ticket::sign_ticket(&user_blob, ec_key);
+
+		Ticket { data: vec![user_blob, signature] }
 	}
 
 	pub fn generate_blob(&self) -> Vec<u8> {

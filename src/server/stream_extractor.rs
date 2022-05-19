@@ -84,6 +84,10 @@ impl StreamExtractor {
 			}
 		}
 
+		if !com_id.iter().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+			self.error.set(true)
+		}
+
 		com_id
 	}
 	pub fn get_flatbuffer<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&'a self) -> Result<T::Inner, ()> {
