@@ -89,12 +89,13 @@ impl UdpServerInstance {
 			// Parse packet
 			let (amt, src) = res.unwrap();
 
-			if amt != 9 || recv_buf[0] != 1 {
+			if amt != (1 + 8 + 4) || recv_buf[0] != 1 {
 				warn!("Received invalid packet from {}", src);
 				continue;
 			}
 
 			let user_id = i64::from_le_bytes((&recv_buf[1..9]).try_into().unwrap());
+			let local_addr: [u8; 4] = recv_buf[9..13].try_into().unwrap();
 
 			let ip_addr;
 			match src.ip() {
@@ -117,7 +118,7 @@ impl UdpServerInstance {
 				match user_si {
 					None => continue,
 					Some(user_si) => {
-						if user_si.port_p2p != ip_port || user_si.addr_p2p != ip_addr {
+						if user_si.port_p2p != ip_port || user_si.addr_p2p != ip_addr || user_si.local_addr_p2p != local_addr {
 							need_update = true;
 						}
 					}
@@ -135,13 +136,15 @@ impl UdpServerInstance {
 				let user_si = user_si.unwrap();
 				user_si.port_p2p = ip_port;
 				user_si.addr_p2p = ip_addr;
+				user_si.local_addr_p2p = local_addr;
 			}
 
 			send_buf[0..2].clone_from_slice(&0u16.to_le_bytes()); // VPort 0
-			send_buf[2..6].clone_from_slice(&ip_addr);
-			send_buf[6..8].clone_from_slice(&src.port().to_be_bytes());
+			send_buf[2] = 0; // Subset 0
+			send_buf[3..7].clone_from_slice(&ip_addr);
+			send_buf[7..9].clone_from_slice(&src.port().to_be_bytes());
 
-			let res = self.socket.send_to(&send_buf[0..8], src);
+			let res = self.socket.send_to(&send_buf[0..9], src);
 			if let Err(e) = res {
 				warn!("Error send_to: {}", e);
 				break;

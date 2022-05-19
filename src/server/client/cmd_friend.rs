@@ -15,9 +15,9 @@ impl Client {
 
 		let (friend_user_id, status_friend);
 		{
-			let mut db_lock = self.db.lock();
+			let db = Database::new(self.get_database_connection(reply)?);
 
-			let friend_user_id_res = db_lock.get_user_id(&friend_npid);
+			let friend_user_id_res = db.get_user_id(&friend_npid);
 			if friend_user_id_res.is_err() {
 				reply.push(ErrorType::NotFound as u8);
 				return Ok(());
@@ -29,30 +29,30 @@ impl Client {
 				return Ok(());
 			}
 
-			let rel_status = db_lock.get_rel_status(self.client_info.user_id, friend_user_id);
+			let rel_status = db.get_rel_status(self.client_info.user_id, friend_user_id);
 			match rel_status {
 				Ok((mut status_user, s_friend)) => {
 					status_friend = s_friend;
 					// If there is a block, either from current user or person added as friend, query is invalid
-					if (status_user & (FriendStatus::Blocked as u16)) != 0 || (status_friend & (FriendStatus::Blocked as u16)) != 0 {
+					if (status_user & (FriendStatus::Blocked as u8)) != 0 || (status_friend & (FriendStatus::Blocked as u8)) != 0 {
 						reply.push(ErrorType::Blocked as u8);
 						return Ok(());
 					}
 					// If user has already requested friendship or is a friend
-					if (status_user & (FriendStatus::Friend as u16)) != 0 {
+					if (status_user & (FriendStatus::Friend as u8)) != 0 {
 						reply.push(ErrorType::AlreadyFriend as u8);
 						return Ok(());
 					}
 					// Finally just add friendship flag!
-					status_user |= FriendStatus::Friend as u16;
-					if let Err(e) = db_lock.set_rel_status(self.client_info.user_id, friend_user_id, status_user, status_friend) {
+					status_user |= FriendStatus::Friend as u8;
+					if let Err(e) = db.set_rel_status(self.client_info.user_id, friend_user_id, status_user, status_friend) {
 						error!("Unexpected error happened setting relationship status with preexisting status: {:?}", e);
 						return Err(());
 					}
 				}
 				Err(DbError::Empty) => {
 					status_friend = 0;
-					if let Err(e) = db_lock.set_rel_status(self.client_info.user_id, friend_user_id, FriendStatus::Friend as u16, 0) {
+					if let Err(e) = db.set_rel_status(self.client_info.user_id, friend_user_id, FriendStatus::Friend as u8, 0) {
 						error!("Unexpected error happened creating relationship status: {:?}", e);
 						return Err(());
 					}
@@ -65,7 +65,7 @@ impl Client {
 		}
 
 		// Send notifications as needed
-		if (status_friend & FriendStatus::Friend as u16) != 0 {
+		if (status_friend & FriendStatus::Friend as u8) != 0 {
 			// If user accepted friend request from friend send FriendNew notification
 			// Update signaling infos
 			let friend_online: bool;
@@ -113,9 +113,9 @@ impl Client {
 
 		let friend_user_id;
 		{
-			let mut db_lock = self.db.lock();
+			let db = Database::new(self.get_database_connection(reply)?);
 
-			let friend_user_id_res = db_lock.get_user_id(&friend_npid);
+			let friend_user_id_res = db.get_user_id(&friend_npid);
 			if friend_user_id_res.is_err() {
 				reply.push(ErrorType::NotFound as u8);
 				return Ok(());
@@ -127,18 +127,18 @@ impl Client {
 				return Ok(());
 			}
 
-			let rel_status = db_lock.get_rel_status(self.client_info.user_id, friend_user_id);
+			let rel_status = db.get_rel_status(self.client_info.user_id, friend_user_id);
 			match rel_status {
 				Ok((mut status_user, mut status_friend)) => {
 					// Check that some friendship relationship exist
-					if ((status_user & (FriendStatus::Friend as u16)) | (status_friend & (FriendStatus::Friend as u16))) == 0 {
+					if ((status_user & (FriendStatus::Friend as u8)) | (status_friend & (FriendStatus::Friend as u8))) == 0 {
 						reply.push(ErrorType::NotFound as u8);
 						return Ok(());
 					}
 					// Remove friendship flag from relationship
-					status_user &= !(FriendStatus::Friend as u16);
-					status_friend &= !(FriendStatus::Friend as u16);
-					if let Err(e) = db_lock.set_rel_status(self.client_info.user_id, friend_user_id, status_user, status_friend) {
+					status_user &= !(FriendStatus::Friend as u8);
+					status_friend &= !(FriendStatus::Friend as u8);
+					if let Err(e) = db.set_rel_status(self.client_info.user_id, friend_user_id, status_user, status_friend) {
 						error!("Unexpected error happened setting relationship status with preexisting status: {:?}", e);
 						return Err(());
 					}

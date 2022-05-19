@@ -4,22 +4,27 @@ use std::io::{self, BufReader};
 use std::net::ToSocketAddrs;
 use std::sync::Arc;
 
+use rustls_pemfile::{certs, pkcs8_private_keys};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::runtime;
-use tokio_rustls::rustls::internal::pemfile::{certs, pkcs8_private_keys};
-use tokio_rustls::rustls::{NoClientAuth, ServerConfig};
+use tokio::sync::watch;
+use tokio_rustls::rustls::server::ServerConfig;
+use tokio_rustls::rustls::{Certificate, PrivateKey};
 use tokio_rustls::TlsAcceptor;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
+
+use socket2::{SockRef, TcpKeepalive};
 
 pub mod client;
-use client::{Client, ClientSignalingInfo, PacketType, HEADER_SIZE};
+use client::{Client, ClientSignalingInfo, PacketType, TerminateWatch, HEADER_SIZE};
 mod database;
-use database::DatabaseManager;
 mod room_manager;
 use room_manager::RoomManager;
+mod score_cache;
+use score_cache::ScoresCache;
 mod udp_server;
 use crate::Config;
 use udp_server::UdpServer;
@@ -27,30 +32,33 @@ use udp_server::UdpServer;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-// use client::tls_stream::TlsStream;
-
-const PROTOCOL_VERSION: u32 = 15;
+const PROTOCOL_VERSION: u32 = 16;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
-	db: Arc<Mutex<DatabaseManager>>,
+	db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
 	room_manager: Arc<RwLock<RoomManager>>,
 	signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
+	score_cache: Arc<ScoresCache>,
 }
 
 impl Server {
-	pub fn new(config: Config) -> Server {
+	pub fn new(config: Config) -> Result<Server, String> {
 		let config = Arc::new(RwLock::new(config));
-		let db = Arc::new(Mutex::new(DatabaseManager::new(config.clone())));
+
+		let db_pool = Server::initialize_database()?;
+		let score_cache = Server::initialize_score(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
+
 		let room_manager = Arc::new(RwLock::new(RoomManager::new()));
 		let signaling_infos = Arc::new(RwLock::new(HashMap::new()));
 
-		Server {
+		Ok(Server {
 			config,
-			db,
+			db_pool,
 			room_manager,
 			signaling_infos,
-		}
+			score_cache,
+		})
 	}
 
 	pub fn start(&mut self) -> io::Result<()> {
@@ -70,18 +78,20 @@ impl Server {
 		// Setup TLS
 		let f_cert = File::open("cert.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open certificate cert.pem"))?;
 		let f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
-		let certif = certs(&mut BufReader::new(&f_cert)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
+		let mut certif = certs(&mut BufReader::new(&f_cert)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
 		let mut private_key = pkcs8_private_keys(&mut BufReader::new(&f_key)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "key.pem is invalid"))?;
-		if private_key.is_empty() {
+		if certif.is_empty() || private_key.is_empty() {
 			return Err(io::Error::new(io::ErrorKind::InvalidInput, "key.pem doesn't contain a PKCS8 encoded private key!"));
 		}
-		let mut server_config = ServerConfig::new(NoClientAuth::new());
-		server_config
-			.set_single_cert(certif, private_key.remove(0))
+
+		let server_config = ServerConfig::builder()
+			.with_safe_defaults()
+			.with_no_client_auth()
+			.with_single_cert(vec![Certificate(certif.remove(0))], PrivateKey(private_key.remove(0)))
 			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))?;
 
 		// Setup Tokio
-		let mut runtime = runtime::Builder::new().threaded_scheduler().enable_all().build()?;
+		let runtime = runtime::Builder::new_multi_thread().enable_all().build()?;
 		let handle = runtime.handle().clone();
 		let acceptor = TlsAcceptor::from(Arc::new(server_config));
 
@@ -93,39 +103,55 @@ impl Server {
 		let servinfo_vec: Arc<Vec<u8>> = Arc::new(servinfo_vec);
 
 		let fut_server = async {
-			let mut listener = TcpListener::bind(&addr).await.map_err(|e| io::Error::new(e.kind(), format!("Error binding to <{}>: {}", &addr, e)))?;
+			let (term_send, term_recv) = watch::channel(false);
+			let mut term_watch = TerminateWatch::new(term_recv, term_send);
+
+			let listener = TcpListener::bind(&addr).await.map_err(|e| io::Error::new(e.kind(), format!("Error binding to <{}>: {}", &addr, e)))?;
 			info!("Now waiting for connections on <{}>", &addr);
-			loop {
-				let accept_result = listener.accept().await;
-				if let Err(e) = accept_result {
-					warn!("Accept failed with: {}", e);
-					continue;
+
+			'main_loop: loop {
+				tokio::select! {
+					accept_result = listener.accept() => {
+						if let Err(e) = accept_result {
+							warn!("Accept failed with: {}", e);
+							continue 'main_loop;
+						}
+						let (stream, peer_addr) = accept_result.unwrap();
+
+						{
+							let socket_ref = SockRef::from(&stream);
+							if let Err(e) = socket_ref.set_tcp_keepalive(&TcpKeepalive::new()
+								.with_time(std::time::Duration::new(30, 0))) {
+									error!("set_tcp_keepalive() failed with: {}", e);
+								}
+						}
+
+						info!("New client from {}", peer_addr);
+						let acceptor = acceptor.clone();
+						let config = self.config.clone();
+						let db_pool = self.db_pool.clone();
+						let room_manager = self.room_manager.clone();
+						let signaling_infos = self.signaling_infos.clone();
+						let score_cache = self.score_cache.clone();
+						let servinfo_vec = servinfo_vec.clone();
+						let term_watch = term_watch.clone();
+						let fut_client = async move {
+							let mut stream = acceptor.accept(stream).await?;
+							stream.write_all(&servinfo_vec).await?;
+							let mut client = Client::new(config, stream, db_pool, room_manager, signaling_infos, score_cache, term_watch).await;
+							client.process().await;
+							Ok(()) as io::Result<()>
+						};
+						handle.spawn(fut_client);
+					}
+					_ = term_watch.recv.changed() => {
+						return Ok(());
+					}
 				}
-
-				let (stream, peer_addr) = accept_result.unwrap();
-				stream.set_keepalive(Some(std::time::Duration::new(30, 0))).unwrap();
-				info!("New client from {}", peer_addr);
-
-				let acceptor = acceptor.clone();
-
-				let config = self.config.clone();
-				let db_client = self.db.clone();
-				let room_client = self.room_manager.clone();
-				let signaling_infos = self.signaling_infos.clone();
-				let servinfo_vec = servinfo_vec.clone();
-
-				let fut_client = async move {
-					let mut stream = acceptor.accept(stream).await?;
-					stream.write_all(&servinfo_vec).await?;
-					let mut client = Client::new(config, stream, db_client, room_client, signaling_infos).await;
-					client.process().await;
-					Ok(()) as io::Result<()>
-				};
-
-				handle.spawn(fut_client);
 			}
 		};
 		let res = runtime.block_on(fut_server);
+		runtime.shutdown_timeout(std::time::Duration::from_secs(120));
 		udp_serv.stop();
 		res
 	}

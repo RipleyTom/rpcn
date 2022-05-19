@@ -49,7 +49,7 @@ impl Client {
 	}
 
 	pub async fn send_single_notification(&self, notif: &[u8], user_id: i64) {
-		let mut channel_copy;
+		let channel_copy;
 		let entry;
 		{
 			let sig_infos = self.signaling_infos.read();

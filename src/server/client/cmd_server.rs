@@ -17,7 +17,7 @@ impl Client {
 		//     com_id = String::from("NPWR01249");
 		// }
 
-		let servs = self.db.lock().get_server_list(&com_id);
+		let servs = Database::new(self.get_database_connection(reply)?).get_server_list(&com_id, self.config.read().is_create_missing());
 		if servs.is_err() {
 			reply.push(ErrorType::DbFail as u8);
 			return Err(());
@@ -46,7 +46,7 @@ impl Client {
 			return Err(());
 		}
 
-		let worlds = self.db.lock().get_world_list(&com_id, server_id);
+		let worlds = Database::new(self.get_database_connection(reply)?).get_world_list(&com_id, server_id, self.config.read().is_create_missing());
 		if worlds.is_err() {
 			reply.push(ErrorType::DbFail as u8);
 			return Err(());

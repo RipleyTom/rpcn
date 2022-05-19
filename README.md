@@ -1,8 +1,17 @@
 # RPCN
 
-Server for matchmaking meant to be used with RPCS3(see PR for more information: https://github.com/RPCS3/rpcs3/pull/8663 ).
+Server for matchmaking meant to be used with RPCS3.
 
-The server currently needs a certificate and its corresponding private key to be generated for it, you can use openssl for this:
+All the settings and their descriptions are in rpcn.cfg.
+
+RPCN needs a certificate and its corresponding private key to be generated for the encrypted TLS connections to clients,
+you can use openssl for this:
 ```
 openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem
+```
+
+You can, optionally and disabled by default, generate a key to sign generated tickets:
+```
+openssl ecparam -name secp224k1 -genkey -noout -out ticket_private.pem
+openssl ec -in ticket_private.pem -pubout -out ticket_public.pem
 ```

@@ -14,7 +14,7 @@ impl Client {
 		}
 		let create_req = create_req.unwrap();
 
-		let server_id = self.db.lock().get_corresponding_server(&com_id, create_req.worldId(), create_req.lobbyId()).map_err(|_| {
+		let server_id = Database::new(self.get_database_connection(reply)?).get_corresponding_server(&com_id, create_req.worldId(), create_req.lobbyId()).map_err(|_| {
 			warn!(
 				"Attempted to use invalid worldId/lobbyId for comId {}: {}/{}",
 				&com_id_to_string(&com_id),

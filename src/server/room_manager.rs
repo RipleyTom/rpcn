@@ -726,7 +726,12 @@ impl Room {
 							return false;
 						}
 					}
-					_ => panic!("Non EQ in binfilter!"),
+					SceNpMatching2Operator::OperatorNe => {
+						if found_binsearch.attr == data {
+							return false;
+						}
+					}
+					_ => panic!("Non EQ/NE in binfilter!"),
 				}
 			}
 		}
@@ -909,7 +914,7 @@ impl RoomManager {
 
 			// If no successor is found and there are still users, assign ownership randomly
 			if !found_successor && !room.users.is_empty() {
-				let random_user = rand::thread_rng().gen_range(0, room.users.len());
+				let random_user = rand::thread_rng().gen_range(0..room.users.len());
 				room.owner = *room.users.keys().nth(random_user).unwrap();
 				found_successor = true;
 			}
@@ -934,7 +939,9 @@ impl RoomManager {
 	pub fn search_room(&self, com_id: &ComId, req: &SearchRoomRequest) -> Vec<u8> {
 		let world_id = req.worldId();
 		let lobby_id = req.lobbyId();
-		let startindex = req.rangeFilter_startIndex();
+
+		// Unclear what the given startIndex means
+		let startindex = 0; // req.rangeFilter_startIndex();
 		let max = req.rangeFilter_max();
 
 		let mut list = None;

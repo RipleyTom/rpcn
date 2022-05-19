@@ -4,6 +4,15 @@ use crate::server::client::*;
 use crate::server::database::DbError;
 
 impl Client {
+	pub fn is_admin(&self) -> bool {
+		self.client_info.admin
+	}
+
+	#[allow(dead_code)]
+	pub fn is_stat_agent(&self) -> bool {
+		self.client_info.stat_agent
+	}
+
 	fn send_token_mail(&self, email_addr: &str, npid: &str, token: &str) -> Result<(), lettre::smtp::error::Error> {
 		// Send the email
 		let email_to_send = EmailBuilder::new()
@@ -17,9 +26,9 @@ impl Client {
 
 		let mut smtp_client;
 		if host.is_empty() {
-			smtp_client = SmtpClient::new_unencrypted_localhost().unwrap();
+			smtp_client = SmtpClient::new_unencrypted_localhost()?;
 		} else {
-			smtp_client = SmtpClient::new_simple(&host).unwrap();
+			smtp_client = SmtpClient::new_simple(&host)?;
 
 			if !login.is_empty() {
 				smtp_client = smtp_client
@@ -49,22 +58,25 @@ impl Client {
 
 		let timestamp;
 		{
-			let mut db_lock = self.db.lock();
-			match db_lock.check_user(&login, &password, &token, self.config.read().is_email_validated()) {
+			let db = Database::new(self.get_database_connection(reply)?);
+
+			match db.check_user(&login, &password, &token, self.config.read().is_email_validated()) {
 				Ok(user_data) => {
-					if self.signaling_infos.read().contains_key(&user_data.user_id) {
+					let mut sign_infos = self.signaling_infos.write();
+
+					if sign_infos.contains_key(&user_data.user_id) {
 						reply.push(ErrorType::LoginAlreadyLoggedIn as u8);
 						return Err(());
 					}
 
-					let rels = db_lock.get_relationships(user_data.user_id).map_err(|_| {
+					let rels = db.get_relationships(user_data.user_id).map_err(|_| {
 						reply.push(ErrorType::DbFail as u8);
 					})?;
 
 					// Authentified beyond this point
 
 					// Update last login time
-					db_lock.update_login_time(user_data.user_id).map_err(|_| {
+					db.update_login_time(user_data.user_id).map_err(|_| {
 						reply.push(ErrorType::DbFail as u8);
 					})?;
 
@@ -75,7 +87,9 @@ impl Client {
 					self.client_info.avatar_url = user_data.avatar_url.clone();
 					self.client_info.user_id = user_data.user_id;
 					self.client_info.token = user_data.token.clone();
-					self.client_info.flags = user_data.flags;
+					self.client_info.admin = user_data.admin;
+					self.client_info.stat_agent = user_data.stat_agent;
+					self.client_info.banned = user_data.banned;
 					reply.push(ErrorType::NoError as u8);
 					reply.extend(user_data.online_name.as_bytes());
 					reply.push(0);
@@ -104,8 +118,6 @@ impl Client {
 								}
 							}
 						};
-
-					let mut sign_infos = self.signaling_infos.write();
 
 					timestamp = Client::get_timestamp();
 
@@ -169,7 +181,7 @@ impl Client {
 
 		let email = email.trim().to_string();
 
-		if EmailAddress::new(email.clone()).is_err() {
+		if EmailAddress::new(email.clone()).is_err() || email.contains(' ') {
 			warn!("Invalid email provided: {}", email);
 			reply.push(ErrorType::InvalidInput as u8);
 			return Err(());
@@ -191,7 +203,7 @@ impl Client {
 			}
 		}
 
-		match self.db.lock().add_user(&npid, &password, &online_name, &avatar_url, &email, &check_email) {
+		match Database::new(self.get_database_connection(reply)?).add_user(&npid, &password, &online_name, &avatar_url, &email, &check_email) {
 			Ok(token) => {
 				info!("Successfully created account {}", &npid);
 				reply.push(ErrorType::NoError as u8);
@@ -231,11 +243,11 @@ impl Client {
 
 		// check that a token email hasn't been sent in the last 24 hours
 		{
-			let mut db_lock = self.db.lock();
+			let db = Database::new(self.get_database_connection(reply)?);
 
-			if let Ok(user_data) = db_lock.check_user(&login, &password, "", false) {
+			if let Ok(user_data) = db.check_user(&login, &password, "", false) {
 				// Let's check that the email hasn't been sent in the last 24 hours
-				let last_token_sent_timestamp = db_lock.get_token_sent_time(user_data.user_id).map_err(|_| {
+				let last_token_sent_timestamp = db.get_token_sent_time(user_data.user_id).map_err(|_| {
 					error!("Unexpected error querying last token sent time");
 					reply.push(ErrorType::DbFail as u8);
 				})?;
@@ -253,7 +265,7 @@ impl Client {
 					reply.push(ErrorType::EmailFail as u8);
 				} else {
 					// Update last token sent time
-					if db_lock.set_token_sent_time(user_data.user_id).is_err() {
+					if db.set_token_sent_time(user_data.user_id).is_err() {
 						error!("Unexpected error setting token sent time");
 					}
 					reply.push(ErrorType::NoError as u8);
