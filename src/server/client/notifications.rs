@@ -24,7 +24,7 @@ impl Client {
 		let mut final_vec = Vec::with_capacity(final_size);
 		final_vec.push(PacketType::Notification as u8);
 		final_vec.extend(&(n_type as u16).to_le_bytes());
-		final_vec.extend(&(final_size as u16).to_le_bytes());
+		final_vec.extend(&(final_size as u32).to_le_bytes());
 		final_vec.extend(&0u64.to_le_bytes()); // packet_id doesn't matter for notifications
 		final_vec.extend(data);
 
@@ -49,7 +49,7 @@ impl Client {
 	}
 
 	pub async fn send_single_notification(&self, notif: &[u8], user_id: i64) {
-		let mut channel_copy;
+		let channel_copy;
 		let entry;
 		{
 			let sig_infos = self.signaling_infos.read();

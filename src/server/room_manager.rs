@@ -3,14 +3,13 @@
 #![allow(non_camel_case_types)]
 
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
-use std::time::SystemTime;
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use rand::Rng;
 use tracing::warn;
 
-use crate::server::client::{ClientInfo, ComId, ErrorType, EventCause};
+use crate::server::client::{Client, ClientInfo, ComId, ErrorType, EventCause};
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 
@@ -74,7 +73,10 @@ pub struct RoomMemberBinAttr {
 impl RoomMemberBinAttr {
 	pub fn from_flatbuffer(fb: &BinAttr) -> RoomMemberBinAttr {
 		let data = RoomBinAttr::from_flatbuffer(fb);
-		RoomMemberBinAttr { update_date: get_time_stamp(), data }
+		RoomMemberBinAttr {
+			update_date: Client::get_psn_timestamp(),
+			data,
+		}
 	}
 
 	pub fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<RoomMemberBinAttrInternal<'a>> {
@@ -92,7 +94,7 @@ impl RoomBinAttrInternal {
 	pub fn from_flatbuffer(fb: &BinAttr, member_id: u16) -> RoomBinAttrInternal {
 		let data = RoomBinAttr::from_flatbuffer(fb);
 		RoomBinAttrInternal {
-			update_date: get_time_stamp(),
+			update_date: Client::get_psn_timestamp(),
 			update_member_id: member_id,
 			data,
 		}
@@ -234,7 +236,7 @@ impl RoomUser {
 			npid: String::new(),
 			online_name: String::new(),
 			avatar_url: String::new(),
-			join_date: get_time_stamp(),
+			join_date: Client::get_psn_timestamp(),
 			flag_attr: 0,
 
 			group_id,
@@ -263,7 +265,7 @@ impl RoomUser {
 			npid: String::new(),
 			online_name: String::new(),
 			avatar_url: String::new(),
-			join_date: get_time_stamp(),
+			join_date: Client::get_psn_timestamp(),
 			flag_attr: 0,
 
 			group_id,
@@ -286,23 +288,21 @@ impl RoomUser {
 			},
 		);
 
-		let bin_attr;
-		if !self.member_attr.is_empty() {
+		let bin_attr = if !self.member_attr.is_empty() {
 			let mut bin_attrs = Vec::new();
 			for binattr in self.member_attr.values() {
 				bin_attrs.push(binattr.to_flatbuffer(builder));
 			}
-			bin_attr = Some(builder.create_vector(&bin_attrs));
+			Some(builder.create_vector(&bin_attrs))
 		} else {
-			bin_attr = None;
-		}
+			None
+		};
 
-		let room_group;
-		if self.group_id != 0 {
-			room_group = Some(room.group_config.get(&self.group_id).unwrap().to_flatbuffer(builder));
+		let room_group = if self.group_id != 0 {
+			Some(room.group_config.get(&self.group_id).unwrap().to_flatbuffer(builder))
 		} else {
-			room_group = None;
-		}
+			None
+		};
 
 		RoomMemberDataInternal::create(
 			builder,
@@ -358,7 +358,6 @@ impl Room {
 		let mut search_int_attr: BTreeMap<u16, RoomIntAttr> = BTreeMap::new();
 		let mut room_password = None;
 		let mut group_config: BTreeMap<u8, RoomGroupConfig> = BTreeMap::new();
-		let password_slot_mask;
 		let mut allowed_users: Vec<String> = Vec::new();
 		let mut blocked_users: Vec<String> = Vec::new();
 		let mut signaling_param = None;
@@ -401,7 +400,7 @@ impl Room {
 				group_config.insert(group_id, RoomGroupConfig::from_flatbuffer(&vec.get(i), group_id));
 			}
 		}
-		password_slot_mask = fb.passwordSlotMask();
+		let password_slot_mask = fb.passwordSlotMask();
 		if let Some(vec) = fb.allowedUser() {
 			for i in 0..vec.len() {
 				allowed_users.push(vec.get(i).to_string());
@@ -726,7 +725,12 @@ impl Room {
 							return false;
 						}
 					}
-					_ => panic!("Non EQ in binfilter!"),
+					SceNpMatching2Operator::OperatorNe => {
+						if found_binsearch.attr == data {
+							return false;
+						}
+					}
+					_ => panic!("Non EQ/NE in binfilter!"),
 				}
 			}
 		}
@@ -909,7 +913,7 @@ impl RoomManager {
 
 			// If no successor is found and there are still users, assign ownership randomly
 			if !found_successor && !room.users.is_empty() {
-				let random_user = rand::thread_rng().gen_range(0, room.users.len());
+				let random_user = rand::thread_rng().gen_range(0..room.users.len());
 				room.owner = *room.users.keys().nth(random_user).unwrap();
 				found_successor = true;
 			}
@@ -934,7 +938,9 @@ impl RoomManager {
 	pub fn search_room(&self, com_id: &ComId, req: &SearchRoomRequest) -> Vec<u8> {
 		let world_id = req.worldId();
 		let lobby_id = req.lobbyId();
-		let startindex = req.rangeFilter_startIndex();
+
+		// Unclear what the given startIndex means
+		let startindex = 0; // req.rangeFilter_startIndex();
 		let max = req.rangeFilter_max();
 
 		let mut list = None;
@@ -1190,8 +1196,4 @@ impl RoomManager {
 
 		Some(self.user_rooms.get(&user).unwrap().clone())
 	}
-}
-
-fn get_time_stamp() -> u64 {
-	(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_micros() + (62135596800 * 1000 * 1000)) as u64
 }

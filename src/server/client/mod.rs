@@ -2,6 +2,7 @@ mod cmd_account;
 mod cmd_admin;
 mod cmd_friend;
 mod cmd_room;
+mod cmd_score;
 mod cmd_server;
 
 mod ticket;
@@ -14,27 +15,28 @@ use std::time::{Duration, SystemTime};
 
 use lettre::smtp::authentication::{Credentials, Mechanism};
 use lettre::{EmailAddress, SmtpClient, SmtpTransport, Transport};
-use lettre_email::EmailBuilder;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use parking_lot::{Mutex, RwLock};
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tokio::time::timeout;
 use tokio_rustls::server::TlsStream;
 use tracing::{error, info, info_span, trace, warn, Instrument};
 
 use crate::server::client::notifications::NotificationType;
 use crate::server::client::ticket::Ticket;
-use crate::server::database::DatabaseManager;
+use crate::server::database::Database;
 use crate::server::room_manager::{RoomManager, SignalParam, SignalingType};
+use crate::server::score_cache::ScoresCache;
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::stream_extractor::StreamExtractor;
 use crate::Config;
 
-pub const HEADER_SIZE: u16 = 13;
+pub const HEADER_SIZE: u32 = 15;
+pub const MAX_PACKET_SIZE: u32 = 0x800000; // 8MiB
 
 pub type ComId = [u8; 9];
 
@@ -44,13 +46,16 @@ pub struct ClientInfo {
 	pub online_name: String,
 	pub avatar_url: String,
 	pub token: String,
-	pub flags: u16,
+	pub admin: bool,
+	pub stat_agent: bool,
+	pub banned: bool,
 }
 
 pub struct ClientSignalingInfo {
 	pub channel: mpsc::Sender<Vec<u8>>,
 	pub addr_p2p: [u8; 4],
 	pub port_p2p: u16,
+	pub local_addr_p2p: [u8; 4],
 	pub friends: HashSet<i64>,
 }
 
@@ -60,7 +65,23 @@ impl ClientSignalingInfo {
 			channel,
 			addr_p2p: [0; 4],
 			port_p2p: 0,
+			local_addr_p2p: [0; 4],
 			friends,
+		}
+	}
+}
+
+#[derive(Clone)]
+pub struct TerminateWatch {
+	pub recv: watch::Receiver<bool>,
+	pub send: Arc<Mutex<watch::Sender<bool>>>,
+}
+
+impl TerminateWatch {
+	pub fn new(recv: watch::Receiver<bool>, send: watch::Sender<bool>) -> TerminateWatch {
+		TerminateWatch {
+			recv,
+			send: Arc::new(Mutex::new(send)),
 		}
 	}
 }
@@ -69,12 +90,14 @@ pub struct Client {
 	config: Arc<RwLock<Config>>,
 	tls_reader: io::ReadHalf<TlsStream<TcpStream>>,
 	channel_sender: mpsc::Sender<Vec<u8>>,
-	db: Arc<Mutex<DatabaseManager>>,
+	db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
 	room_manager: Arc<RwLock<RoomManager>>,
 	signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
+	score_cache: Arc<ScoresCache>,
 	authentified: bool,
 	client_info: ClientInfo,
 	post_reply_notifications: Vec<Vec<u8>>,
+	terminate_watch: TerminateWatch,
 }
 
 #[repr(u8)]
@@ -92,6 +115,8 @@ enum CommandType {
 	Terminate,
 	Create,
 	SendToken,
+	SendResetToken,
+	ResetPassword,
 	AddFriend,
 	RemoveFriend,
 	AddBlock,
@@ -112,7 +137,15 @@ enum CommandType {
 	RequestSignalingInfos,
 	RequestTicket,
 	SendMessage,
+	GetBoardInfos,
+	RecordScore,
+	StoreScoreData,
+	GetScoreData,
+	GetScoreRange,
+	GetScoreFriends,
+	GetScoreNpid,
 	UpdateDomainBans = 0x0100,
+	TerminateServer,
 }
 
 #[repr(u8)]
@@ -156,25 +189,23 @@ pub enum ErrorType {
 	NotFound,                    // Object of the query was not found(room, user, etc)
 	Blocked,                     // The operation can't complete because you've been blocked
 	AlreadyFriend,               // Can't add friend because already friend
+	ScoreNotBest,                // A better score is already registered for that user/character_id
 	Unsupported,
 }
 
 pub fn com_id_to_string(com_id: &ComId) -> String {
-	let mut com_id_str = String::new();
-	for c in com_id {
-		com_id_str.push(*c as char);
-	}
-
-	com_id_str
+	com_id.iter().map(|c| *c as char).collect()
 }
 
 impl Client {
 	pub async fn new(
 		config: Arc<RwLock<Config>>,
 		tls_stream: TlsStream<TcpStream>,
-		db: Arc<Mutex<DatabaseManager>>,
+		db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
 		room_manager: Arc<RwLock<RoomManager>>,
 		signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
+		score_cache: Arc<ScoresCache>,
+		terminate_watch: TerminateWatch,
 	) -> Client {
 		let client_info = ClientInfo {
 			user_id: 0,
@@ -182,7 +213,9 @@ impl Client {
 			online_name: String::new(),
 			avatar_url: String::new(),
 			token: String::new(),
-			flags: 0,
+			admin: false,
+			stat_agent: false,
+			banned: false,
 		};
 
 		let (channel_sender, mut channel_receiver) = mpsc::channel::<Vec<u8>>(32);
@@ -201,12 +234,14 @@ impl Client {
 			config,
 			tls_reader,
 			channel_sender,
-			db,
+			db_pool,
 			room_manager,
 			signaling_infos,
+			score_cache,
 			authentified: false,
 			client_info,
 			post_reply_notifications: Vec::new(),
+			terminate_watch,
 		}
 	}
 
@@ -232,48 +267,68 @@ impl Client {
 
 	///// Command Processing
 	pub async fn process(&mut self) {
-		loop {
+		if *self.terminate_watch.recv.borrow_and_update() {
+			return;
+		}
+
+		'main_client_loop: loop {
 			let mut header_data = [0; HEADER_SIZE as usize];
 
 			let r;
 			if !self.authentified {
 				let timeout_r = timeout(Duration::from_secs(10), self.tls_reader.read_exact(&mut header_data)).await;
 				if timeout_r.is_err() {
-					break;
+					trace!("Unauthentified client timeouted after 10 seconds");
+					break 'main_client_loop;
 				}
 				r = timeout_r.unwrap();
 			} else {
-				r = self.tls_reader.read_exact(&mut header_data).await;
+				tokio::select! {
+					_ = self.terminate_watch.recv.changed() => {
+						assert!(*self.terminate_watch.recv.borrow());
+						break 'main_client_loop;
+					}
+					result = self.tls_reader.read_exact(&mut header_data) => {
+						r = result;
+					}
+				}
 			}
 
 			match r {
 				Ok(_) => {
 					if header_data[0] != PacketType::Request as u8 {
 						warn!("Received non request packed, disconnecting client");
-						break;
+						break 'main_client_loop;
 					}
 
 					let command = u16::from_le_bytes([header_data[1], header_data[2]]);
-					let packet_size = u16::from_le_bytes([header_data[3], header_data[4]]);
+					let packet_size = u32::from_le_bytes([header_data[3], header_data[4], header_data[5], header_data[6]]);
 					let packet_id = u64::from_le_bytes([
-						header_data[5],
-						header_data[6],
 						header_data[7],
 						header_data[8],
 						header_data[9],
 						header_data[10],
 						header_data[11],
 						header_data[12],
+						header_data[13],
+						header_data[14],
 					]);
 					let npid_span = info_span!("", npid = %self.client_info.npid);
+
+					// Max packet size of 8MiB
+					if packet_size > MAX_PACKET_SIZE {
+						warn!("Received oversized packet of {} bytes", packet_size);
+						break 'main_client_loop;
+					}
+
 					if self.interpret_command(command, packet_size, packet_id).instrument(npid_span).await.is_err() {
 						info!("Disconnecting client({})", self.client_info.npid);
-						break;
+						break 'main_client_loop;
 					}
 				}
 				Err(e) => {
 					info!("Client({}) disconnected: {}", self.client_info.npid, &e);
-					break;
+					break 'main_client_loop;
 				}
 			}
 		}
@@ -293,7 +348,7 @@ impl Client {
 			let timestamp;
 			{
 				let mut sign_infos = self.signaling_infos.write();
-				timestamp = Client::get_timestamp();
+				timestamp = Client::get_timestamp_nanos();
 				if let Some(infos) = sign_infos.get(&self.client_info.user_id) {
 					to_notif = infos.friends.clone();
 				}
@@ -305,7 +360,7 @@ impl Client {
 		}
 	}
 
-	async fn interpret_command(&mut self, command: u16, length: u16, packet_id: u64) -> Result<(), ()> {
+	async fn interpret_command(&mut self, command: u16, length: u32, packet_id: u64) -> Result<(), ()> {
 		if length < HEADER_SIZE {
 			warn!("Malformed packet(size < {})", HEADER_SIZE);
 			return Err(());
@@ -319,7 +374,7 @@ impl Client {
 
 		match r {
 			Ok(_) => {
-				//self.dump_packet(&data, "input");
+				// self.dump_packet(&data, "input");
 
 				let mut reply = Vec::with_capacity(1000);
 
@@ -332,10 +387,10 @@ impl Client {
 				let res = self.process_command(command, &mut se_data, &mut reply).await;
 
 				// update length
-				let len = reply.len() as u16;
-				reply[3..5].clone_from_slice(&len.to_le_bytes());
+				let len = reply.len() as u32;
+				reply[3..7].clone_from_slice(&len.to_le_bytes());
 
-				//self.dump_packet(&reply, "output");
+				// self.dump_packet(&reply, "output");
 
 				info!("Returning: {}({})", res.is_ok(), reply[HEADER_SIZE as usize]);
 				let _ = self.channel_sender.send(reply).await;
@@ -375,6 +430,8 @@ impl Client {
 				CommandType::Login => return self.login(data, reply).await,
 				CommandType::Create => return self.create_account(data, reply),
 				CommandType::SendToken => return self.resend_token(data, reply),
+				CommandType::SendResetToken => return self.send_reset_token(data, reply),
+				CommandType::ResetPassword => return self.reset_password(data, reply),
 				_ => {
 					warn!("User attempted an invalid command at this stage");
 					reply.push(ErrorType::Invalid as u8);
@@ -404,7 +461,15 @@ impl Client {
 			CommandType::RequestSignalingInfos => self.req_signaling_infos(data, reply),
 			CommandType::RequestTicket => self.req_ticket(data, reply),
 			CommandType::SendMessage => self.send_message(data, reply).await,
+			CommandType::GetBoardInfos => self.get_board_infos(data, reply).await,
+			CommandType::RecordScore => self.record_score(data, reply).await,
+			CommandType::StoreScoreData => self.store_score_data(data, reply).await,
+			CommandType::GetScoreData => self.get_score_data(data, reply).await,
+			CommandType::GetScoreRange => self.get_score_range(data, reply).await,
+			CommandType::GetScoreFriends => self.get_score_friends(data, reply).await,
+			CommandType::GetScoreNpid => self.get_score_npid(data, reply).await,
 			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
+			CommandType::TerminateServer => self.req_admin_terminate_server(),
 			_ => {
 				warn!("Unknown command received");
 				reply.push(ErrorType::Invalid as u8);
@@ -415,11 +480,21 @@ impl Client {
 
 	// Helper Functions
 
-	pub fn get_timestamp() -> u64 {
+	pub fn get_timestamp_nanos() -> u64 {
 		SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos() as u64
 	}
 	pub fn get_timestamp_seconds() -> u32 {
 		SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as u32
+	}
+	pub fn get_psn_timestamp() -> u64 {
+		(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_micros() + (62135596800 * 1000 * 1000)) as u64
+	}
+
+	fn get_database_connection(&self, reply: &mut Vec<u8>) -> Result<r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>, ()> {
+		self.db_pool.get().map_err(|e| {
+			reply.push(ErrorType::DbFail as u8);
+			error!("Failed to get a database connection: {}", e)
+		})
 	}
 
 	fn get_com_id_with_redir(&self, data: &mut StreamExtractor) -> ComId {
@@ -439,11 +514,13 @@ impl Client {
 		// Get user signaling
 		let mut addr_p2p = [0; 4];
 		let mut port_p2p = 0;
+		let mut local_ip = [0; 4];
 		{
 			let sig_infos = self.signaling_infos.read();
 			if let Some(entry) = sig_infos.get(&from.1) {
 				addr_p2p = entry.addr_p2p;
 				port_p2p = entry.port_p2p;
+				local_ip = entry.local_addr_p2p;
 			}
 		}
 
@@ -453,19 +530,21 @@ impl Client {
 		s_msg.extend(&from.0.to_le_bytes()); // +8..+10 member ID
 		s_msg.extend(&port_p2p.to_be_bytes()); // +10..+12 port
 		s_msg.extend(&addr_p2p); // +12..+16 addr
-		let mut s_notif = Client::create_notification(NotificationType::SignalP2PConnect, &s_msg);
+		let s_notif_extern = Client::create_notification(NotificationType::SignalP2PConnect, &s_msg);
 
-		let mut self_id = HashSet::new();
-		self_id.insert(from.1);
+		// Create a local IP version for users behind the same IP
+		let mut s_notif_local = s_notif_extern.clone();
+		s_notif_local[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_be_bytes());
+		s_notif_local[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&local_ip);
+
+		let mut s_self_notif = s_notif_extern.clone();
+
+		let mut user_ids_extern: HashSet<i64> = HashSet::new();
+		let mut user_ids_local: HashSet<i64> = HashSet::new();
 
 		match sig_param.get_type() {
 			SignalingType::SignalingMesh => {
-				// Notifies other room members that p2p connection was established
-				let user_ids: HashSet<i64> = to.iter().map(|x| *x.1).collect();
-
-				self.send_notification(&s_notif, &user_ids).await;
-
-				// Notifies user that connection has been established with all other occupants
+				// Notifies user that connection needs to be established with all other occupants
 				{
 					for user in &to {
 						let mut tosend = false; // tosend is there to avoid double locking on signaling_infos
@@ -474,15 +553,23 @@ impl Client {
 							let user_si = sig_infos.get(user.1);
 
 							if let Some(user_si) = user_si {
-								s_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&user.0.to_le_bytes());
-								s_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_be_bytes());
-								s_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
+								s_self_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&user.0.to_le_bytes());
+
+								if user_si.addr_p2p == addr_p2p {
+									user_ids_local.insert(*user.1);
+									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.local_addr_p2p);
+									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_be_bytes());
+								} else {
+									user_ids_extern.insert(*user.1);
+									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
+									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_be_bytes());
+								}
 
 								tosend = true;
 							}
 						}
 						if tosend {
-							self.self_notification(&s_notif); // Special function that will post the notification after the reply
+							self.self_notification(&s_self_notif); // Special function that will post the notification after the reply
 						}
 					}
 				}
@@ -492,29 +579,40 @@ impl Client {
 				if hub == 0 {
 					hub = owner;
 				}
-				// Sends notification to hub
-				let user_ids: HashSet<i64> = to.iter().filter_map(|x| if *x.0 == hub { Some(*x.1) } else { None }).collect();
-				self.send_notification(&s_notif, &user_ids).await;
+
 				// Send notification to user to connect to hub
 				let mut tosend = false;
 				{
 					let sig_infos = self.signaling_infos.read();
-					let user_si = sig_infos.get(to.get(&hub).unwrap());
+					let hub_user_id = *to.get(&hub).unwrap();
+					let user_si = sig_infos.get(&hub_user_id);
 
 					if let Some(user_si) = user_si {
-						s_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&hub.to_le_bytes());
-						s_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_be_bytes());
-						s_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
+						s_self_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&hub.to_le_bytes());
+
+						if user_si.addr_p2p == addr_p2p {
+							user_ids_local.insert(hub_user_id);
+							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.local_addr_p2p);
+							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_be_bytes());
+						} else {
+							user_ids_extern.insert(hub_user_id);
+							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
+							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_be_bytes());
+						}
 
 						tosend = true;
 					}
 				}
 				if tosend {
-					self.self_notification(&s_notif); // Special function that will post the notification after the reply
+					self.self_notification(&s_self_notif); // Special function that will post the notification after the reply
 				}
 			}
 			_ => panic!("Unimplemented SignalingType({:?})", sig_param.get_type()),
 		}
+
+		// Notify other members of connections needing to be established
+		self.send_notification(&s_notif_extern, &user_ids_extern).await;
+		self.send_notification(&s_notif_local, &user_ids_local).await;
 	}
 
 	// Misc (might get split in another file later)
@@ -527,7 +625,7 @@ impl Client {
 			return Err(());
 		}
 
-		let user_id = self.db.lock().get_user_id(&npid);
+		let user_id = Database::new(self.get_database_connection(reply)?).get_user_id(&npid);
 		if user_id.is_err() {
 			reply.push(ErrorType::NotFound as u8);
 			return Ok(());
@@ -535,11 +633,18 @@ impl Client {
 
 		let user_id = user_id.unwrap();
 		let sig_infos = self.signaling_infos.read();
+		let caller_ip = sig_infos.get(&self.client_info.user_id).unwrap().local_addr_p2p;
 		if let Some(entry) = sig_infos.get(&user_id) {
 			reply.push(ErrorType::NoError as u8);
-			reply.extend(&entry.addr_p2p);
-			reply.extend(&((entry.port_p2p).to_le_bytes()));
-			info!("Requesting signaling infos for {} => {:?}:{}", &npid, &entry.addr_p2p, entry.port_p2p);
+			if caller_ip == entry.addr_p2p {
+				reply.extend(&entry.local_addr_p2p);
+				reply.extend(&3658u16.to_le_bytes());
+				info!("Requesting signaling infos for {} => (local) {:?}:{}", &npid, &entry.local_addr_p2p, 3658);
+			} else {
+				reply.extend(&entry.addr_p2p);
+				reply.extend(&((entry.port_p2p).to_le_bytes()));
+				info!("Requesting signaling infos for {} => (extern) {:?}:{}", &npid, &entry.addr_p2p, entry.port_p2p);
+			}
 		} else {
 			reply.push(ErrorType::NotFound as u8);
 		}
@@ -558,7 +663,12 @@ impl Client {
 
 		info!("Requested a ticket for <{}>", service_id);
 
-		let ticket = Ticket::new(self.client_info.user_id as u64, &self.client_info.npid, &service_id, cookie);
+		let ticket;
+		{
+			let config = self.config.read();
+			let key = config.get_ticket_private_key();
+			ticket = Ticket::new(self.client_info.user_id as u64, &self.client_info.npid, &service_id, cookie, key);
+		}
 		let ticket_blob = ticket.generate_blob();
 
 		reply.push(ErrorType::NoError as u8);
@@ -589,9 +699,9 @@ impl Client {
 		// Get all the IDs
 		let mut ids = HashSet::new();
 		{
-			let mut db_lock = self.db.lock();
+			let db = Database::new(self.get_database_connection(reply)?);
 			for npid in &npids {
-				match db_lock.get_user_id(npid) {
+				match db.get_user_id(npid) {
 					Ok(id) => {
 						ids.insert(id);
 					}
