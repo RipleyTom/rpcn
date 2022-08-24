@@ -137,7 +137,7 @@ fn initial_setup(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionMana
 	)
 	.map_err(|e| format!("Failed to create lobby table: {}", e))?;
 	conn.execute(
-		"CREATE TABLE IF NOT EXISTS score_table ( communication_id TEXT NOT NULL, board_id UNSIGNED INTEGER NOT NULL, rank_limit UNSIGNED INTEGER NOT NULL, update_mode UNSIGNED INTEGER NOT NULL, sort_mode UNSIGNED INTEGER NOT NULL, upload_num_limit UNSIGNED INTEGER NOT NULL, upload_size_limit UNSIGNED INTEGER NOT NULL, UNSIGNED PRIMARY KEY (communication_id, board_id) )",
+		"CREATE TABLE IF NOT EXISTS score_table ( communication_id TEXT NOT NULL, board_id UNSIGNED INTEGER NOT NULL, rank_limit UNSIGNED INTEGER NOT NULL, update_mode UNSIGNED INTEGER NOT NULL, sort_mode UNSIGNED INTEGER NOT NULL, upload_num_limit UNSIGNED INTEGER NOT NULL, upload_size_limit UNSIGNED INTEGER NOT NULL, PRIMARY KEY (communication_id, board_id) )",
 		[],
 	)
 	.map_err(|e| format!("Failed to create score_table table: {}", e))?;
