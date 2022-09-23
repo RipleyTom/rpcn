@@ -7,7 +7,7 @@ use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use rand::Rng;
-use tracing::warn;
+use tracing::{error, warn};
 
 use crate::server::client::{Client, ClientInfo, ComId, ErrorType, EventCause};
 use crate::server::stream_extractor::fb_helpers::*;
@@ -24,6 +24,26 @@ enum SceNpMatching2Operator {
 	OperatorGt = 5,
 	OperatorGe = 6,
 }
+
+const SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID: u16 = 0x4C;
+const SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_2_ID: u16 = 0x4D;
+const SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_3_ID: u16 = 0x4E;
+const SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_4_ID: u16 = 0x4F;
+const SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_5_ID: u16 = 0x50;
+const SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_6_ID: u16 = 0x51;
+const SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_7_ID: u16 = 0x52;
+const SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_8_ID: u16 = 0x53;
+
+const SCE_NP_MATCHING2_ROOM_SEARCHABLE_BIN_ATTR_EXTERNAL_1_ID: u16 = 0x54;
+
+const SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_1_ID: u16 = 0x55;
+const SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_2_ID: u16 = 0x56;
+
+const SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID: u16 = 0x57;
+const SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_2_ID: u16 = 0x58;
+
+const SCE_NP_MATCHING2_ROOMMEMBER_BIN_ATTR_INTERNAL_1_ID: u16 = 0x59;
+const SCE_NP_MATCHING2_USER_BIN_ATTR_1_ID: u16 = 0x5F;
 
 #[repr(u32)]
 enum SceNpMatching2FlagAttr {
@@ -46,16 +66,26 @@ pub enum SignalingType {
 	SignalingStar = 2,
 }
 
-pub struct RoomBinAttr {
+pub struct RoomBinAttr<const N: usize> {
 	id: u16,
-	attr: Vec<u8>,
+	attr: [u8; N],
 }
-impl RoomBinAttr {
-	pub fn from_flatbuffer(fb: &BinAttr) -> RoomBinAttr {
+impl<const N: usize> RoomBinAttr<N> {
+	pub fn with_id(id: u16) -> RoomBinAttr<N> {
+		RoomBinAttr { id, attr: [0; N] }
+	}
+
+	pub fn from_flatbuffer(fb: &BinAttr) -> RoomBinAttr<N> {
 		let id = fb.id();
-		let mut attr: Vec<u8> = Vec::new();
+		let mut attr: [u8; N] = [0; N];
 		if let Some(fb_attrs) = fb.data() {
-			attr.extend_from_slice(fb_attrs);
+			let len = if fb_attrs.len() > N {
+				error!("Error converting a fb BinAttr to a RoombinAttr, mismatched size: fb:{} vs expected:{}", fb_attrs.len(), N);
+				N
+			} else {
+				fb_attrs.len()
+			};
+			attr[0..len].clone_from_slice(&fb_attrs[0..len]);
 		}
 
 		RoomBinAttr { id, attr }
@@ -68,7 +98,7 @@ impl RoomBinAttr {
 }
 pub struct RoomMemberBinAttr {
 	update_date: u64,
-	data: RoomBinAttr,
+	data: RoomBinAttr<64>,
 }
 impl RoomMemberBinAttr {
 	pub fn from_flatbuffer(fb: &BinAttr) -> RoomMemberBinAttr {
@@ -88,9 +118,17 @@ impl RoomMemberBinAttr {
 pub struct RoomBinAttrInternal {
 	update_date: u64,
 	update_member_id: u16,
-	data: RoomBinAttr,
+	data: RoomBinAttr<256>,
 }
 impl RoomBinAttrInternal {
+	pub fn with_id(id: u16) -> RoomBinAttrInternal {
+		RoomBinAttrInternal {
+			update_date: Client::get_psn_timestamp(),
+			update_member_id: 1,
+			data: RoomBinAttr::<256>::with_id(id),
+		}
+	}
+
 	pub fn from_flatbuffer(fb: &BinAttr, member_id: u16) -> RoomBinAttrInternal {
 		let data = RoomBinAttr::from_flatbuffer(fb);
 		RoomBinAttrInternal {
@@ -118,6 +156,9 @@ struct RoomIntAttr {
 	attr: u32,
 }
 impl RoomIntAttr {
+	pub fn with_id(id: u16) -> RoomIntAttr {
+		RoomIntAttr { id, attr: 0 }
+	}
 	pub fn from_flatbuffer(fb: &IntAttr) -> RoomIntAttr {
 		let id = fb.id();
 		let attr = fb.num();
@@ -326,10 +367,10 @@ pub struct Room {
 	lobby_id: u64,
 	max_slot: u16,
 	flag_attr: u32,
-	bin_attr_internal: BTreeMap<u16, RoomBinAttrInternal>,
-	bin_attr_external: BTreeMap<u16, RoomBinAttr>,
-	search_bin_attr: BTreeMap<u16, RoomBinAttr>,
-	search_int_attr: BTreeMap<u16, RoomIntAttr>,
+	bin_attr_internal: [RoomBinAttrInternal; 2],
+	bin_attr_external: [RoomBinAttr<256>; 2],
+	search_bin_attr: RoomBinAttr<64>,
+	search_int_attr: [RoomIntAttr; 8],
 	room_password: Option<[u8; 8]>,
 	group_config: BTreeMap<u8, RoomGroupConfig>,
 	password_slot_mask: u64,
@@ -352,10 +393,25 @@ impl Room {
 		let lobby_id = fb.lobbyId();
 		let max_slot = fb.maxSlot() as u16;
 		let flag_attr = fb.flagAttr();
-		let mut bin_attr_internal: BTreeMap<u16, RoomBinAttrInternal> = BTreeMap::new();
-		let mut bin_attr_external: BTreeMap<u16, RoomBinAttr> = BTreeMap::new();
-		let mut search_bin_attr: BTreeMap<u16, RoomBinAttr> = BTreeMap::new();
-		let mut search_int_attr: BTreeMap<u16, RoomIntAttr> = BTreeMap::new();
+		let mut bin_attr_internal: [RoomBinAttrInternal; 2] = [
+			RoomBinAttrInternal::with_id(SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID),
+			RoomBinAttrInternal::with_id(SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_2_ID),
+		];
+		let mut bin_attr_external: [RoomBinAttr<256>; 2] = [
+			RoomBinAttr::<256>::with_id(SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_1_ID),
+			RoomBinAttr::<256>::with_id(SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_2_ID),
+		];
+		let mut search_bin_attr: RoomBinAttr<64> = RoomBinAttr::<64>::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_BIN_ATTR_EXTERNAL_1_ID);
+		let mut search_int_attr: [RoomIntAttr; 8] = [
+			RoomIntAttr::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID),
+			RoomIntAttr::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_2_ID),
+			RoomIntAttr::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_3_ID),
+			RoomIntAttr::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_4_ID),
+			RoomIntAttr::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_5_ID),
+			RoomIntAttr::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_6_ID),
+			RoomIntAttr::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_7_ID),
+			RoomIntAttr::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_8_ID),
+		];
 		let mut room_password = None;
 		let mut group_config: BTreeMap<u8, RoomGroupConfig> = BTreeMap::new();
 		let mut allowed_users: Vec<String> = Vec::new();
@@ -365,26 +421,51 @@ impl Room {
 		if let Some(vec) = fb.roomBinAttrInternal() {
 			for i in 0..vec.len() {
 				// Since we're creating the room member id is always 1
-				let room_attr_int_from_fb = RoomBinAttrInternal::from_flatbuffer(&vec.get(i), 1);
-				bin_attr_internal.insert(room_attr_int_from_fb.data.id, room_attr_int_from_fb);
+				let room_binattr_internal_from_fb = RoomBinAttrInternal::from_flatbuffer(&vec.get(i), 1);
+
+				if room_binattr_internal_from_fb.data.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID && room_binattr_internal_from_fb.data.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_2_ID {
+					error!("Invalid Room BinAttr Internal ID in CreateRoom: {}", room_binattr_internal_from_fb.data.id);
+					continue;
+				}
+
+				let id = room_binattr_internal_from_fb.data.id;
+				bin_attr_internal[(id - SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID) as usize] = room_binattr_internal_from_fb;
 			}
 		}
 		if let Some(vec) = fb.roomBinAttrExternal() {
 			for i in 0..vec.len() {
-				let room_attr_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
-				bin_attr_external.insert(room_attr_from_fb.id, room_attr_from_fb);
+				let room_binattr_external_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
+
+				if room_binattr_external_from_fb.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_1_ID && room_binattr_external_from_fb.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_2_ID {
+					error!("Invalid Room BinAttr External ID in CreateRoom: {}", room_binattr_external_from_fb.id);
+					continue;
+				}
+
+				let id = room_binattr_external_from_fb.id;
+				bin_attr_external[(id - SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_1_ID) as usize] = room_binattr_external_from_fb;
 			}
 		}
 		if let Some(vec) = fb.roomSearchableBinAttrExternal() {
 			for i in 0..vec.len() {
-				let room_attr_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
-				search_bin_attr.insert(room_attr_from_fb.id, room_attr_from_fb);
+				let room_binattr_search_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
+
+				if room_binattr_search_from_fb.id != SCE_NP_MATCHING2_ROOM_SEARCHABLE_BIN_ATTR_EXTERNAL_1_ID {
+					error!("Invalid Room BinAttr Search ID in CreateRoom: {}", room_binattr_search_from_fb.id);
+					continue;
+				}
+				search_bin_attr = room_binattr_search_from_fb;
 			}
 		}
 		if let Some(vec) = fb.roomSearchableIntAttrExternal() {
 			for i in 0..vec.len() {
-				let room_attr_from_fb = RoomIntAttr::from_flatbuffer(&vec.get(i));
-				search_int_attr.insert(room_attr_from_fb.id, room_attr_from_fb);
+				let room_intattr_from_fb = RoomIntAttr::from_flatbuffer(&vec.get(i));
+				if room_intattr_from_fb.id < SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID || room_intattr_from_fb.id > SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_8_ID {
+					error!("Invalid Room IntAttr ID in CreateRoom: {}", room_intattr_from_fb.id);
+					continue;
+				}
+
+				let id = room_intattr_from_fb.id;
+				search_int_attr[(id - SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID) as usize] = room_intattr_from_fb;
 			}
 		}
 		if let Some(password) = fb.roomPassword() {
@@ -457,7 +538,7 @@ impl Room {
 		let mut final_internalbinattr = None;
 		if !self.bin_attr_internal.is_empty() {
 			let mut bin_list = Vec::new();
-			for bin in self.bin_attr_internal.values() {
+			for bin in &self.bin_attr_internal {
 				bin_list.push(bin.to_flatbuffer(builder));
 			}
 			final_internalbinattr = Some(builder.create_vector(&bin_list));
@@ -483,7 +564,7 @@ impl Room {
 		}
 		rbuild.finish()
 	}
-	pub fn to_RoomDataExternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>, search_option: i32) -> flatbuffers::WIPOffset<RoomDataExternal<'a>> {
+	pub fn to_RoomDataExternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>, search_option: i32, inc_attrs: &Vec<u16>) -> flatbuffers::WIPOffset<RoomDataExternal<'a>> {
 		let mut final_owner_info = None;
 		if (search_option & 0x7) != 0 {
 			let mut npid = None;
@@ -520,30 +601,36 @@ impl Room {
 			}
 			final_group_list = Some(builder.create_vector(&group_list));
 		}
-		let mut final_searchint = None;
-		if !self.search_int_attr.is_empty() {
-			let mut int_list = Vec::new();
-			for int in self.search_int_attr.values() {
-				int_list.push(int.to_flatbuffer(builder));
+
+		let mut vec_searchint = Vec::new();
+		let mut vec_searchbin = Vec::new();
+		let mut vec_binattrexternal = Vec::new();
+
+		'inc_loop: for inc_attr in inc_attrs {
+			match *inc_attr {
+				SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID..=SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_8_ID => {
+					vec_searchint.push(self.search_int_attr[(*inc_attr - SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID) as usize].to_flatbuffer(builder));
+				}
+				SCE_NP_MATCHING2_ROOM_SEARCHABLE_BIN_ATTR_EXTERNAL_1_ID => {
+					vec_searchbin.push(self.search_bin_attr.to_flatbuffer(builder));
+				}
+				SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_1_ID..=SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_2_ID => {
+					vec_binattrexternal.push(self.bin_attr_external[(*inc_attr - SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_1_ID) as usize].to_flatbuffer(builder));
+				}
+				v => {
+					error!("Invalid ID included in to_inc in to_RoomDataExternal: {}", v);
+					continue 'inc_loop;
+				}
 			}
-			final_searchint = Some(builder.create_vector(&int_list));
 		}
-		let mut final_searchbin = None;
-		if !self.search_bin_attr.is_empty() {
-			let mut bin_list = Vec::new();
-			for bin in self.search_bin_attr.values() {
-				bin_list.push(bin.to_flatbuffer(builder));
-			}
-			final_searchbin = Some(builder.create_vector(&bin_list));
-		}
-		let mut final_binattrexternal = None;
-		if !self.bin_attr_external.is_empty() {
-			let mut bin_list = Vec::new();
-			for bin in self.bin_attr_external.values() {
-				bin_list.push(bin.to_flatbuffer(builder));
-			}
-			final_binattrexternal = Some(builder.create_vector(&bin_list));
-		}
+
+		let final_searchint = if vec_searchint.is_empty() { None } else { Some(builder.create_vector(&vec_searchint)) };
+		let final_searchbin = if vec_searchbin.is_empty() { None } else { Some(builder.create_vector(&vec_searchbin)) };
+		let final_binattrexternal = if vec_binattrexternal.is_empty() {
+			None
+		} else {
+			Some(builder.create_vector(&vec_binattrexternal))
+		};
 
 		let mut rbuild = RoomDataExternalBuilder::new(builder);
 		rbuild.add_serverId(self.server_id);
@@ -565,13 +652,13 @@ impl Room {
 		}
 		rbuild.add_flagAttr(self.flag_attr);
 		// External stuff
-		if !self.search_int_attr.is_empty() {
+		if final_searchint.is_some() {
 			rbuild.add_roomSearchableIntAttrExternal(final_searchint.unwrap());
 		}
-		if !self.search_bin_attr.is_empty() {
+		if final_searchbin.is_some() {
 			rbuild.add_roomSearchableBinAttrExternal(final_searchbin.unwrap());
 		}
-		if !self.bin_attr_external.is_empty() {
+		if final_binattrexternal.is_some() {
 			rbuild.add_roomBinAttrExternal(final_binattrexternal.unwrap());
 		}
 
@@ -652,15 +739,17 @@ impl Room {
 				let id = intfilter.attr().unwrap().id();
 				let num = intfilter.attr().unwrap().num();
 
-				// Find matching id
-				let found_intsearch = self.search_int_attr.get(&id);
-				if found_intsearch.is_none() {
+				if id < SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID || id > SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_8_ID {
+					error!("Invalid Room IntAttr ID in search parameters: {}", id);
 					return false;
 				}
-				let found_intsearch = found_intsearch.unwrap();
+
+				// Find matching id
+				let found_intsearch = &self.search_int_attr[(id - SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID) as usize];
 				let op = FromPrimitive::from_u8(op);
 				if op.is_none() {
-					panic!("Unsupported op in int search filter!");
+					error!("Unsupported op in int search filter: {}", intfilter.searchOperator());
+					return false;
 				}
 				let op = op.unwrap();
 
@@ -707,26 +796,26 @@ impl Room {
 				let id = binfilter.attr().unwrap().id();
 				let data = binfilter.attr().unwrap().data().unwrap();
 
-				// Find matching id
-				let found_binsearch = self.search_bin_attr.get(&id);
-				if found_binsearch.is_none() {
+				if id != SCE_NP_MATCHING2_ROOM_SEARCHABLE_BIN_ATTR_EXTERNAL_1_ID {
+					error!("Invalid Search BinAttr ID in search parameters: {}", id);
 					return false;
 				}
-				let found_binsearch = found_binsearch.unwrap();
+
 				let op = FromPrimitive::from_u8(op);
 				if op.is_none() {
-					panic!("Unsupported op in int search filter!");
+					error!("Unsupported op in bin search filter: {}", binfilter.searchOperator());
+					return false;
 				}
 				let op = op.unwrap();
 
 				match op {
 					SceNpMatching2Operator::OperatorEq => {
-						if found_binsearch.attr != data {
+						if self.search_bin_attr.attr != data {
 							return false;
 						}
 					}
 					SceNpMatching2Operator::OperatorNe => {
-						if found_binsearch.attr == data {
+						if self.search_bin_attr.attr == data {
 							return false;
 						}
 					}
@@ -970,9 +1059,11 @@ impl RoomManager {
 
 		let mut list_roomdataexternal = Default::default();
 		if !matching_rooms.is_empty() {
+			let inc_attrs = if let Some(attr_ids) = req.attrId() { attr_ids.iter().collect() } else { Vec::new() };
+
 			let mut room_list = Vec::new();
 			for room in &matching_rooms {
-				room_list.push(room.to_RoomDataExternal(&mut builder, req.option()));
+				room_list.push(room.to_RoomDataExternal(&mut builder, req.option(), &inc_attrs));
 			}
 			list_roomdataexternal = Some(builder.create_vector(&room_list));
 		}
@@ -995,6 +1086,8 @@ impl RoomManager {
 
 		let mut list_roomdataexternal = Default::default();
 
+		let inc_attrs = if let Some(attr_ids) = req.attrIds() { attr_ids.iter().collect() } else { Vec::new() };
+
 		if let Some(roomids) = req.roomIds() {
 			let mut room_list = Vec::new();
 			for room_id in &roomids {
@@ -1005,7 +1098,7 @@ impl RoomManager {
 
 			let mut vec_roomdataexternal = Vec::new();
 			for room in &room_list {
-				vec_roomdataexternal.push(room.to_RoomDataExternal(&mut builder, 7));
+				vec_roomdataexternal.push(room.to_RoomDataExternal(&mut builder, 7, &inc_attrs));
 			}
 			list_roomdataexternal = Some(builder.create_vector(&vec_roomdataexternal));
 		}
@@ -1023,20 +1116,38 @@ impl RoomManager {
 
 		if let Some(vec) = req.roomBinAttrExternal() {
 			for i in 0..vec.len() {
-				let room_attr_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
-				room.bin_attr_external.insert(room_attr_from_fb.id, room_attr_from_fb);
+				let room_binattr_external_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
+
+				if room_binattr_external_from_fb.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_1_ID && room_binattr_external_from_fb.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_2_ID {
+					error!("Invalid Room BinAttr External ID in CreateRoom: {}", room_binattr_external_from_fb.id);
+					continue;
+				}
+
+				let id = room_binattr_external_from_fb.id;
+				room.bin_attr_external[(id - SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_1_ID) as usize] = room_binattr_external_from_fb;
 			}
 		}
 		if let Some(vec) = req.roomSearchableBinAttrExternal() {
 			for i in 0..vec.len() {
-				let room_attr_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
-				room.search_bin_attr.insert(room_attr_from_fb.id, room_attr_from_fb);
+				let room_binattr_search_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
+
+				if room_binattr_search_from_fb.id != SCE_NP_MATCHING2_ROOM_SEARCHABLE_BIN_ATTR_EXTERNAL_1_ID {
+					error!("Invalid Room BinAttr Search ID in CreateRoom: {}", room_binattr_search_from_fb.id);
+					continue;
+				}
+				room.search_bin_attr = room_binattr_search_from_fb;
 			}
 		}
 		if let Some(vec) = req.roomSearchableIntAttrExternal() {
 			for i in 0..vec.len() {
-				let room_attr_from_fb = RoomIntAttr::from_flatbuffer(&vec.get(i));
-				room.search_int_attr.insert(room_attr_from_fb.id, room_attr_from_fb);
+				let room_intattr_from_fb = RoomIntAttr::from_flatbuffer(&vec.get(i));
+				if room_intattr_from_fb.id < SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID || room_intattr_from_fb.id > SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_8_ID {
+					error!("Invalid Room IntAttr ID in CreateRoom: {}", room_intattr_from_fb.id);
+					continue;
+				}
+
+				let id = room_intattr_from_fb.id;
+				room.search_int_attr[(id - SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID) as usize] = room_intattr_from_fb;
 			}
 		}
 
@@ -1073,10 +1184,15 @@ impl RoomManager {
 		if let Some(vec) = req.roomBinAttrInternal() {
 			let mut vec_new_binattr = Vec::new();
 			for i in 0..vec.len() {
-				let room_attr_int_from_fb = RoomBinAttrInternal::from_flatbuffer(&vec.get(i), member_id);
-				let room_binattr_id = room_attr_int_from_fb.data.id;
-				room.bin_attr_internal.insert(room_binattr_id, room_attr_int_from_fb);
-				vec_new_binattr.push(room_binattr_id);
+				let room_binattr_internal_from_fb = RoomBinAttrInternal::from_flatbuffer(&vec.get(i), member_id);
+
+				if room_binattr_internal_from_fb.data.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID && room_binattr_internal_from_fb.data.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_2_ID {
+					error!("Invalid Room BinAttr Internal ID in SetRoomDataInternal: {}", room_binattr_internal_from_fb.data.id);
+					continue;
+				}
+				let id = room_binattr_internal_from_fb.data.id;
+				room.bin_attr_internal[(id - SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID) as usize] = room_binattr_internal_from_fb;
+				vec_new_binattr.push(id);
 			}
 			new_binattr = Some(vec_new_binattr);
 		} else {
