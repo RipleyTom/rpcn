@@ -652,14 +652,14 @@ impl Room {
 		}
 		rbuild.add_flagAttr(self.flag_attr);
 		// External stuff
-		if final_searchint.is_some() {
-			rbuild.add_roomSearchableIntAttrExternal(final_searchint.unwrap());
+		if let Some(final_searchint) = final_searchint {
+			rbuild.add_roomSearchableIntAttrExternal(final_searchint);
 		}
-		if final_searchbin.is_some() {
-			rbuild.add_roomSearchableBinAttrExternal(final_searchbin.unwrap());
+		if let Some(final_searchbin) = final_searchbin {
+			rbuild.add_roomSearchableBinAttrExternal(final_searchbin);
 		}
-		if final_binattrexternal.is_some() {
-			rbuild.add_roomBinAttrExternal(final_binattrexternal.unwrap());
+		if let Some(final_binattrexternal) = final_binattrexternal {
+			rbuild.add_roomBinAttrExternal(final_binattrexternal);
 		}
 
 		rbuild.finish()
