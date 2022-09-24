@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
+use std::fs::File;
+use std::io::Read;
 use std::{fs, io};
 
 use rand::prelude::*;
@@ -201,6 +203,62 @@ impl Server {
 				.map_err(|e| format!("Failed to update migration table: {}", e))?;
 
 			println!("Successfully applied migration to version {}", mig.version);
+		}
+
+		// Load presets for game servers configurations
+		let file = File::open("servers.cfg");
+
+		match file {
+			Ok(mut file) => {
+				let mut buf_file = String::new();
+				file.read_to_string(&mut buf_file).map_err(|e| format!("Failed to read servers.cfg: {}", e))?;
+
+				let config_servers: Vec<(String, u16, u32, Vec<u64>)> = buf_file
+					.lines()
+					.filter_map(|l| {
+						if l.trim().is_empty() || l.chars().nth(0).unwrap() == '#' {
+							return None;
+						}
+
+						let servers_infos: Vec<&str> = l.trim().split('|').collect();
+						if servers_infos.len() != 4 || servers_infos[0].len() != 9 {
+							println!("servers.cfg: line({}) was considered invalid and was skipped", l);
+							return None;
+						}
+
+						let com_id = servers_infos[0].to_owned();
+						let server = servers_infos[1].parse::<u16>();
+						let world = servers_infos[2].parse::<u32>();
+						let lobbies: Result<Vec<u64>, _> = if servers_infos[3].trim().is_empty() {
+							Ok(Vec::new())
+						} else {
+							servers_infos[3].trim().split(',').map(|s| s.parse::<u64>()).collect()
+						};
+
+						if server.is_err() || world.is_err() || lobbies.is_err() {
+							println!("servers.cfg: line({}) couldn't be parsed and was skipped", l);
+							return None;
+						}
+
+						Some((com_id, server.unwrap(), world.unwrap(), lobbies.unwrap()))
+					})
+					.collect();
+
+				for (com_id, server, world, lobbies) in &config_servers {
+					let _ = conn.execute("INSERT INTO server ( communication_id, server_id ) VALUES (?1, ?2)", rusqlite::params![com_id, server]);
+					let _ = conn.execute(
+						"INSERT INTO world ( communication_id, server_id, world_id ) VALUES (?1, ?2, ?3)",
+						rusqlite::params![com_id, server, world],
+					);
+					for lobby in lobbies {
+						let _ = conn.execute("INSERT INTO lobby (communication_id, world_id, lobby_id) VALUES (?1, ?2, ?3)", rusqlite::params![com_id, world, lobby]);
+					}
+				}
+			}
+			Err(e) => match e.kind() {
+				std::io::ErrorKind::NotFound => {}
+				_ => return Err(format!("Unexpected error opening servers.cfg: {}", e)),
+			},
 		}
 
 		Ok(pool)
@@ -449,7 +507,7 @@ impl Database {
 		info!("Creating server {} for {}", server_id, com_id_str);
 		if let Err(e) = self
 			.conn
-			.execute("INSERT INTO server ( communication_id, server_id ) VALUES (?1, ?2)", rusqlite::params!(com_id_str, server_id))
+			.execute("INSERT INTO server ( communication_id, server_id ) VALUES (?1, ?2)", rusqlite::params![com_id_str, server_id])
 		{
 			error!("Unexpected error creating server({}:{}): {}", &com_id_str, server_id, e);
 			return Err(DbError::Internal);
@@ -528,7 +586,7 @@ impl Database {
 			info!("Creating world {} for server {}:{}", new_wid, &com_id_str, server_id);
 			if let Err(e) = self.conn.execute(
 				"INSERT INTO world ( communication_id, server_id, world_id ) VALUES (?1, ?2, ?3)",
-				rusqlite::params!(com_id_str, server_id, new_wid),
+				rusqlite::params![com_id_str, server_id, new_wid],
 			) {
 				error!("Unexpected error inserting a world: {}", e);
 				return Err(DbError::Internal);

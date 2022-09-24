@@ -32,7 +32,7 @@ impl Server {
 			let file = file.unwrap();
 
 			let filename = file.file_name().into_string();
-			if let Err(_) = filename {
+			if filename.is_err() {
 				println!("A file inside score_data contains invalid unicode");
 				continue;
 			}
