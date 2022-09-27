@@ -21,13 +21,14 @@ use socket2::{SockRef, TcpKeepalive};
 pub mod client;
 use client::{Client, ClientSignalingInfo, PacketType, TerminateWatch, HEADER_SIZE};
 mod database;
+mod game_tracker;
+use game_tracker::GameTracker;
 mod room_manager;
 use room_manager::RoomManager;
 mod score_cache;
 use score_cache::ScoresCache;
 mod udp_server;
 use crate::Config;
-use udp_server::UdpServer;
 
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
@@ -40,6 +41,7 @@ pub struct Server {
 	room_manager: Arc<RwLock<RoomManager>>,
 	signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
 	score_cache: Arc<ScoresCache>,
+	game_tracker: Arc<GameTracker>,
 }
 
 impl Server {
@@ -51,6 +53,7 @@ impl Server {
 
 		let room_manager = Arc::new(RwLock::new(RoomManager::new()));
 		let signaling_infos = Arc::new(RwLock::new(HashMap::new()));
+		let game_tracker = Arc::new(GameTracker::new());
 
 		Ok(Server {
 			config,
@@ -58,16 +61,11 @@ impl Server {
 			room_manager,
 			signaling_infos,
 			score_cache,
+			game_tracker,
 		})
 	}
 
 	pub fn start(&mut self) -> io::Result<()> {
-		// Starts udp signaling helper on dedicated thread
-		let mut udp_serv = UdpServer::new(self.config.read().get_host(), self.signaling_infos.clone());
-		if self.config.read().is_run_udp_server() {
-			udp_serv.start()?;
-		}
-
 		// Parse host address
 		let str_addr = self.config.read().get_host().clone() + ":" + self.config.read().get_port();
 		let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("{} is not a valid address", &str_addr)))?;
@@ -108,6 +106,9 @@ impl Server {
 			let (term_send, term_recv) = watch::channel(false);
 			let mut term_watch = TerminateWatch::new(term_recv, term_send);
 
+			self.start_udp_server(term_watch.clone()).await?;
+			self.start_stat_server(term_watch.clone(), self.game_tracker.clone()).await?;
+
 			let listener = TcpListener::bind(&addr).await.map_err(|e| io::Error::new(e.kind(), format!("Error binding to <{}>: {}", &addr, e)))?;
 			info!("Now waiting for connections on <{}>", &addr);
 
@@ -133,6 +134,7 @@ impl Server {
 						let config = self.config.clone();
 						let db_pool = self.db_pool.clone();
 						let room_manager = self.room_manager.clone();
+						let game_tracker = self.game_tracker.clone();
 						let signaling_infos = self.signaling_infos.clone();
 						let score_cache = self.score_cache.clone();
 						let servinfo_vec = servinfo_vec.clone();
@@ -140,21 +142,22 @@ impl Server {
 						let fut_client = async move {
 							let mut stream = acceptor.accept(stream).await?;
 							stream.write_all(&servinfo_vec).await?;
-							let mut client = Client::new(config, stream, db_pool, room_manager, signaling_infos, score_cache, term_watch).await;
+							let mut client = Client::new(config, stream, db_pool, room_manager, signaling_infos, score_cache, term_watch, game_tracker).await;
 							client.process().await;
 							Ok(()) as io::Result<()>
 						};
 						handle.spawn(fut_client);
 					}
 					_ = term_watch.recv.changed() => {
-						return Ok(());
+						break 'main_loop;
 					}
 				}
 			}
+
+			Ok(())
 		};
 		let res = runtime.block_on(fut_server);
 		runtime.shutdown_timeout(std::time::Duration::from_secs(120));
-		udp_serv.stop();
 		res
 	}
 }
