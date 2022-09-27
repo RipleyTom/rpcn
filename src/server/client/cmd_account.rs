@@ -156,6 +156,8 @@ impl Client {
 
 					info!("Authentified as {}", &self.client_info.npid);
 					sign_infos.insert(self.client_info.user_id, ClientSignalingInfo::new(self.channel_sender.clone(), friend_userids.clone()));
+
+					self.game_tracker.increase_num_users();
 				}
 				Err(e) => {
 					match e {

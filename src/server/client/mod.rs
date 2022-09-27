@@ -28,6 +28,7 @@ use tracing::{error, info, info_span, trace, warn, Instrument};
 use crate::server::client::notifications::NotificationType;
 use crate::server::client::ticket::Ticket;
 use crate::server::database::Database;
+use crate::server::game_tracker::GameTracker;
 use crate::server::room_manager::{RoomManager, SignalParam, SignalingType};
 use crate::server::score_cache::ScoresCache;
 use crate::server::stream_extractor::fb_helpers::*;
@@ -98,6 +99,8 @@ pub struct Client {
 	client_info: ClientInfo,
 	post_reply_notifications: Vec<Vec<u8>>,
 	terminate_watch: TerminateWatch,
+	current_game: (Option<ComId>, Option<String>),
+	game_tracker: Arc<GameTracker>,
 }
 
 #[repr(u8)]
@@ -206,6 +209,7 @@ impl Client {
 		signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
 		score_cache: Arc<ScoresCache>,
 		terminate_watch: TerminateWatch,
+		game_tracker: Arc<GameTracker>,
 	) -> Client {
 		let client_info = ClientInfo {
 			user_id: 0,
@@ -242,6 +246,8 @@ impl Client {
 			client_info,
 			post_reply_notifications: Vec::new(),
 			terminate_watch,
+			current_game: (None, None),
+			game_tracker,
 		}
 	}
 
@@ -357,6 +363,17 @@ impl Client {
 
 			let notif = Client::create_friend_status_notification(&self.client_info.npid, timestamp, false);
 			self.send_notification(&notif, &to_notif).await;
+
+			// Remove user from game stats
+			self.game_tracker.decrease_num_users();
+
+			if let Some(ref cur_com_id) = self.current_game.0 {
+				self.game_tracker.decrease_count_psn(cur_com_id);
+			}
+
+			if let Some(ref cur_service_id) = self.current_game.1 {
+				self.game_tracker.decrease_count_ticket(cur_service_id);
+			}
 		}
 	}
 
@@ -497,9 +514,22 @@ impl Client {
 		})
 	}
 
-	fn get_com_id_with_redir(&self, data: &mut StreamExtractor) -> ComId {
+	fn get_com_id_with_redir(&mut self, data: &mut StreamExtractor) -> ComId {
 		let com_id = data.get_com_id();
-		self.config.read().get_server_redirection(com_id)
+		let final_com_id = self.config.read().get_server_redirection(com_id);
+
+		if let Some(ref mut cur_com_id) = self.current_game.0 {
+			if *cur_com_id != final_com_id {
+				self.game_tracker.decrease_count_psn(cur_com_id);
+				*cur_com_id = final_com_id;
+				self.game_tracker.increase_count_psn(&final_com_id);
+			}
+		} else {
+			self.current_game.0 = Some(final_com_id);
+			self.game_tracker.increase_count_psn(&final_com_id);
+		}
+
+		final_com_id
 	}
 
 	async fn signal_connections(&mut self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>, owner: u16) {
@@ -662,6 +692,17 @@ impl Client {
 		}
 
 		info!("Requested a ticket for <{}>", service_id);
+
+		if let Some(ref mut cur_service_id) = self.current_game.1 {
+			if *cur_service_id != service_id {
+				self.game_tracker.decrease_count_ticket(cur_service_id);
+				*cur_service_id = service_id.clone();
+				self.game_tracker.increase_count_ticket(&service_id);
+			}
+		} else {
+			self.current_game.1 = Some(service_id.clone());
+			self.game_tracker.increase_count_ticket(&service_id);
+		}
 
 		let ticket;
 		{

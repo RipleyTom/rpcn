@@ -23,5 +23,5 @@ lettre = "0.9"
 lettre_email = "0.9"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-#openssl-sys = "0.9"
 openssl = { version = "0.10", features = [ "vendored" ] }
+hyper = { version = "0.14", features = [ "full" ] }

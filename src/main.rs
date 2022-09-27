@@ -14,7 +14,6 @@ use openssl::pkey::{PKey, Private};
 
 pub struct Config {
 	create_missing: bool, // Creates servers/worlds/lobbies if the client queries for ones but there are none or specific id queries
-	run_udp_server: bool,
 	verbosity: tracing::Level,
 	host: String,
 	port: String,
@@ -26,13 +25,13 @@ pub struct Config {
 	server_redirs: HashMap<ComId, ComId>,
 	sign_tickets: bool,
 	ticket_private_key: Option<PKey<Private>>,
+	stat_server_host_and_port: Option<(String, String)>,
 }
 
 impl Config {
 	pub fn new() -> Config {
 		Config {
 			create_missing: true,
-			run_udp_server: true,
 			verbosity: tracing::Level::INFO,
 			host: "0.0.0.0".to_string(),
 			port: "31313".to_string(),
@@ -44,6 +43,7 @@ impl Config {
 			server_redirs: HashMap::new(),
 			sign_tickets: false,
 			ticket_private_key: None,
+			stat_server_host_and_port: None,
 		}
 	}
 
@@ -100,7 +100,6 @@ impl Config {
 		};
 
 		set_bool("CreateMissing", &mut self.create_missing);
-		set_bool("RunUdpServer", &mut self.run_udp_server);
 		set_verbosity(&mut self.verbosity);
 		set_bool("EmailValidated", &mut self.email_validated);
 		set_string("EmailHost", &mut self.email_host);
@@ -113,6 +112,23 @@ impl Config {
 		set_string("EmailPassword", &mut self.email_password);
 		set_bool("SignTickets", &mut self.sign_tickets);
 
+		let mut run_stat_server = false;
+		set_bool("StatServer", &mut run_stat_server);
+
+		if run_stat_server {
+			let mut stat_server_host = String::new();
+			let mut stat_server_port = String::new();
+
+			set_string("StatServerHost", &mut stat_server_host);
+			set_string("StatServerPort", &mut stat_server_port);
+
+			if stat_server_host.is_empty() || stat_server_port.is_empty() {
+				println!("Missing host/port binding information for the stat server, disabling it.");
+			} else {
+				self.stat_server_host_and_port = Some((stat_server_host, stat_server_port));
+			}
+		}
+
 		Ok(())
 	}
 
@@ -122,10 +138,6 @@ impl Config {
 
 	pub fn is_email_validated(&self) -> bool {
 		self.email_validated
-	}
-
-	pub fn is_run_udp_server(&self) -> bool {
-		self.run_udp_server
 	}
 
 	pub fn is_sign_tickets(&self) -> bool {
@@ -196,6 +208,10 @@ impl Config {
 
 	pub fn get_ticket_private_key(&self) -> &Option<PKey<Private>> {
 		&self.ticket_private_key
+	}
+
+	pub fn get_stat_server_binds(&self) -> &Option<(String, String)> {
+		&self.stat_server_host_and_port
 	}
 }
 
