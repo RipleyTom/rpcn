@@ -80,7 +80,7 @@ impl GameTracker {
 	}
 
 	async fn handle_stat_server_req(req: Request<Body>, game_tracker: Arc<GameTracker>) -> Result<Response<String>, Infallible> {
-		if req.method() != &Method::GET || req.uri() != "/rpcn_stats" {
+		if req.method() != Method::GET || req.uri() != "/rpcn_stats" {
 			return Ok(Response::new("".to_owned()));
 		}
 

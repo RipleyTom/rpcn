@@ -69,15 +69,17 @@ pub enum SignalingType {
 pub struct RoomBinAttr<const N: usize> {
 	id: u16,
 	attr: [u8; N],
+	cur_size: usize,
 }
 impl<const N: usize> RoomBinAttr<N> {
 	pub fn with_id(id: u16) -> RoomBinAttr<N> {
-		RoomBinAttr { id, attr: [0; N] }
+		RoomBinAttr { id, attr: [0; N], cur_size: 0 }
 	}
 
 	pub fn from_flatbuffer(fb: &BinAttr) -> RoomBinAttr<N> {
 		let id = fb.id();
 		let mut attr: [u8; N] = [0; N];
+		let mut cur_size: usize = 0;
 		if let Some(fb_attrs) = fb.data() {
 			let len = if fb_attrs.len() > N {
 				error!("Error converting a fb BinAttr to a RoombinAttr, mismatched size: fb:{} vs expected:{}", fb_attrs.len(), N);
@@ -86,13 +88,14 @@ impl<const N: usize> RoomBinAttr<N> {
 				fb_attrs.len()
 			};
 			attr[0..len].clone_from_slice(&fb_attrs[0..len]);
+			cur_size = len;
 		}
 
-		RoomBinAttr { id, attr }
+		RoomBinAttr { id, attr, cur_size }
 	}
 
 	pub fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<BinAttr<'a>> {
-		let final_attr = builder.create_vector(&self.attr);
+		let final_attr = builder.create_vector(&self.attr[0..self.cur_size]);
 		BinAttr::create(builder, &BinAttrArgs { id: self.id, data: Some(final_attr) })
 	}
 }
@@ -808,14 +811,22 @@ impl Room {
 				}
 				let op = op.unwrap();
 
+				// Unsure if cur_size should be compared to data's size
+				let len_compare = if data.len() > self.search_bin_attr.attr.len() {
+					self.search_bin_attr.attr.len()
+				} else {
+					data.len()
+				};
+				let equality = self.search_bin_attr.attr[0..len_compare] == data[0..len_compare];
+
 				match op {
 					SceNpMatching2Operator::OperatorEq => {
-						if self.search_bin_attr.attr != data {
+						if !equality {
 							return false;
 						}
 					}
 					SceNpMatching2Operator::OperatorNe => {
-						if self.search_bin_attr.attr == data {
+						if equality {
 							return false;
 						}
 					}
