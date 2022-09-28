@@ -439,6 +439,7 @@ impl Client {
 		let command = command.unwrap();
 
 		if let CommandType::Terminate = command {
+			reply.push(ErrorType::NoError as u8);
 			return Err(());
 		}
 
@@ -485,8 +486,8 @@ impl Client {
 			CommandType::GetScoreRange => self.get_score_range(data, reply).await,
 			CommandType::GetScoreFriends => self.get_score_friends(data, reply).await,
 			CommandType::GetScoreNpid => self.get_score_npid(data, reply).await,
-			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
-			CommandType::TerminateServer => self.req_admin_terminate_server(),
+			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(reply),
+			CommandType::TerminateServer => self.req_admin_terminate_server(reply),
 			_ => {
 				warn!("Unknown command received");
 				reply.push(ErrorType::Invalid as u8);
