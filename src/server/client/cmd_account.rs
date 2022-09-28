@@ -380,6 +380,8 @@ impl Client {
 				if db.update_user_password(user_id, &token, &new_password).is_err() {
 					error!("Unexpected error updating user password!");
 					reply.push(ErrorType::DbFail as u8);
+				} else {
+					reply.push(ErrorType::NoError as u8);
 				}
 			} else {
 				reply.push(ErrorType::LoginError as u8);
