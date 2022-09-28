@@ -124,7 +124,7 @@ impl Server {
 						{
 							let socket_ref = SockRef::from(&stream);
 							if let Err(e) = socket_ref.set_tcp_keepalive(&TcpKeepalive::new()
-								.with_time(std::time::Duration::new(30, 0))) {
+								.with_time(std::time::Duration::new(30, 0)).with_interval(std::time::Duration::new(30, 0)).with_retries(4)) {
 									error!("set_tcp_keepalive() failed with: {}", e);
 								}
 						}
