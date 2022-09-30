@@ -65,6 +65,33 @@ impl Server {
 		})
 	}
 
+	#[cfg(any(
+		doc,
+		target_os = "android",
+		target_os = "dragonfly",
+		target_os = "freebsd",
+		target_os = "fuchsia",
+		target_os = "illumos",
+		target_os = "linux",
+		target_os = "netbsd",
+		target_vendor = "apple",
+	))]
+	fn set_socket_keepalive(stream: &tokio::net::TcpStream) -> Result<(), std::io::Error> {
+		let socket_ref = SockRef::from(stream);
+		socket_ref.set_tcp_keepalive(
+			&TcpKeepalive::new()
+				.with_time(std::time::Duration::new(30, 0))
+				.with_interval(std::time::Duration::new(30, 0))
+				.with_retries(4),
+		)
+	}
+
+	#[cfg(target_os = "windows")]
+	fn set_socket_keepalive(stream: &tokio::net::TcpStream) -> Result<(), std::io::Error> {
+		let socket_ref = SockRef::from(stream);
+		socket_ref.set_tcp_keepalive(&TcpKeepalive::new().with_time(std::time::Duration::new(30, 0)).with_interval(std::time::Duration::new(30, 0)))
+	}
+
 	pub fn start(&mut self) -> io::Result<()> {
 		// Parse host address
 		let str_addr = self.config.read().get_host().clone() + ":" + self.config.read().get_port();
@@ -122,9 +149,7 @@ impl Server {
 						let (stream, peer_addr) = accept_result.unwrap();
 
 						{
-							let socket_ref = SockRef::from(&stream);
-							if let Err(e) = socket_ref.set_tcp_keepalive(&TcpKeepalive::new()
-								.with_time(std::time::Duration::new(30, 0)).with_interval(std::time::Duration::new(30, 0)).with_retries(4)) {
+							if let Err(e) = Server::set_socket_keepalive(&stream) {
 									error!("set_tcp_keepalive() failed with: {}", e);
 								}
 						}
