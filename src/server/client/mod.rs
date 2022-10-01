@@ -142,7 +142,7 @@ enum CommandType {
 	SendMessage,
 	GetBoardInfos,
 	RecordScore,
-	StoreScoreData,
+	RecordScoreData,
 	GetScoreData,
 	GetScoreRange,
 	GetScoreFriends,
@@ -170,6 +170,7 @@ pub enum EventCause {
 }
 
 #[repr(u8)]
+#[derive(Clone, Copy, Debug)]
 pub enum ErrorType {
 	NoError,                     // No error
 	Malformed,                   // Query was malformed, critical error that should close the connection
@@ -182,10 +183,12 @@ pub enum ErrorType {
 	LoginInvalidPassword,        // Invalid password
 	LoginInvalidToken,           // Invalid token
 	CreationError,               // An error happened related to account creation
-	CreationExistingUsername,    // Specific
+	CreationExistingUsername,    // Specific to Account Creation: username exists already
 	CreationBannedEmailProvider, // Specific to Account Creation: the email provider is banned
 	CreationExistingEmail,       // Specific to Account Creation: that email is already registered to an account
-	AlreadyJoined,               // User tried to join a room he's already part of
+	RoomMissing,                 // User tried to join a non existing room
+	RoomAlreadyJoined,           // User tried to join a room he's already part of
+	RoomFull,                    // User tried to join a full room
 	Unauthorized,                // User attempted an unauthorized operation
 	DbFail,                      // Generic failure on db side
 	EmailFail,                   // Generic failure related to email
@@ -193,6 +196,8 @@ pub enum ErrorType {
 	Blocked,                     // The operation can't complete because you've been blocked
 	AlreadyFriend,               // Can't add friend because already friend
 	ScoreNotBest,                // A better score is already registered for that user/character_id
+	ScoreInvalid,                // Score for player was found but wasn't what was expected
+	ScoreHasData,                // Score already has data
 	Unsupported,
 }
 
@@ -399,6 +404,7 @@ impl Client {
 				reply.extend(&command.to_le_bytes());
 				reply.extend(&HEADER_SIZE.to_le_bytes());
 				reply.extend(&packet_id.to_le_bytes());
+				reply.push(ErrorType::NoError as u8);
 
 				let mut se_data = StreamExtractor::new(data);
 				let res = self.process_command(command, &mut se_data, &mut reply).await;
@@ -407,9 +413,18 @@ impl Client {
 				let len = reply.len() as u32;
 				reply[3..7].clone_from_slice(&len.to_le_bytes());
 
-				// self.dump_packet(&reply, "output");
+				match res {
+					Ok(ok_res) => {
+						info!("Succeeded with {:?}", ok_res);
+						reply[HEADER_SIZE as usize] = ok_res as u8;
+					}
+					Err(error) => {
+						info!("Failed with {:?}", error);
+						reply[HEADER_SIZE as usize] = error as u8;
+					}
+				}
 
-				info!("Returning: {}({})", res.is_ok(), reply[HEADER_SIZE as usize]);
+				// self.dump_packet(&reply, "output");
 				let _ = self.channel_sender.send(reply).await;
 
 				// Send post command notifications if any
@@ -418,7 +433,10 @@ impl Client {
 				}
 				self.post_reply_notifications.clear();
 
-				res
+				match res {
+					Ok(_) => Ok(()),
+					Err(_) => Err(()),
+				}
 			}
 			Err(e) => {
 				warn!("Read error: {}", e);
@@ -427,11 +445,11 @@ impl Client {
 		}
 	}
 
-	async fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	async fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let command = FromPrimitive::from_u16(command);
 		if command.is_none() {
 			warn!("Unknown command received");
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
 		info!("Parsing command {:?}", command);
@@ -439,28 +457,26 @@ impl Client {
 		let command = command.unwrap();
 
 		if let CommandType::Terminate = command {
-			reply.push(ErrorType::NoError as u8);
-			return Err(());
+			return Err(ErrorType::NoError);
 		}
 
 		if !self.authentified {
 			match command {
 				CommandType::Login => return self.login(data, reply).await,
-				CommandType::Create => return self.create_account(data, reply),
-				CommandType::SendToken => return self.resend_token(data, reply),
-				CommandType::SendResetToken => return self.send_reset_token(data, reply),
-				CommandType::ResetPassword => return self.reset_password(data, reply),
+				CommandType::Create => return self.create_account(data),
+				CommandType::SendToken => return self.resend_token(data),
+				CommandType::SendResetToken => return self.send_reset_token(data),
+				CommandType::ResetPassword => return self.reset_password(data),
 				_ => {
 					warn!("User attempted an invalid command at this stage");
-					reply.push(ErrorType::Invalid as u8);
-					return Err(());
+					return Err(ErrorType::Invalid);
 				}
 			}
 		}
 
 		match command {
-			CommandType::AddFriend => self.add_friend(data, reply).await,
-			CommandType::RemoveFriend => self.remove_friend(data, reply).await,
+			CommandType::AddFriend => self.add_friend(data).await,
+			CommandType::RemoveFriend => self.remove_friend(data).await,
 			CommandType::AddBlock => self.add_block(data, reply),
 			CommandType::RemoveBlock => self.remove_block(data, reply),
 			CommandType::GetServerList => self.req_get_server_list(data, reply),
@@ -470,28 +486,27 @@ impl Client {
 			CommandType::LeaveRoom => self.req_leave_room(data, reply).await,
 			CommandType::SearchRoom => self.req_search_room(data, reply),
 			CommandType::GetRoomDataExternalList => self.req_get_roomdata_external_list(data, reply),
-			CommandType::SetRoomDataExternal => self.req_set_roomdata_external(data, reply),
+			CommandType::SetRoomDataExternal => self.req_set_roomdata_external(data),
 			CommandType::GetRoomDataInternal => self.req_get_roomdata_internal(data, reply),
-			CommandType::SetRoomDataInternal => self.req_set_roomdata_internal(data, reply).await,
-			CommandType::SetRoomMemberDataInternal => self.req_set_roommemberdata_internal(data, reply).await,
+			CommandType::SetRoomDataInternal => self.req_set_roomdata_internal(data).await,
+			CommandType::SetRoomMemberDataInternal => self.req_set_roommemberdata_internal(data).await,
 			CommandType::PingRoomOwner => self.req_ping_room_owner(data, reply),
-			CommandType::SendRoomMessage => self.req_send_room_message(data, reply).await,
+			CommandType::SendRoomMessage => self.req_send_room_message(data).await,
 			CommandType::RequestSignalingInfos => self.req_signaling_infos(data, reply),
 			CommandType::RequestTicket => self.req_ticket(data, reply),
-			CommandType::SendMessage => self.send_message(data, reply).await,
+			CommandType::SendMessage => self.send_message(data).await,
 			CommandType::GetBoardInfos => self.get_board_infos(data, reply).await,
 			CommandType::RecordScore => self.record_score(data, reply).await,
-			CommandType::StoreScoreData => self.store_score_data(data, reply).await,
+			CommandType::RecordScoreData => self.record_score_data(data).await,
 			CommandType::GetScoreData => self.get_score_data(data, reply).await,
 			CommandType::GetScoreRange => self.get_score_range(data, reply).await,
 			CommandType::GetScoreFriends => self.get_score_friends(data, reply).await,
 			CommandType::GetScoreNpid => self.get_score_npid(data, reply).await,
-			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(reply),
-			CommandType::TerminateServer => self.req_admin_terminate_server(reply),
+			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
+			CommandType::TerminateServer => self.req_admin_terminate_server(),
 			_ => {
 				warn!("Unknown command received");
-				reply.push(ErrorType::Invalid as u8);
-				Err(())
+				Err(ErrorType::Invalid)
 			}
 		}
 	}
@@ -508,10 +523,10 @@ impl Client {
 		(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_micros() + (62135596800 * 1000 * 1000)) as u64
 	}
 
-	fn get_database_connection(&self, reply: &mut Vec<u8>) -> Result<r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>, ()> {
+	fn get_database_connection(&self) -> Result<r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>, ErrorType> {
 		self.db_pool.get().map_err(|e| {
-			reply.push(ErrorType::DbFail as u8);
-			error!("Failed to get a database connection: {}", e)
+			error!("Failed to get a database connection: {}", e);
+			ErrorType::DbFail
 		})
 	}
 
@@ -648,25 +663,22 @@ impl Client {
 
 	// Misc (might get split in another file later)
 
-	fn req_signaling_infos(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	fn req_signaling_infos(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let npid = data.get_string(false);
 		if data.error() || npid.len() > 16 {
 			warn!("Error while extracting data from RequestSignalingInfos command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
-		let user_id = Database::new(self.get_database_connection(reply)?).get_user_id(&npid);
+		let user_id = Database::new(self.get_database_connection()?).get_user_id(&npid);
 		if user_id.is_err() {
-			reply.push(ErrorType::NotFound as u8);
-			return Ok(());
+			return Ok(ErrorType::NotFound);
 		}
 
 		let user_id = user_id.unwrap();
 		let sig_infos = self.signaling_infos.read();
 		let caller_ip = sig_infos.get(&self.client_info.user_id).unwrap().local_addr_p2p;
 		if let Some(entry) = sig_infos.get(&user_id) {
-			reply.push(ErrorType::NoError as u8);
 			if caller_ip == entry.addr_p2p {
 				reply.extend(&entry.local_addr_p2p);
 				reply.extend(&3658u16.to_le_bytes());
@@ -676,20 +688,18 @@ impl Client {
 				reply.extend(&((entry.port_p2p).to_le_bytes()));
 				info!("Requesting signaling infos for {} => (extern) {:?}:{}", &npid, &entry.addr_p2p, entry.port_p2p);
 			}
+			Ok(ErrorType::NoError)
 		} else {
-			reply.push(ErrorType::NotFound as u8);
+			Ok(ErrorType::NotFound)
 		}
-
-		Ok(())
 	}
-	fn req_ticket(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	fn req_ticket(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let service_id = data.get_string(false);
 		let cookie = data.get_rawdata();
 
 		if data.error() {
 			warn!("Error while extracting data from RequestTicket command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
 		info!("Requested a ticket for <{}>", service_id);
@@ -713,18 +723,16 @@ impl Client {
 		}
 		let ticket_blob = ticket.generate_blob();
 
-		reply.push(ErrorType::NoError as u8);
 		reply.extend(&(ticket_blob.len() as u32).to_le_bytes());
 		reply.extend(ticket_blob);
 
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
-	async fn send_message(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	async fn send_message(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let sendmessage_req = data.get_flatbuffer::<SendMessageRequest>();
 		if data.error() || sendmessage_req.is_err() {
 			warn!("Error while extracting data from SendMessage command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let sendmessage_req = sendmessage_req.unwrap();
 
@@ -732,8 +740,7 @@ impl Client {
 		let npids = sendmessage_req.npids();
 		if message.is_none() || npids.is_none() {
 			warn!("Error while extracting data from SendMessage command(missing message or npids)");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let message = message.unwrap();
 		let npids = npids.unwrap();
@@ -741,7 +748,7 @@ impl Client {
 		// Get all the IDs
 		let mut ids = HashSet::new();
 		{
-			let db = Database::new(self.get_database_connection(reply)?);
+			let db = Database::new(self.get_database_connection()?);
 			for npid in &npids {
 				match db.get_user_id(npid) {
 					Ok(id) => {
@@ -749,8 +756,7 @@ impl Client {
 					}
 					Err(_) => {
 						warn!("Requested to send a message to invalid npid: {}", npid);
-						reply.push(ErrorType::InvalidInput as u8);
-						return Ok(());
+						return Ok(ErrorType::InvalidInput);
 					}
 				}
 			}
@@ -759,8 +765,7 @@ impl Client {
 		// Can't message self
 		if ids.is_empty() || ids.contains(&self.client_info.user_id) {
 			warn!("Requested to send a message to empty set or self!");
-			reply.push(ErrorType::InvalidInput as u8);
-			return Ok(());
+			return Ok(ErrorType::InvalidInput);
 		}
 
 		// Ensure all recipients are friends(TODO: might not be necessary for all messages?)
@@ -769,8 +774,7 @@ impl Client {
 			let user_si = sig_infos.get(&self.client_info.user_id).unwrap();
 			if !user_si.friends.is_superset(&ids) {
 				warn!("Requested to send a message to a non-friend!");
-				reply.push(ErrorType::InvalidInput as u8);
-				return Ok(());
+				return Ok(ErrorType::InvalidInput);
 			}
 		}
 
@@ -783,8 +787,6 @@ impl Client {
 		let notif = Client::create_notification(NotificationType::MessageReceived, &n_msg);
 		self.send_notification(&notif, &ids).await;
 
-		reply.push(ErrorType::NoError as u8);
-
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
 }

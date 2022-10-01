@@ -3,41 +3,40 @@
 use crate::server::client::*;
 
 impl Client {
-	pub fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let create_req = data.get_flatbuffer::<CreateJoinRoomRequest>();
 
 		if data.error() || create_req.is_err() {
 			warn!("Error while extracting data from CreateRoom command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let create_req = create_req.unwrap();
 
-		let server_id = Database::new(self.get_database_connection(reply)?).get_corresponding_server(&com_id, create_req.worldId(), create_req.lobbyId()).map_err(|_| {
-			warn!(
-				"Attempted to use invalid worldId/lobbyId for comId {}: {}/{}",
-				&com_id_to_string(&com_id),
-				create_req.worldId(),
-				create_req.lobbyId()
-			);
-			reply.push(ErrorType::InvalidInput as u8);
-		})?;
+		let server_id = Database::new(self.get_database_connection()?)
+			.get_corresponding_server(&com_id, create_req.worldId(), create_req.lobbyId())
+			.map_err(|_| {
+				warn!(
+					"Attempted to use invalid worldId/lobbyId for comId {}: {}/{}",
+					&com_id_to_string(&com_id),
+					create_req.worldId(),
+					create_req.lobbyId()
+				);
+				ErrorType::InvalidInput
+			})?;
 
 		let resp = self.room_manager.write().create_room(&com_id, &create_req, &self.client_info, server_id);
-		reply.push(ErrorType::NoError as u8);
 		reply.extend(&(resp.len() as u32).to_le_bytes());
 		reply.extend(resp);
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
-	pub async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let join_req = data.get_flatbuffer::<JoinRoomRequest>();
 
 		if data.error() || join_req.is_err() {
 			warn!("Error while extracting data from JoinRoom command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let join_req = join_req.unwrap();
 
@@ -48,8 +47,7 @@ impl Client {
 			let mut room_manager = self.room_manager.write();
 			if !room_manager.room_exists(&com_id, room_id) {
 				warn!("User requested to join a room that doesn't exist!");
-				reply.push(ErrorType::InvalidInput as u8);
-				return Ok(());
+				return Ok(ErrorType::RoomMissing);
 			}
 			{
 				let room = room_manager.get_room(&com_id, room_id);
@@ -60,20 +58,17 @@ impl Client {
 
 			if users.iter().any(|x| *x.1 == self.client_info.user_id) {
 				warn!("User tried to join a room he was already a member of!");
-				reply.push(ErrorType::AlreadyJoined as u8);
-				return Ok(());
+				return Ok(ErrorType::RoomAlreadyJoined);
 			}
 
 			let resp = room_manager.join_room(&com_id, &join_req, &self.client_info);
 			if let Err(e) = resp {
 				warn!("User failed to join the room!");
-				reply.push(e);
-				return Ok(());
+				return Ok(e);
 			}
 
 			let (member_id_ta, resp) = resp.unwrap();
 			member_id = member_id_ta;
-			reply.push(ErrorType::NoError as u8);
 			reply.extend(&(resp.len() as u32).to_le_bytes());
 			reply.extend(resp);
 
@@ -94,14 +89,14 @@ impl Client {
 		// Send signaling stuff if any
 		self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo, owner).await;
 
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
-	pub async fn leave_room(&self, room_manager: &Arc<RwLock<RoomManager>>, com_id: &ComId, room_id: u64, opt_data: Option<&PresenceOptionData<'_>>, event_cause: EventCause) -> u8 {
+	pub async fn leave_room(&self, room_manager: &Arc<RwLock<RoomManager>>, com_id: &ComId, room_id: u64, opt_data: Option<&PresenceOptionData<'_>>, event_cause: EventCause) -> ErrorType {
 		let (destroyed, users, user_data);
 		{
 			let mut room_manager = room_manager.write();
 			if !room_manager.room_exists(com_id, room_id) {
-				return ErrorType::NotFound as u8;
+				return ErrorType::NotFound;
 			}
 
 			let room = room_manager.get_room(com_id, room_id);
@@ -155,90 +150,81 @@ impl Client {
 			self.send_notification(&notif, &users).await;
 		}
 
-		ErrorType::NoError as u8
+		ErrorType::NoError
 	}
 
-	pub async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let leave_req = data.get_flatbuffer::<LeaveRoomRequest>();
 
 		if data.error() || leave_req.is_err() {
 			warn!("Error while extracting data from SearchRoom command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let leave_req = leave_req.unwrap();
 
-		reply.push(
-			self.leave_room(&self.room_manager, &com_id, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction)
-				.await,
-		);
+		let res = self
+			.leave_room(&self.room_manager, &com_id, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction)
+			.await;
 		reply.extend(&leave_req.roomId().to_le_bytes());
-		Ok(())
+		Ok(res)
 	}
-	pub fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let search_req = data.get_flatbuffer::<SearchRoomRequest>();
 
 		if data.error() || search_req.is_err() {
 			warn!("Error while extracting data from SearchRoom command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let search_req = search_req.unwrap();
 
 		let resp = self.room_manager.read().search_room(&com_id, &search_req);
-		reply.push(ErrorType::NoError as u8);
 		reply.extend(&(resp.len() as u32).to_le_bytes());
 		reply.extend(resp);
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
-	pub fn req_get_roomdata_external_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn req_get_roomdata_external_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let getdata_req = data.get_flatbuffer::<GetRoomDataExternalListRequest>();
 
 		if data.error() || getdata_req.is_err() {
 			warn!("Error while extracting data from GetRoomDataExternalList command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let getdata_req = getdata_req.unwrap();
 
 		let resp = self.room_manager.read().get_roomdata_external_list(&com_id, &getdata_req);
 
-		reply.push(ErrorType::NoError as u8);
 		reply.extend(&(resp.len() as u32).to_le_bytes());
 		reply.extend(resp);
 
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
 
-	pub fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let setdata_req = data.get_flatbuffer::<SetRoomDataExternalRequest>();
 
 		if data.error() || setdata_req.is_err() {
 			warn!("Error while extracting data from SetRoomDataExternal command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let setdata_req = setdata_req.unwrap();
 
 		if let Err(e) = self.room_manager.write().set_roomdata_external(&com_id, &setdata_req) {
-			reply.push(e);
+			Ok(e)
 		} else {
-			reply.push(ErrorType::NoError as u8);
+			Ok(ErrorType::NoError)
 		}
-		Ok(())
 	}
-	pub fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let getdata_req = data.get_flatbuffer::<GetRoomDataInternalRequest>();
 
 		if data.error() || getdata_req.is_err() {
 			warn!("Error while extracting data from GetRoomDataInternal command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let getdata_req = getdata_req.unwrap();
 
@@ -247,20 +233,18 @@ impl Client {
 			reply.push(e);
 		} else {
 			let resp = resp.unwrap();
-			reply.push(ErrorType::NoError as u8);
 			reply.extend(&(resp.len() as u32).to_le_bytes());
 			reply.extend(resp);
 		}
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
-	pub async fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub async fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let setdata_req = data.get_flatbuffer::<SetRoomDataInternalRequest>();
 
 		if data.error() || setdata_req.is_err() {
 			warn!("Error while extracting data from SetRoomDataInternal command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let setdata_req = setdata_req.unwrap();
 
@@ -269,8 +253,6 @@ impl Client {
 
 		match res {
 			Ok((users, notif_data)) => {
-				reply.push(ErrorType::NoError as u8);
-
 				let mut n_msg: Vec<u8> = Vec::new();
 				n_msg.extend(&room_id.to_le_bytes());
 				n_msg.extend(&(notif_data.len() as u32).to_le_bytes());
@@ -278,20 +260,18 @@ impl Client {
 				let notif = Client::create_notification(NotificationType::UpdatedRoomDataInternal, &n_msg);
 				self.send_notification(&notif, &users).await;
 				self.self_notification(&notif);
+				Ok(ErrorType::NoError)
 			}
-			Err(e) => reply.push(e),
+			Err(e) => Ok(e),
 		}
-
-		Ok(())
 	}
-	pub async fn req_set_roommemberdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub async fn req_set_roommemberdata_internal(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let setdata_req = data.get_flatbuffer::<SetRoomMemberDataInternalRequest>();
 
 		if data.error() || setdata_req.is_err() {
 			warn!("Error while extracting data from SetRoomMemberDataInternal command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let setdata_req = setdata_req.unwrap();
 
@@ -300,8 +280,6 @@ impl Client {
 
 		match res {
 			Ok((users, notif_data)) => {
-				reply.push(ErrorType::NoError as u8);
-
 				let mut n_msg: Vec<u8> = Vec::new();
 				n_msg.extend(&room_id.to_le_bytes());
 				n_msg.extend(&(notif_data.len() as u32).to_le_bytes());
@@ -309,25 +287,22 @@ impl Client {
 				let notif = Client::create_notification(NotificationType::UpdatedRoomMemberDataInternal, &n_msg);
 				self.send_notification(&notif, &users).await;
 				self.self_notification(&notif);
+				Ok(ErrorType::NoError)
 			}
-			Err(e) => reply.push(e),
+			Err(e) => Ok(e),
 		}
-
-		Ok(())
 	}
-	pub fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let room_id = data.get::<u64>();
 		if data.error() {
 			warn!("Error while extracting data from PingRoomOwner command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
 		let infos = self.room_manager.read().get_room_infos(&com_id, room_id);
 		if let Err(e) = infos {
-			reply.push(e);
-			return Ok(());
+			return Ok(e);
 		}
 		let (server_id, world_id, _) = infos.unwrap();
 
@@ -345,20 +320,18 @@ impl Client {
 		builder.finish(resp, None);
 		let finished_data = builder.finished_data().to_vec();
 
-		reply.push(ErrorType::NoError as u8);
 		reply.extend(&(finished_data.len() as u32).to_le_bytes());
 		reply.extend(finished_data);
 
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
-	pub async fn req_send_room_message(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub async fn req_send_room_message(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let msg_req = data.get_flatbuffer::<SendRoomMessageRequest>();
 
 		if data.error() || msg_req.is_err() {
 			warn!("Error while extracting data from SendRoomMessage command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 		let msg_req = msg_req.unwrap();
 
@@ -369,16 +342,14 @@ impl Client {
 			let room_manager = self.room_manager.read();
 			if !room_manager.room_exists(&com_id, room_id) {
 				warn!("User requested to send a message to a room that doesn't exist!");
-				reply.push(ErrorType::InvalidInput as u8);
-				return Ok(());
+				return Ok(ErrorType::InvalidInput);
 			}
 			{
 				let room = room_manager.get_room(&com_id, room_id);
 				let m_id = room.get_member_id(self.client_info.user_id);
 				if m_id.is_err() {
 					warn!("User requested to send a message to a room that he's not a member of!");
-					reply.push(ErrorType::InvalidInput as u8);
-					return Ok(());
+					return Ok(ErrorType::InvalidInput);
 				}
 				member_id = m_id.unwrap();
 				users = room.get_room_users();
@@ -474,17 +445,14 @@ impl Client {
 			}
 			4 => {
 				// SCE_NP_MATCHING2_CASTTYPE_MULTICAST_TEAM
-				reply.push(ErrorType::Unsupported as u8);
-				return Ok(());
+				return Ok(ErrorType::Unsupported);
 			}
 			_ => {
 				warn!("Invalid broadcast type in send_room_message!");
-				reply.push(ErrorType::InvalidInput as u8);
-				return Err(()); // This shouldn't happen, closing connection
+				return Err(ErrorType::InvalidInput); // This shouldn't happen, closing connection
 			}
 		}
 
-		reply.push(ErrorType::NoError as u8);
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
 }

@@ -960,12 +960,12 @@ impl Database {
 
 		let query_str: String = if board_infos.update_mode == 0 {
 			if board_infos.sort_mode == 0 {
-				format!("INSERT INTO {} ( user_id, character_id, score, comment, game_info, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT ( user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, timestamp = excluded.timestamp WHERE excluded.score >= score", table_name)
+				format!("INSERT INTO {} ( user_id, character_id, score, comment, game_info, data_id, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, NULL, ?6 ) ON CONFLICT ( user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, data_id = NULL, timestamp = excluded.timestamp WHERE excluded.score >= score", table_name)
 			} else {
-				format!("INSERT INTO {} ( user_id, character_id, score, comment, game_info, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT ( user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, timestamp = excluded.timestamp WHERE excluded.score <= score", table_name)
+				format!("INSERT INTO {} ( user_id, character_id, score, comment, game_info, data_id, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, NULL, ?6 ) ON CONFLICT ( user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, data_id = NULL, timestamp = excluded.timestamp WHERE excluded.score <= score", table_name)
 			}
 		} else {
-			format!("INSERT INTO {} ( user_id, character_id, score, comment, game_info, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT ( user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, timestamp = excluded.timestamp", table_name)
+			format!("INSERT INTO {} ( user_id, character_id, score, comment, game_info, data_id, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, NULL, ?6 ) ON CONFLICT ( user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, data_id = NULL, timestamp = excluded.timestamp", table_name)
 		};
 
 		let res = self.conn.execute(
@@ -990,6 +990,28 @@ impl Database {
 			}
 			Err(e) => {
 				error!("Unexpected error inserting score: {}", e);
+				Err(DbError::Internal)
+			}
+		}
+	}
+
+	pub fn set_score_data(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32, score: i64, data_id: u64) -> Result<(), DbError> {
+		let table_name = Database::get_scoreboard_name(com_id, board_id);
+
+		let query = format!("UPDATE {} SET data_id = ?1 WHERE user_id = ?2 AND character_id = ?3 AND score = ?4", &table_name);
+
+		let res = self.conn.execute(&query, rusqlite::params![data_id, user_id, character_id, score]);
+
+		match res {
+			Ok(n) => {
+				if n == 1 {
+					Ok(())
+				} else {
+					Err(DbError::Invalid)
+				}
+			}
+			Err(e) => {
+				error!("Unexpected error setting game data: {}", e);
 				Err(DbError::Internal)
 			}
 		}

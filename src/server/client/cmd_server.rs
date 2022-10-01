@@ -3,13 +3,12 @@
 use crate::server::client::*;
 
 impl Client {
-	pub fn req_get_server_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn req_get_server_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 
 		if data.error() {
 			warn!("Error while extracting data from GetServerList command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
 		// TODO: Generalize this (redirects DeS US queries to EU servers)
@@ -17,14 +16,11 @@ impl Client {
 		//     com_id = String::from("NPWR01249");
 		// }
 
-		let servs = Database::new(self.get_database_connection(reply)?).get_server_list(&com_id, self.config.read().is_create_missing());
+		let servs = Database::new(self.get_database_connection()?).get_server_list(&com_id, self.config.read().is_create_missing());
 		if servs.is_err() {
-			reply.push(ErrorType::DbFail as u8);
-			return Err(());
+			return Err(ErrorType::DbFail);
 		}
 		let servs = servs.unwrap();
-
-		reply.push(ErrorType::NoError as u8);
 
 		let num_servs = servs.len() as u16;
 		reply.extend(&num_servs.to_le_bytes());
@@ -34,26 +30,22 @@ impl Client {
 
 		info!("Returning {} servers for comId {}", num_servs, com_id_to_string(&com_id));
 
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
-	pub fn req_get_world_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn req_get_world_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let server_id = data.get::<u16>();
 
 		if data.error() {
 			warn!("Error while extracting data from GetWorldList command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
-		let worlds = Database::new(self.get_database_connection(reply)?).get_world_list(&com_id, server_id, self.config.read().is_create_missing());
+		let worlds = Database::new(self.get_database_connection()?).get_world_list(&com_id, server_id, self.config.read().is_create_missing());
 		if worlds.is_err() {
-			reply.push(ErrorType::DbFail as u8);
-			return Err(());
+			return Err(ErrorType::DbFail);
 		}
 		let worlds = worlds.unwrap();
-
-		reply.push(ErrorType::NoError as u8);
 
 		let num_worlds = worlds.len() as u32;
 		reply.extend(&num_worlds.to_le_bytes());
@@ -63,6 +55,6 @@ impl Client {
 
 		info!("Returning {} worlds", num_worlds);
 
-		Ok(())
+		Ok(ErrorType::NoError)
 	}
 }

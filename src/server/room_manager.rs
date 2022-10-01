@@ -709,14 +709,14 @@ impl Room {
 
 		users
 	}
-	pub fn get_member_id(&self, user_id: i64) -> Result<u16, u8> {
+	pub fn get_member_id(&self, user_id: i64) -> Result<u16, ErrorType> {
 		for user in &self.users {
 			if user.1.user_id == user_id {
 				return Ok(*user.0);
 			}
 		}
 
-		Err(ErrorType::NotFound as u8)
+		Err(ErrorType::NotFound)
 	}
 	pub fn get_owner(&self) -> u16 {
 		self.owner
@@ -876,9 +876,9 @@ impl RoomManager {
 		self.rooms.get_mut(&(*com_id, room_id)).unwrap()
 	}
 
-	pub fn get_room_infos(&self, com_id: &ComId, room_id: u64) -> Result<(u16, u32, u64), u8> {
+	pub fn get_room_infos(&self, com_id: &ComId, room_id: u64) -> Result<(u16, u32, u64), ErrorType> {
 		if !self.room_exists(com_id, room_id) {
-			return Err(ErrorType::NotFound as u8);
+			return Err(ErrorType::NotFound);
 		}
 
 		let room = self.get_room(com_id, room_id);
@@ -926,8 +926,12 @@ impl RoomManager {
 		builder.finished_data().to_vec()
 	}
 
-	pub fn join_room(&mut self, com_id: &ComId, req: &JoinRoomRequest, cinfo: &ClientInfo) -> Result<(u16, Vec<u8>), u8> {
+	pub fn join_room(&mut self, com_id: &ComId, req: &JoinRoomRequest, cinfo: &ClientInfo) -> Result<(u16, Vec<u8>), ErrorType> {
 		let room = self.rooms.get_mut(&(*com_id, req.roomId())).unwrap();
+
+		if (room.flag_attr & SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32) != 0 {
+			return Err(ErrorType::RoomFull);
+		}
 
 		// Determine lowest member id available
 		// TODO: check if password was submitted and use id associated with password slotmask
@@ -963,21 +967,21 @@ impl RoomManager {
 		Ok((member_id, builder.finished_data().to_vec()))
 	}
 
-	pub fn leave_room(&mut self, com_id: &ComId, room_id: u64, user_id: i64) -> Result<(bool, HashSet<i64>), u8> {
+	pub fn leave_room(&mut self, com_id: &ComId, room_id: u64, user_id: i64) -> Result<(bool, HashSet<i64>), ErrorType> {
 		if !self.room_exists(com_id, room_id) {
 			warn!("Attempted to leave a non existing room");
-			return Err(ErrorType::NotFound as u8);
+			return Err(ErrorType::NotFound);
 		}
 
 		if let Some(user_set) = self.user_rooms.get_mut(&user_id) {
 			if user_set.get(&(*com_id, room_id)).is_none() {
 				warn!("Couldn't find the room in the user user_rooms set");
-				return Err(ErrorType::NotFound as u8);
+				return Err(ErrorType::NotFound);
 			}
 			user_set.remove(&(*com_id, room_id));
 		} else {
 			warn!("Couldn't find the user in the user_rooms list");
-			return Err(ErrorType::NotFound as u8);
+			return Err(ErrorType::NotFound);
 		}
 
 		let room = self.get_mut_room(com_id, room_id);
@@ -1119,9 +1123,9 @@ impl RoomManager {
 		builder.finished_data().to_vec()
 	}
 
-	pub fn set_roomdata_external(&mut self, com_id: &ComId, req: &SetRoomDataExternalRequest) -> Result<(), u8> {
+	pub fn set_roomdata_external(&mut self, com_id: &ComId, req: &SetRoomDataExternalRequest) -> Result<(), ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
-			return Err(ErrorType::NotFound as u8);
+			return Err(ErrorType::NotFound);
 		}
 		let room = self.get_mut_room(com_id, req.roomId());
 
@@ -1179,9 +1183,9 @@ impl RoomManager {
 
 		Ok(builder.finished_data().to_vec())
 	}
-	pub fn set_roomdata_internal(&mut self, com_id: &ComId, req: &SetRoomDataInternalRequest, user_id: i64) -> Result<(HashSet<i64>, Vec<u8>), u8> {
+	pub fn set_roomdata_internal(&mut self, com_id: &ComId, req: &SetRoomDataInternalRequest, user_id: i64) -> Result<(HashSet<i64>, Vec<u8>), ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
-			return Err(ErrorType::NotFound as u8);
+			return Err(ErrorType::NotFound);
 		}
 		let room = self.get_mut_room(com_id, req.roomId());
 		let member_id = room.get_member_id(user_id)?;
@@ -1246,9 +1250,9 @@ impl RoomManager {
 		Ok((to_notif, builder.finished_data().to_vec()))
 	}
 
-	pub fn set_roommemberdata_internal(&mut self, com_id: &ComId, req: &SetRoomMemberDataInternalRequest, user_id: i64) -> Result<(HashSet<i64>, Vec<u8>), u8> {
+	pub fn set_roommemberdata_internal(&mut self, com_id: &ComId, req: &SetRoomMemberDataInternalRequest, user_id: i64) -> Result<(HashSet<i64>, Vec<u8>), ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
-			return Err(ErrorType::NotFound as u8);
+			return Err(ErrorType::NotFound);
 		}
 
 		let new_binattr;
@@ -1262,11 +1266,11 @@ impl RoomManager {
 
 			// You can only change a member's binattrs if they are your own or you are room owner
 			if (member_id != target_member_id) && (member_id != room.owner) {
-				return Err(ErrorType::Unauthorized as u8);
+				return Err(ErrorType::Unauthorized);
 			}
 
 			if !room.users.contains_key(&target_member_id) {
-				return Err(ErrorType::NotFound as u8);
+				return Err(ErrorType::NotFound);
 			}
 
 			let user = room.users.get_mut(&target_member_id).unwrap();

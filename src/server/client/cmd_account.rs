@@ -70,7 +70,7 @@ impl Client {
 		self.send_email(email_to_send)
 	}
 
-	pub async fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub async fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let login = data.get_string(false);
 		let password = data.get_string(false);
 		let token = data.get_string(true);
@@ -78,33 +78,27 @@ impl Client {
 
 		if data.error() {
 			warn!("Error while extracting data from Login command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
 		let timestamp;
 		{
-			let db = Database::new(self.get_database_connection(reply)?);
+			let db = Database::new(self.get_database_connection()?);
 
 			match db.check_user(&login, &password, &token, self.config.read().is_email_validated()) {
 				Ok(user_data) => {
 					let mut sign_infos = self.signaling_infos.write();
 
 					if sign_infos.contains_key(&user_data.user_id) {
-						reply.push(ErrorType::LoginAlreadyLoggedIn as u8);
-						return Err(());
+						return Err(ErrorType::LoginAlreadyLoggedIn);
 					}
 
-					let rels = db.get_relationships(user_data.user_id).map_err(|_| {
-						reply.push(ErrorType::DbFail as u8);
-					})?;
+					let rels = db.get_relationships(user_data.user_id).map_err(|_| ErrorType::DbFail)?;
 
 					// Authentified beyond this point
 
 					// Update last login time
-					db.update_login_time(user_data.user_id).map_err(|_| {
-						reply.push(ErrorType::DbFail as u8);
-					})?;
+					db.update_login_time(user_data.user_id).map_err(|_| ErrorType::DbFail)?;
 
 					// Get friends infos
 					self.authentified = true;
@@ -116,7 +110,6 @@ impl Client {
 					self.client_info.admin = user_data.admin;
 					self.client_info.stat_agent = user_data.stat_agent;
 					self.client_info.banned = user_data.banned;
-					reply.push(ErrorType::NoError as u8);
 					reply.extend(user_data.online_name.as_bytes());
 					reply.push(0);
 					reply.extend(user_data.avatar_url.as_bytes());
@@ -160,13 +153,12 @@ impl Client {
 					self.game_tracker.increase_num_users();
 				}
 				Err(e) => {
-					match e {
-						DbError::Empty => reply.push(ErrorType::LoginInvalidUsername as u8),
-						DbError::WrongPass => reply.push(ErrorType::LoginInvalidPassword as u8),
-						DbError::WrongToken => reply.push(ErrorType::LoginInvalidToken as u8),
-						_ => reply.push(ErrorType::LoginError as u8),
-					}
-					return Err(());
+					return Err(match e {
+						DbError::Empty => ErrorType::LoginInvalidUsername,
+						DbError::WrongPass => ErrorType::LoginInvalidPassword,
+						DbError::WrongToken => ErrorType::LoginInvalidToken,
+						_ => ErrorType::LoginError,
+					});
 				}
 			}
 		}
@@ -175,14 +167,13 @@ impl Client {
 			// Notify friends that user has come Online
 			let notif = Client::create_friend_status_notification(&self.client_info.npid, timestamp, true);
 			self.send_notification(&notif, &friend_userids).await;
-			Ok(())
+			Ok(ErrorType::NoError)
 		} else {
-			reply.push(ErrorType::LoginError as u8);
-			Err(())
+			Err(ErrorType::LoginError)
 		}
 	}
 
-	pub fn create_account(&self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn create_account(&self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let npid = data.get_string(false);
 		let password = data.get_string(false);
 		let online_name = data.get_string(false);
@@ -191,28 +182,24 @@ impl Client {
 
 		if data.error() {
 			warn!("Error while extracting data from Create command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
 		if npid.len() < 3 || npid.len() > 16 || !npid.chars().all(|x| x.is_ascii_alphanumeric() || x == '-' || x == '_') {
 			warn!("Error validating NpId");
-			reply.push(ErrorType::InvalidInput as u8);
-			return Err(());
+			return Err(ErrorType::InvalidInput);
 		}
 
 		if online_name.len() < 3 || online_name.len() > 16 || !online_name.chars().all(|x| x.is_alphabetic() || x.is_ascii_digit() || x == '-' || x == '_') {
 			warn!("Error validating Online Name");
-			reply.push(ErrorType::InvalidInput as u8);
-			return Err(());
+			return Err(ErrorType::InvalidInput);
 		}
 
 		let email = email.trim().to_string();
 
 		if EmailAddress::new(email.clone()).is_err() || email.contains(' ') {
 			warn!("Invalid email provided: {}", email);
-			reply.push(ErrorType::InvalidInput as u8);
-			return Err(());
+			return Err(ErrorType::InvalidInput);
 		}
 
 		let check_email = strip_email(&email);
@@ -221,38 +208,36 @@ impl Client {
 			let tokens: Vec<&str> = check_email.split('@').collect();
 			if self.config.read().is_banned_domain(tokens[1]) {
 				warn!("Attempted to use banned domain: {}", email);
-				reply.push(ErrorType::CreationBannedEmailProvider as u8);
-				return Err(());
+				return Err(ErrorType::CreationBannedEmailProvider);
 			}
 		}
 
-		match Database::new(self.get_database_connection(reply)?).add_user(&npid, &password, &online_name, &avatar_url, &email, &check_email) {
+		match Database::new(self.get_database_connection()?).add_user(&npid, &password, &online_name, &avatar_url, &email, &check_email) {
 			Ok(token) => {
 				info!("Successfully created account {}", &npid);
-				reply.push(ErrorType::NoError as u8);
 				if self.config.read().is_email_validated() {
 					if let Err(e) = self.send_token_mail(&email, &npid, &token) {
 						error!("Error sending email: {}", e);
 					}
 				}
+
+				// this is not an error, we disconnect the client after account creation, successful or not
+				Err(ErrorType::NoError)
 			}
 			Err(e) => {
 				warn!("Account creation failed(npid: {})", &npid);
-				match e {
-					DbError::ExistingUsername => reply.push(ErrorType::CreationExistingUsername as u8),
-					DbError::ExistingEmail => reply.push(ErrorType::CreationExistingEmail as u8),
-					_ => reply.push(ErrorType::CreationError as u8),
-				}
+				Err(match e {
+					DbError::ExistingUsername => ErrorType::CreationExistingUsername,
+					DbError::ExistingEmail => ErrorType::CreationExistingEmail,
+					_ => ErrorType::CreationError,
+				})
 			}
 		}
-
-		Err(()) // this is not an error, we disconnect the client after account creation, successful or not
 	}
 
-	pub fn resend_token(&self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn resend_token(&self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		if !self.config.read().is_email_validated() {
-			reply.push(ErrorType::Invalid as u8);
-			return Err(());
+			return Err(ErrorType::Invalid);
 		}
 
 		let login = data.get_string(false);
@@ -260,107 +245,97 @@ impl Client {
 
 		if data.error() {
 			warn!("Error while extracting data from SendToken command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
 		{
-			let db = Database::new(self.get_database_connection(reply)?);
+			let db = Database::new(self.get_database_connection()?);
 
 			if let Ok(user_data) = db.check_user(&login, &password, "", false) {
 				// Let's check that the email hasn't been sent in the last 24 hours
 				let last_token_sent_timestamp = db.get_token_sent_time(user_data.user_id).map_err(|_| {
 					error!("Unexpected error querying last token sent time");
-					reply.push(ErrorType::DbFail as u8);
+					ErrorType::DbFail
 				})?;
 
 				// check that a token email hasn't been sent in the last 24 hours
 				if let Some(last_token_sent_timestamp) = last_token_sent_timestamp {
 					if (Client::get_timestamp_seconds() - last_token_sent_timestamp) < (24 * 60 * 60) {
 						warn!("User {} attempted to get token again too soon!", login);
-						reply.push(ErrorType::TooSoon as u8);
-						return Err(());
+						return Err(ErrorType::TooSoon);
 					}
 				}
 
 				if let Err(e) = self.send_token_mail(&user_data.email, &login, &user_data.token) {
 					error!("Error sending email: {}", e);
-					reply.push(ErrorType::EmailFail as u8);
+					Err(ErrorType::EmailFail)
 				} else {
 					// Update last token sent time
 					if db.set_token_sent_time(user_data.user_id).is_err() {
 						error!("Unexpected error setting token sent time");
 					}
-					reply.push(ErrorType::NoError as u8);
+					Err(ErrorType::NoError)
 				}
 			} else {
-				reply.push(ErrorType::LoginError as u8);
+				Err(ErrorType::LoginError)
 			}
 		}
-
-		Err(())
 	}
 
-	pub fn send_reset_token(&self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn send_reset_token(&self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		if !self.config.read().is_email_validated() {
-			reply.push(ErrorType::Invalid as u8);
-			return Err(());
+			return Err(ErrorType::Invalid);
 		}
 
 		let username = data.get_string(false);
 		let email = data.get_string(false);
 		if data.error() {
 			warn!("Error while extracting data from SendResetToken command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
-		let db = Database::new(self.get_database_connection(reply)?);
+		let db = Database::new(self.get_database_connection()?);
 		let email_check = strip_email(&email);
 
 		if let Ok((user_id, email_to_use)) = db.check_email(&username, &email_check) {
 			let last_pass_token_sent_timestamp = db.get_reset_password_token_sent_time(user_id).map_err(|_| {
 				error!("Unexpected error querying last password token timestamp");
-				reply.push(ErrorType::DbFail as u8);
+				ErrorType::DbFail
 			})?;
 
 			// check that a reset token email hasn't been sent in the last 24 hours
 			if let Some(last_pass_token_sent_timestamp) = last_pass_token_sent_timestamp {
 				if (Client::get_timestamp_seconds() - last_pass_token_sent_timestamp) < (24 * 60 * 60) {
 					warn!("User {} attempted to get password reset token again too soon!", username);
-					reply.push(ErrorType::TooSoon as u8);
-					return Err(());
+					return Err(ErrorType::TooSoon);
 				}
 			}
 
 			// Generate a new token and update the user entry
 			let token = db.update_password_token(user_id).map_err(|_| {
 				error!("Unexpected error updating reset password token");
-				reply.push(ErrorType::DbFail as u8);
+				ErrorType::DbFail
 			})?;
 
 			if let Err(e) = self.send_reset_token_mail(&email_to_use, &username, &token) {
 				error!("Error sending email: {}", e);
-				reply.push(ErrorType::EmailFail as u8);
+				Err(ErrorType::EmailFail)
 			} else {
 				// Update last token sent time
 				db.set_reset_password_token_sent_time(user_id).map_err(|_| {
 					error!("Unexpected error setting new reset password token timestamp");
-					reply.push(ErrorType::DbFail as u8);
+					ErrorType::DbFail
 				})?;
-				reply.push(ErrorType::NoError as u8);
+				Err(ErrorType::NoError)
 			}
 		} else {
-			reply.push(ErrorType::LoginError as u8);
+			Err(ErrorType::LoginError)
 		}
-
-		Err(())
 	}
 
-	pub fn reset_password(&self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<(), ()> {
+	pub fn reset_password(&self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		if !self.config.read().is_email_validated() {
-			reply.push(ErrorType::Invalid as u8);
-			return Err(());
+			return Err(ErrorType::Invalid);
 		}
 
 		let username = data.get_string(false);
@@ -369,25 +344,22 @@ impl Client {
 
 		if data.error() {
 			warn!("Error while extracting data from ResetPassword command");
-			reply.push(ErrorType::Malformed as u8);
-			return Err(());
+			return Err(ErrorType::Malformed);
 		}
 
 		{
-			let db = Database::new(self.get_database_connection(reply)?);
+			let db = Database::new(self.get_database_connection()?);
 
 			if let Ok(user_id) = db.check_reset_token(&username, &token) {
 				if db.update_user_password(user_id, &token, &new_password).is_err() {
 					error!("Unexpected error updating user password!");
-					reply.push(ErrorType::DbFail as u8);
+					Err(ErrorType::DbFail)
 				} else {
-					reply.push(ErrorType::NoError as u8);
+					Err(ErrorType::NoError)
 				}
 			} else {
-				reply.push(ErrorType::LoginError as u8);
+				Err(ErrorType::LoginError)
 			}
 		}
-
-		Err(())
 	}
 }

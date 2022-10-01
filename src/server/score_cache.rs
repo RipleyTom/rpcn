@@ -1,12 +1,14 @@
-use crate::server::client::Client;
-use crate::server::client::ComId;
-use crate::server::database::{Database, DbBoardInfo, DbScoreInfo};
-use crate::server::stream_extractor::np2_structs_generated::*;
-use crate::server::Server;
-use parking_lot::RwLock;
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+
+use crate::server::client::{Client, ComId, ErrorType};
+use crate::server::database::{Database, DbBoardInfo, DbScoreInfo};
+use crate::server::stream_extractor::np2_structs_generated::*;
+use crate::server::Server;
+
+use parking_lot::RwLock;
+use tracing::warn;
 
 struct ScoreUserCache {
 	npid: String,
@@ -362,5 +364,76 @@ impl ScoresCache {
 			timestamp: table.last_insert,
 			total_records: table.sorted_scores.len() as u32,
 		}
+	}
+
+	pub fn contains_score_with_no_data(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32, score: i64) -> Result<(), ErrorType> {
+		let table_name = Database::get_scoreboard_name(com_id, board_id);
+		let table = self.get_table(&table_name, &DbBoardInfo::default());
+
+		{
+			let table = table.read();
+			if !table.npid_lookup.contains_key(&user_id) || !table.npid_lookup[&user_id].contains_key(&character_id) {
+				warn!("Attempted to set score data for a missing UserId/PcId!");
+				return Err(ErrorType::NotFound);
+			}
+
+			let rank = table.npid_lookup[&user_id][&character_id];
+			let the_score = &table.sorted_scores[rank];
+
+			if the_score.score != score {
+				warn!("Attempted to update score data for wrong score!");
+				return Err(ErrorType::ScoreInvalid);
+			}
+
+			if the_score.data_id.is_some() {
+				warn!("Attempted to update score data of score with existing score data!");
+				return Err(ErrorType::ScoreHasData);
+			}
+		}
+
+		Ok(())
+	}
+
+	pub fn set_game_data(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32, data_id: u64) -> Result<(), ErrorType> {
+		let table_name = Database::get_scoreboard_name(com_id, board_id);
+		let table = self.get_table(&table_name, &DbBoardInfo::default());
+
+		{
+			// Existence needs to be checked again as another score might have pushed this one out
+			let mut table = table.write();
+			if !table.npid_lookup.contains_key(&user_id) || !table.npid_lookup[&user_id].contains_key(&character_id) {
+				return Err(ErrorType::NotFound);
+			}
+
+			// Score itself doesn't need to be checked as only current user can change it
+
+			let rank = table.npid_lookup[&user_id][&character_id];
+			let mut the_score = &mut table.sorted_scores[rank];
+
+			the_score.data_id = Some(data_id);
+		}
+
+		Ok(())
+	}
+
+	pub fn get_game_data_id(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32) -> Result<u64, ErrorType> {
+		let table_name = Database::get_scoreboard_name(com_id, board_id);
+		let table = self.get_table(&table_name, &DbBoardInfo::default());
+
+		{
+			let table = table.read();
+			if !table.npid_lookup.contains_key(&user_id) || !table.npid_lookup[&user_id].contains_key(&character_id) {
+				return Err(ErrorType::NotFound);
+			}
+
+			let rank = table.npid_lookup[&user_id][&character_id];
+			let the_score = &table.sorted_scores[rank];
+			if let Some(data_id) = the_score.data_id {
+				Ok(data_id)
+			} else {
+				Err(ErrorType::NotFound)
+			}
+		}
+
 	}
 }
