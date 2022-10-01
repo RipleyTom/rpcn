@@ -6419,3 +6419,247 @@ impl core::fmt::Debug for GetScoreResponse<'_> {
       ds.finish()
   }
 }
+pub enum RecordScoreGameDataRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct RecordScoreGameDataRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for RecordScoreGameDataRequest<'a> {
+  type Inner = RecordScoreGameDataRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> RecordScoreGameDataRequest<'a> {
+  pub const VT_BOARDID: flatbuffers::VOffsetT = 4;
+  pub const VT_PCID: flatbuffers::VOffsetT = 6;
+  pub const VT_SCORE: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    RecordScoreGameDataRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args RecordScoreGameDataRequestArgs
+  ) -> flatbuffers::WIPOffset<RecordScoreGameDataRequest<'bldr>> {
+    let mut builder = RecordScoreGameDataRequestBuilder::new(_fbb);
+    builder.add_score(args.score);
+    builder.add_pcId(args.pcId);
+    builder.add_boardId(args.boardId);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn boardId(&self) -> u32 {
+    self._tab.get::<u32>(RecordScoreGameDataRequest::VT_BOARDID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn pcId(&self) -> i32 {
+    self._tab.get::<i32>(RecordScoreGameDataRequest::VT_PCID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn score(&self) -> i64 {
+    self._tab.get::<i64>(RecordScoreGameDataRequest::VT_SCORE, Some(0)).unwrap()
+  }
+}
+
+impl flatbuffers::Verifiable for RecordScoreGameDataRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u32>("boardId", Self::VT_BOARDID, false)?
+     .visit_field::<i32>("pcId", Self::VT_PCID, false)?
+     .visit_field::<i64>("score", Self::VT_SCORE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct RecordScoreGameDataRequestArgs {
+    pub boardId: u32,
+    pub pcId: i32,
+    pub score: i64,
+}
+impl<'a> Default for RecordScoreGameDataRequestArgs {
+  #[inline]
+  fn default() -> Self {
+    RecordScoreGameDataRequestArgs {
+      boardId: 0,
+      pcId: 0,
+      score: 0,
+    }
+  }
+}
+
+pub struct RecordScoreGameDataRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> RecordScoreGameDataRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_boardId(&mut self, boardId: u32) {
+    self.fbb_.push_slot::<u32>(RecordScoreGameDataRequest::VT_BOARDID, boardId, 0);
+  }
+  #[inline]
+  pub fn add_pcId(&mut self, pcId: i32) {
+    self.fbb_.push_slot::<i32>(RecordScoreGameDataRequest::VT_PCID, pcId, 0);
+  }
+  #[inline]
+  pub fn add_score(&mut self, score: i64) {
+    self.fbb_.push_slot::<i64>(RecordScoreGameDataRequest::VT_SCORE, score, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RecordScoreGameDataRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    RecordScoreGameDataRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<RecordScoreGameDataRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for RecordScoreGameDataRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("RecordScoreGameDataRequest");
+      ds.field("boardId", &self.boardId());
+      ds.field("pcId", &self.pcId());
+      ds.field("score", &self.score());
+      ds.finish()
+  }
+}
+pub enum GetScoreGameDataRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetScoreGameDataRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for GetScoreGameDataRequest<'a> {
+  type Inner = GetScoreGameDataRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> GetScoreGameDataRequest<'a> {
+  pub const VT_BOARDID: flatbuffers::VOffsetT = 4;
+  pub const VT_NPID: flatbuffers::VOffsetT = 6;
+  pub const VT_PCID: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    GetScoreGameDataRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args GetScoreGameDataRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<GetScoreGameDataRequest<'bldr>> {
+    let mut builder = GetScoreGameDataRequestBuilder::new(_fbb);
+    builder.add_pcId(args.pcId);
+    if let Some(x) = args.npId { builder.add_npId(x); }
+    builder.add_boardId(args.boardId);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn boardId(&self) -> u32 {
+    self._tab.get::<u32>(GetScoreGameDataRequest::VT_BOARDID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn npId(&self) -> Option<&'a str> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(GetScoreGameDataRequest::VT_NPID, None)
+  }
+  #[inline]
+  pub fn pcId(&self) -> i32 {
+    self._tab.get::<i32>(GetScoreGameDataRequest::VT_PCID, Some(0)).unwrap()
+  }
+}
+
+impl flatbuffers::Verifiable for GetScoreGameDataRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u32>("boardId", Self::VT_BOARDID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("npId", Self::VT_NPID, false)?
+     .visit_field::<i32>("pcId", Self::VT_PCID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetScoreGameDataRequestArgs<'a> {
+    pub boardId: u32,
+    pub npId: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub pcId: i32,
+}
+impl<'a> Default for GetScoreGameDataRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GetScoreGameDataRequestArgs {
+      boardId: 0,
+      npId: None,
+      pcId: 0,
+    }
+  }
+}
+
+pub struct GetScoreGameDataRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> GetScoreGameDataRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_boardId(&mut self, boardId: u32) {
+    self.fbb_.push_slot::<u32>(GetScoreGameDataRequest::VT_BOARDID, boardId, 0);
+  }
+  #[inline]
+  pub fn add_npId(&mut self, npId: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetScoreGameDataRequest::VT_NPID, npId);
+  }
+  #[inline]
+  pub fn add_pcId(&mut self, pcId: i32) {
+    self.fbb_.push_slot::<i32>(GetScoreGameDataRequest::VT_PCID, pcId, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetScoreGameDataRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    GetScoreGameDataRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<GetScoreGameDataRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for GetScoreGameDataRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("GetScoreGameDataRequest");
+      ds.field("boardId", &self.boardId());
+      ds.field("npId", &self.npId());
+      ds.field("pcId", &self.pcId());
+      ds.finish()
+  }
+}

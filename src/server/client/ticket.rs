@@ -26,7 +26,7 @@ impl TicketData {
 			TicketData::BString(_) => 4,
 			TicketData::Time(_) => 7,
 			TicketData::Binary(_) => 8,
-			TicketData::Blob(id, _) => (0x3000 | (*id as u16)),
+			TicketData::Blob(id, _) => 0x3000 | (*id as u16),
 		}
 	}
 
