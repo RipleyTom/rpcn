@@ -672,6 +672,7 @@ impl Client {
 
 		let user_id = Database::new(self.get_database_connection()?).get_user_id(&npid);
 		if user_id.is_err() {
+			warn!("Couldn't find user_id!");
 			return Ok(ErrorType::NotFound);
 		}
 
