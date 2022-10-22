@@ -39,7 +39,19 @@ impl Server {
 			}
 			let filename = filename.unwrap();
 
-			let r = filename.parse::<u64>();
+			let split_filename = filename.split_once('.');
+			if split_filename.is_none() {
+				println!("A file inside score_data doesn't contain a dot");
+				continue;
+			}
+			let (file_prefix, file_suffix) = split_filename.unwrap();
+
+			if file_suffix != "sdt" {
+				println!("A file in score_data is not a .sdt");
+				continue;
+			}
+
+			let r = file_prefix.parse::<u64>();
 			if r.is_err() {
 				println!("A file inside score_data doesn't have an integer filename: {}", filename);
 				continue;
