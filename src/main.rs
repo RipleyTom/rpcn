@@ -141,7 +141,7 @@ impl Config {
 	}
 
 	pub fn is_sign_tickets(&self) -> bool {
-		self.ticket_private_key.is_some()
+		self.sign_tickets
 	}
 
 	pub fn get_verbosity(&self) -> &tracing::Level {
