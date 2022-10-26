@@ -10,7 +10,13 @@ use server::client::ComId;
 use server::Server;
 
 use openssl::ec::EcKey;
+use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Private};
+
+pub struct TicketSignInfo {
+	pub digest: MessageDigest,
+	pub key: PKey<Private>,
+}
 
 pub struct Config {
 	create_missing: bool, // Creates servers/worlds/lobbies if the client queries for ones but there are none or specific id queries
@@ -23,8 +29,7 @@ pub struct Config {
 	email_password: String,
 	banned_domains: HashSet<String>,
 	server_redirs: HashMap<ComId, ComId>,
-	sign_tickets: bool,
-	ticket_private_key: Option<PKey<Private>>,
+	ticket_signature_info: Option<TicketSignInfo>,
 	stat_server_host_and_port: Option<(String, String)>,
 }
 
@@ -41,8 +46,7 @@ impl Config {
 			email_password: String::new(),
 			banned_domains: HashSet::new(),
 			server_redirs: HashMap::new(),
-			sign_tickets: false,
-			ticket_private_key: None,
+			ticket_signature_info: None,
 			stat_server_host_and_port: None,
 		}
 	}
@@ -72,10 +76,10 @@ impl Config {
 				match data {
 					s if s.eq_ignore_ascii_case("true") => *d_bool = true,
 					s if s.eq_ignore_ascii_case("false") => *d_bool = false,
-					s => println!("Invalid value({}) for configuration entry {}, defaulting to {}", s, name, *d_bool),
+					s => println!("Invalid value(<{}>) for configuration entry <{}>, defaulting to <{}>", s, name, *d_bool),
 				}
 			} else {
-				println!("Configuration entry for {} was not found, defaulting to {}", name, d_bool);
+				println!("Configuration entry for <{}> was not found, defaulting to <{}>", name, d_bool);
 			}
 		};
 
@@ -83,7 +87,7 @@ impl Config {
 			if let Some(data) = config_data.get(name) {
 				*d_str = String::from(*data);
 			} else {
-				println!("Configuration entry for {} was not found, defaulting to {}", name, d_str);
+				println!("Configuration entry for <{}> was not found, defaulting to <{}>", name, d_str);
 			}
 		};
 
@@ -92,10 +96,10 @@ impl Config {
 				if let Ok(level) = tracing::Level::from_str(data) {
 					*d_verbosity = level;
 				} else {
-					println!("Config value given for Verbosity({}) is invalid, defaulting to {}!", data, d_verbosity);
+					println!("Config value given for Verbosity(<{}>) is invalid, defaulting to <{}>!", data, d_verbosity);
 				}
 			} else {
-				println!("Configuration entry for Verbosity was not found, defaulting to {}", d_verbosity);
+				println!("Configuration entry for Verbosity was not found, defaulting to <{}>", d_verbosity);
 			}
 		};
 
@@ -110,7 +114,33 @@ impl Config {
 		set_string("EmailHost", &mut self.email_host);
 		set_string("EmailLogin", &mut self.email_login);
 		set_string("EmailPassword", &mut self.email_password);
-		set_bool("SignTickets", &mut self.sign_tickets);
+
+		let mut sign_tickets = false;
+		set_bool("SignTickets", &mut sign_tickets);
+
+		if sign_tickets {
+			let ticket_key = Config::load_ticket_private_key();
+			if let Err(ref e) = ticket_key {
+				println!("Error loading the ticket private key:\n{}", e);
+			}
+			let ticket_key = ticket_key.ok();
+
+			let mut ticket_digest_str = String::new();
+			set_string("SignTicketsDigest", &mut ticket_digest_str);
+			let ticket_digest = MessageDigest::from_name(&ticket_digest_str);
+			if ticket_digest.is_none() {
+				println!("SignTicketsDigest value <{}> is invalid!", ticket_digest_str);
+			}
+
+			if ticket_key.is_none() || ticket_digest.is_none() {
+				println!("Ticket signing is enabled but it's missing digest/key, disabling ticket signing!");
+			} else {
+				self.ticket_signature_info = Some(TicketSignInfo {
+					digest: ticket_digest.unwrap(),
+					key: ticket_key.unwrap(),
+				});
+			}
+		}
 
 		let mut run_stat_server = false;
 		set_bool("StatServer", &mut run_stat_server);
@@ -123,7 +153,7 @@ impl Config {
 			set_string("StatServerPort", &mut stat_server_port);
 
 			if stat_server_host.is_empty() || stat_server_port.is_empty() {
-				println!("Missing host/port binding information for the stat server, disabling it.");
+				println!("Stat server is enabled but it's missing host/port information, disabling it!");
 			} else {
 				self.stat_server_host_and_port = Some((stat_server_host, stat_server_port));
 			}
@@ -138,10 +168,6 @@ impl Config {
 
 	pub fn is_email_validated(&self) -> bool {
 		self.email_validated
-	}
-
-	pub fn is_sign_tickets(&self) -> bool {
-		self.sign_tickets
 	}
 
 	pub fn get_verbosity(&self) -> &tracing::Level {
@@ -196,22 +222,20 @@ impl Config {
 		}
 	}
 
-	pub fn load_ticket_private_key(&mut self) -> Result<(), String> {
-		let mut private_key_file = File::open("ticket_private.pem").map_err(|e| format!("Failed to open ticket_private.pem: {}", e))?;
-		let mut private_key_raw = Vec::new();
-		private_key_file.read_to_end(&mut private_key_raw).map_err(|e| format!("Failed to read ticket_private.pem: {}", e))?;
-		let ec_key = EcKey::private_key_from_pem(&private_key_raw).map_err(|e| format!("Failed to read private key from the file: {}", e))?;
-		self.ticket_private_key = Some(PKey::from_ec_key(ec_key).map_err(|e| format!("Failed to convert EC key to PKey: {}", e))?);
-
-		Ok(())
-	}
-
-	pub fn get_ticket_private_key(&self) -> &Option<PKey<Private>> {
-		&self.ticket_private_key
+	pub fn get_ticket_signing_info(&self) -> &Option<TicketSignInfo> {
+		&self.ticket_signature_info
 	}
 
 	pub fn get_stat_server_binds(&self) -> &Option<(String, String)> {
 		&self.stat_server_host_and_port
+	}
+
+	fn load_ticket_private_key() -> Result<PKey<Private>, String> {
+		let mut private_key_file = File::open("ticket_private.pem").map_err(|e| format!("Failed to open ticket_private.pem: {}", e))?;
+		let mut private_key_raw = Vec::new();
+		private_key_file.read_to_end(&mut private_key_raw).map_err(|e| format!("Failed to read ticket_private.pem: {}", e))?;
+		let ec_key = EcKey::private_key_from_pem(&private_key_raw).map_err(|e| format!("Failed to read private key from the file: {}", e))?;
+		Ok(PKey::from_ec_key(ec_key).map_err(|e| format!("Failed to convert EC key to PKey: {}", e))?)
 	}
 }
 
@@ -221,14 +245,6 @@ fn main() {
 	let mut config = Config::new();
 	if let Err(e) = config.load_config_file() {
 		println!("An error happened reading the config file rpcn.cfg: {}\nDefault values will be used for every settings!", e);
-	}
-
-	if config.is_sign_tickets() {
-		let ticket_key_result = config.load_ticket_private_key();
-		if let Err(e) = ticket_key_result {
-			println!("Failed to load ticket_private.pem:\n{}", e);
-			return;
-		}
 	}
 
 	config.load_domains_banlist();

@@ -223,7 +223,10 @@ impl Client {
 
 		// Update db
 		let db = Database::new(self.get_database_connection()?);
-		if let Err(_) = db.set_score_data(&com_id, self.client_info.user_id, score_req.pcId(), score_req.boardId(), score_req.score(), score_data_id) {
+		if db
+			.set_score_data(&com_id, self.client_info.user_id, score_req.pcId(), score_req.boardId(), score_req.score(), score_data_id)
+			.is_err()
+		{
 			error!("Unexpected error updating score game data in database!");
 		}
 

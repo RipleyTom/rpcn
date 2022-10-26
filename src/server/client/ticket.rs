@@ -1,8 +1,8 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
-use openssl::hash::MessageDigest;
-use openssl::pkey::{PKey, Private};
+use crate::TicketSignInfo;
+
 use openssl::sign::Signer;
 
 use tracing::error;
@@ -75,14 +75,16 @@ static TICKET_ID_DISPENSER: AtomicU64 = AtomicU64::new(1);
 // }
 
 impl Ticket {
-	fn sign_ticket(user_blob: &TicketData, ec_key: &Option<PKey<Private>>) -> TicketData {
+	fn sign_ticket(user_blob: &TicketData, sign_info: &Option<TicketSignInfo>) -> TicketData {
 		let signature = TicketData::Blob(2, vec![TicketData::Binary(vec![0, 0, 0, 0]), TicketData::Binary([0; 56].to_vec())]);
 
-		if ec_key.is_none() {
+		if sign_info.is_none() {
 			return signature;
 		}
 
-		let signer = Signer::new(MessageDigest::sha224(), ec_key.as_ref().unwrap());
+		let sign_info = sign_info.as_ref().unwrap();
+
+		let signer = Signer::new(sign_info.digest, &sign_info.key);
 		if let Err(e) = signer {
 			error!("Failed to create Signer for ticket data: {}", e);
 			return signature;
@@ -96,12 +98,7 @@ impl Ticket {
 		}
 		let signature_size = signature_size.unwrap();
 
-		if signature_size != 56 {
-			error!("Signature size({}) isn't what is expected(56)!", signature_size);
-			return signature;
-		}
-
-		let mut vec_sign = [0; 56].to_vec();
+		let mut vec_sign = vec![0; signature_size];
 
 		let mut user_rawdata = Vec::new();
 		user_blob.write(&mut user_rawdata);
@@ -112,15 +109,12 @@ impl Ticket {
 			return signature;
 		}
 		let sign_res = sign_res.unwrap();
-		if sign_res != 56 {
-			error!("Final signature size ({}) is not what was expected(56)!", sign_res);
-			return signature;
-		}
+		vec_sign.resize(sign_res, 0);
 
 		TicketData::Blob(2, vec![TicketData::Binary(vec![b'R', b'P', b'C', b'N']), TicketData::Binary(vec_sign)])
 	}
 
-	pub fn new(user_id: u64, npid: &str, service_id: &str, cookie: Vec<u8>, ec_key: &Option<PKey<Private>>) -> Ticket {
+	pub fn new(user_id: u64, npid: &str, service_id: &str, cookie: Vec<u8>, sign_info: &Option<TicketSignInfo>) -> Ticket {
 		let ticket_id = TICKET_ID_DISPENSER.fetch_add(1, Ordering::SeqCst);
 
 		let serial_str = format!("{}", ticket_id);
@@ -158,7 +152,7 @@ impl Ticket {
 		user_data.push(TicketData::Empty());
 
 		let user_blob = TicketData::Blob(0, user_data);
-		let signature = Ticket::sign_ticket(&user_blob, ec_key);
+		let signature = Ticket::sign_ticket(&user_blob, sign_info);
 
 		Ticket { data: vec![user_blob, signature] }
 	}
