@@ -718,8 +718,8 @@ impl Client {
 		let ticket;
 		{
 			let config = self.config.read();
-			let key = config.get_ticket_private_key();
-			ticket = Ticket::new(self.client_info.user_id as u64, &self.client_info.npid, &service_id, cookie, key);
+			let sign_info = config.get_ticket_signing_info();
+			ticket = Ticket::new(self.client_info.user_id as u64, &self.client_info.npid, &service_id, cookie, sign_info);
 		}
 		let ticket_blob = ticket.generate_blob();
 
