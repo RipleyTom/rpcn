@@ -3,7 +3,7 @@ WORKDIR /usr/src/rpcn
 COPY . .
 RUN cargo install --path .
 
-FROM alpine:latest
+FROM debian:bullseye-slim
 WORKDIR /home/rpcn
 RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem -subj '/CN=localhost'

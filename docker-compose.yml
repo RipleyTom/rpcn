@@ -15,13 +15,11 @@ services:
     image: rpcn:latest
     build:
       context: .
-      name: 
       dockerfile: Dockerfile
     volumes:
       - rpcnstorage:/home/rpcn
-    networks:
-      - default
+    network_mode: host
     ports:
-      - 3658:3658
+      - 3658:3658/udp
       - 31313:31313
       - 31314:31314
