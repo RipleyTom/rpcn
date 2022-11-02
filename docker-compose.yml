@@ -1,0 +1,27 @@
+version: '3'
+
+volumes:
+  rpcnstorage:
+    name: rpcnstorage 
+    driver: local
+    driver_opts:
+      device: e:/test       #use your preferred storage path here
+      o: bind
+      type: none
+
+services:
+  rpcn:
+    container_name: rpcn
+    image: rpcn:latest
+    build:
+      context: .
+      name: 
+      dockerfile: Dockerfile
+    volumes:
+      - rpcnstorage:/home/rpcn
+    networks:
+      - default
+    ports:
+      - 3658:3658
+      - 31313:31313
+      - 31314:31314
