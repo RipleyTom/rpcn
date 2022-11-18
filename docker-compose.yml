@@ -18,8 +18,5 @@ services:
       dockerfile: Dockerfile
     volumes:
       - rpcnstorage:/home/rpcn
-    ports:
-      - 3657:3657/udp
-      - 3658:3658/udp
-      - 31313:31313
-      - 31314:31314
+    network_mode: host      #Only works with Linux systems
+    
