@@ -171,14 +171,14 @@ impl GetScoreResultCache {
 
 impl DbScoreInfo {
 	fn cmp(&self, other: &DbScoreInfo, sort_mode: u32) -> Ordering {
-		let ret_value = if sort_mode == 0 { Ordering::Greater } else { Ordering::Less };
+		let ret_value = if sort_mode == 0 { Ordering::Less } else { Ordering::Greater };
 
 		match self.score.cmp(&other.score) {
 			Ordering::Greater => ret_value,
 			Ordering::Less => ret_value.reverse(),
 			Ordering::Equal => match self.timestamp.cmp(&other.timestamp) {
-				Ordering::Less => Ordering::Greater,
-				Ordering::Greater => Ordering::Less,
+				Ordering::Less => Ordering::Less,
+				Ordering::Greater => Ordering::Greater,
 				Ordering::Equal => other.user_id.cmp(&self.user_id),
 			},
 		}
@@ -245,7 +245,7 @@ impl ScoresCache {
 			table.sorted_scores.remove(pos);
 		}
 
-		if (table.sorted_scores.len() < table.table_info.rank_limit as usize) || score.cmp(table.sorted_scores.last().unwrap(), table.table_info.sort_mode) == Ordering::Greater {
+		if (table.sorted_scores.len() < table.table_info.rank_limit as usize) || score.cmp(table.sorted_scores.last().unwrap(), table.table_info.sort_mode) == Ordering::Less {
 			let insert_pos = table.sorted_scores.binary_search_by(|probe| probe.cmp(score, table.table_info.sort_mode)).unwrap_err();
 			table.sorted_scores.insert(insert_pos, (*score).clone());
 			table.npid_lookup.entry(score.user_id).or_insert_with(HashMap::new).insert(score.character_id, insert_pos);
