@@ -384,6 +384,8 @@ pub struct Room {
 	// Data not from stream
 	server_id: u16,
 	room_id: u64,
+	slots: Vec<bool>,
+	member_id_counter: u16,
 	users: BTreeMap<u16, RoomUser>,
 	owner: u16,
 
@@ -516,6 +518,8 @@ impl Room {
 			blocked_users,
 			signaling_param,
 			server_id: 0,
+			slots: vec![false; max_slot as usize],
+			member_id_counter: 0,
 			users: BTreeMap::new(),
 			owner: 0,
 			owner_succession: VecDeque::new(),
@@ -570,14 +574,12 @@ impl Room {
 	pub fn to_RoomDataExternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>, search_option: i32, inc_attrs: &Vec<u16>) -> flatbuffers::WIPOffset<RoomDataExternal<'a>> {
 		let mut final_owner_info = None;
 		if (search_option & 0x7) != 0 {
-			let mut npid = None;
 			let mut online_name = None;
 			let mut avatar_url = None;
 
-			if (search_option & 0x1) != 0 {
-				let s = builder.create_string(&self.users.get(&self.owner).unwrap().npid);
-				npid = Some(s);
-			}
+			// NPID is mandatory in SceNpUserInfo2 so assume that this bit is set if other info is required
+			let npid = Some(builder.create_string(&self.users.get(&self.owner).unwrap().npid));
+
 			if (search_option & 0x2) != 0 {
 				let s = builder.create_string(&self.users.get(&self.owner).unwrap().online_name);
 				online_name = Some(s);
@@ -836,6 +838,30 @@ impl Room {
 		}
 		true
 	}
+
+	pub fn req_slot(&mut self) -> Result<u16, ErrorType> {
+		for i in 1..=(self.max_slot as usize) {
+			if self.slots[i - 1] == false {
+				self.slots[i - 1] = true;
+				let member_id = ((i as u16) << 4) + self.member_id_counter;
+				self.member_id_counter = (self.member_id_counter + 1) & 0xF;
+				return Ok(member_id);
+			}
+		}
+
+		Err(ErrorType::RoomFull)
+	}
+
+	pub fn free_slot(&mut self, member_id: u16) -> Result<(), ()> {
+		let slot = ((member_id >> 4) - 1) as usize;
+		if self.slots[slot] {
+			self.slots[slot] = false;
+			Ok(())
+		} else {
+			Err(())
+		}
+	}
+
 	pub fn find_user(&self, user_id: i64) -> u16 {
 		for user in &self.users {
 			if user.1.user_id == user_id {
@@ -891,7 +917,7 @@ impl RoomManager {
 
 		// Creates the room from input fb
 		let mut room = Room::from_flatbuffer(req);
-		let member_id: u16 = 1; // initial creator always gets member id 1
+		let member_id: u16 = room.req_slot().unwrap();
 		room.owner = member_id;
 		room.room_id = *room_cnt;
 		room.server_id = server_id;
@@ -935,13 +961,7 @@ impl RoomManager {
 
 		// Determine lowest member id available
 		// TODO: check if password was submitted and use id associated with password slotmask
-		let mut member_id: u16 = 1;
-		for i in 1..=u16::MAX {
-			if !room.users.contains_key(&i) {
-				member_id = i;
-				break;
-			}
-		}
+		let member_id = room.req_slot()?;
 
 		let mut room_user = RoomUser::from_JoinRoomRequest(req);
 		room_user.user_id = cinfo.user_id;
@@ -989,6 +1009,7 @@ impl RoomManager {
 		assert!(member_id != 0); // This should never happen as it would mean user_rooms is incoherent
 
 		room.users.remove(&member_id);
+		room.free_slot(member_id).unwrap();
 
 		// Remove full flag if necessary
 		if room.users.len() != room.max_slot as usize {
