@@ -574,13 +574,13 @@ impl Client {
 		let mut s_msg: Vec<u8> = Vec::new();
 		s_msg.extend(&room_id.to_le_bytes()); // +0..+8 room ID
 		s_msg.extend(&from.0.to_le_bytes()); // +8..+10 member ID
-		s_msg.extend(&port_p2p.to_be_bytes()); // +10..+12 port
+		s_msg.extend(&port_p2p.to_le_bytes()); // +10..+12 port
 		s_msg.extend(&addr_p2p); // +12..+16 addr
 		let s_notif_extern = Client::create_notification(NotificationType::SignalP2PConnect, &s_msg);
 
 		// Create a local IP version for users behind the same IP
 		let mut s_notif_local = s_notif_extern.clone();
-		s_notif_local[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_be_bytes());
+		s_notif_local[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_le_bytes());
 		s_notif_local[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&local_ip);
 
 		let mut s_self_notif = s_notif_extern.clone();
@@ -604,11 +604,11 @@ impl Client {
 								if user_si.addr_p2p == addr_p2p {
 									user_ids_local.insert(*user.1);
 									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.local_addr_p2p);
-									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_be_bytes());
+									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_le_bytes());
 								} else {
 									user_ids_extern.insert(*user.1);
 									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
-									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_be_bytes());
+									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_le_bytes());
 								}
 
 								tosend = true;
@@ -639,11 +639,11 @@ impl Client {
 						if user_si.addr_p2p == addr_p2p {
 							user_ids_local.insert(hub_user_id);
 							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.local_addr_p2p);
-							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_be_bytes());
+							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_le_bytes());
 						} else {
 							user_ids_extern.insert(hub_user_id);
 							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
-							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_be_bytes());
+							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_le_bytes());
 						}
 
 						tosend = true;
@@ -677,7 +677,7 @@ impl Client {
 
 		let user_id = user_id.unwrap();
 		let sig_infos = self.signaling_infos.read();
-		let caller_ip = sig_infos.get(&self.client_info.user_id).unwrap().local_addr_p2p;
+		let caller_ip = sig_infos.get(&self.client_info.user_id).unwrap().addr_p2p;
 		if let Some(entry) = sig_infos.get(&user_id) {
 			if caller_ip == entry.addr_p2p {
 				reply.extend(&entry.local_addr_p2p);
