@@ -239,10 +239,13 @@ impl ScoresCache {
 		let mut table = table.write();
 
 		// First check if the user_id/char_id is already in the cache
-		// Note that the cache function is only called if there was an insertion in the database so no check is needed
+		// Note that the inserted position may be lower to the previous position if the score inserted is the same but timestamp is higher
+		let mut initial_pos = None;
+
 		if table.npid_lookup.contains_key(&score.user_id) && table.npid_lookup[&score.user_id].contains_key(&score.character_id) {
 			let pos = table.npid_lookup[&score.user_id][&score.character_id];
 			table.sorted_scores.remove(pos);
+			initial_pos = Some(pos);
 		}
 
 		if (table.sorted_scores.len() < table.table_info.rank_limit as usize) || score.cmp(table.sorted_scores.last().unwrap(), table.table_info.sort_mode) == Ordering::Less {
@@ -250,8 +253,10 @@ impl ScoresCache {
 			table.sorted_scores.insert(insert_pos, (*score).clone());
 			table.npid_lookup.entry(score.user_id).or_insert_with(HashMap::new).insert(score.character_id, insert_pos);
 
+			let reorder_start = if let Some(pos) = initial_pos { std::cmp::min(pos, insert_pos + 1) } else { insert_pos + 1 };
+
 			// Set index for everything after insert_pos
-			for i in (insert_pos + 1)..table.sorted_scores.len() {
+			for i in reorder_start..table.sorted_scores.len() {
 				let cur_user_id = table.sorted_scores[i].user_id;
 				let cur_char_id = table.sorted_scores[i].character_id;
 				*table.npid_lookup.get_mut(&cur_user_id).unwrap().get_mut(&cur_char_id).unwrap() = i;
@@ -434,6 +439,5 @@ impl ScoresCache {
 				Err(ErrorType::NotFound)
 			}
 		}
-
 	}
 }
