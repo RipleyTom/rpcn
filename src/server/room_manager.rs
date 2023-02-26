@@ -730,8 +730,13 @@ impl Room {
 			return false;
 		}
 
-		let flag_filter = req.flagFilter();
-		let flag_attr = req.flagAttr();
+		let mut flag_filter = req.flagFilter();
+		let mut flag_attr = req.flagAttr();
+
+		// We ignore the SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION attribute as it is pretty irrelevant to rpcs3 and caused issue with top spin search
+		flag_filter &= !(SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32);
+		flag_attr &= !(SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32);
+
 		if (self.flag_attr & flag_filter) != flag_attr {
 			return false;
 		}
