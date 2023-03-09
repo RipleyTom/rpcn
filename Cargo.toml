@@ -1,6 +1,6 @@
 [package]
 name = "rpcn"
-version = "0.7.3"
+version = "0.7.4"
 authors = ["RipleyTom <RipleyTom@users.noreply.github.com>"]
 edition = "2021"
 
@@ -11,16 +11,15 @@ rand = "0.8"
 rust-argon2 = "1.0"
 flatbuffers = "2.1"
 parking_lot = "0.12"
-libsqlite3-sys = "0.24"
-rusqlite = { version = "0.27", features = [ "bundled" ] }
+libsqlite3-sys = "0.25"
+rusqlite = { version = "0.28", features = [ "bundled" ] }
 r2d2 = "0.8"
-r2d2_sqlite = "0.20"
+r2d2_sqlite = "0.21"
 tokio = { version = "1.18", features = [ "full" ] }
 tokio-rustls = "0.23"
 rustls-pemfile = "1.0"
 socket2 = "0.4"
-lettre = "0.9"
-lettre_email = "0.9"
+lettre = "0.10"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 openssl = { version = "0.10", features = [ "vendored" ] }

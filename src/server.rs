@@ -124,7 +124,7 @@ impl Server {
 		// or a refactor of packets generation
 		let mut servinfo_vec = vec![PacketType::ServerInfo as u8];
 		servinfo_vec.extend(&0u16.to_le_bytes());
-		servinfo_vec.extend(&(4 + HEADER_SIZE as u32).to_le_bytes());
+		servinfo_vec.extend(&(4 + HEADER_SIZE).to_le_bytes());
 		servinfo_vec.extend(&0u64.to_le_bytes());
 		servinfo_vec.extend(&PROTOCOL_VERSION.to_le_bytes());
 		let servinfo_vec: Arc<Vec<u8>> = Arc::new(servinfo_vec);
