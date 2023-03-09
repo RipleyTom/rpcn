@@ -846,7 +846,7 @@ impl Room {
 
 	pub fn req_slot(&mut self) -> Result<u16, ErrorType> {
 		for i in 1..=(self.max_slot as usize) {
-			if self.slots[i - 1] == false {
+			if !self.slots[i - 1] {
 				self.slots[i - 1] = true;
 				let member_id = ((i as u16) << 4) + self.member_id_counter;
 				self.member_id_counter = (self.member_id_counter + 1) & 0xF;

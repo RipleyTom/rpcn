@@ -13,8 +13,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use lettre::smtp::authentication::{Credentials, Mechanism};
-use lettre::{EmailAddress, SmtpClient, SmtpTransport, Transport};
+use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use parking_lot::{Mutex, RwLock};

@@ -3,7 +3,7 @@
 use crate::server::client::*;
 use crate::server::database::DbError;
 
-use lettre_email::{Email, EmailBuilder};
+use lettre::{message::Mailbox, Message, SmtpTransport, Transport};
 
 fn strip_email(email: &str) -> String {
 	let check_email = email.to_ascii_lowercase();
@@ -22,52 +22,47 @@ impl Client {
 		self.client_info.stat_agent
 	}
 
-	fn send_email(&self, email_to_send: Email) -> Result<(), lettre::smtp::error::Error> {
+	fn send_email(&self, email_to_send: Message) -> Result<(), lettre::transport::smtp::Error> {
 		let (host, login, password) = self.config.read().get_email_auth();
 
-		let mut smtp_client;
+		let smtp_client;
 		if host.is_empty() {
-			smtp_client = SmtpClient::new_unencrypted_localhost()?;
+			smtp_client = SmtpTransport::unencrypted_localhost();
 		} else {
-			smtp_client = SmtpClient::new_simple(&host)?;
+			let mut smtp_client_builder = SmtpTransport::relay(&host)?;
 
 			if !login.is_empty() {
-				smtp_client = smtp_client
-					.credentials(Credentials::new(login, password))
-					.authentication_mechanism(Mechanism::Plain)
-					.hello_name(lettre::smtp::extension::ClientId::new("np.rpcs3.net".to_string()));
+				smtp_client_builder = smtp_client_builder.credentials(Credentials::new(login, password)).authentication(vec![Mechanism::Plain]).hello_name(lettre::transport::smtp::extension::ClientId::Domain("np.rpcs3.net".to_string()));
 			}
+
+			smtp_client = smtp_client_builder.build();
 		}
 
-		let mut mailer = SmtpTransport::new(smtp_client);
-
-		mailer.send(email_to_send.into())?;
+		smtp_client.send(&email_to_send)?;
 		Ok(())
 	}
 
-	fn send_token_mail(&self, email_addr: &str, npid: &str, token: &str) -> Result<(), lettre::smtp::error::Error> {
-		let email_to_send = EmailBuilder::new()
-			.to((email_addr, npid))
-			.from("np@rpcs3.net")
+	fn send_token_mail(&self, email_addr: &str, npid: &str, token: &str) -> Result<(), String> {
+		let email_to_send = Message::builder()
+			.to(Mailbox::new(Some(npid.to_owned()), email_addr.parse().map_err(|e| format!("Error parsing email({}): {}", email_addr, e) )?))
+			.from("RPCN <np@rpcs3.net>".parse().unwrap())
 			.subject("Your token for RPCN")
-			.text(format!("Your token for username {} is:\n{}", npid, token))
-			.build()
-			.unwrap();
-		self.send_email(email_to_send)
+			.header(lettre::message::header::ContentType::TEXT_PLAIN)
+			.body(format!("Your token for username {} is:\n{}", npid, token)).unwrap();
+		self.send_email(email_to_send).map_err(|e| format!("SMTP error: {}", e))
 	}
 
-	fn send_reset_token_mail(&self, email_addr: &str, npid: &str, reset_token: &str) -> Result<(), lettre::smtp::error::Error> {
-		let email_to_send = EmailBuilder::new()
-			.to((email_addr, npid))
-			.from("np@rpcs3.net")
+	fn send_reset_token_mail(&self, email_addr: &str, npid: &str, reset_token: &str) -> Result<(), String> {
+		let email_to_send = Message::builder()
+			.to(Mailbox::new(Some(npid.to_owned()), email_addr.parse().map_err(|e| format!("Error parsing email({}): {}", email_addr, e) )?))
+			.from("RPCN <np@rpcs3.net>".parse().unwrap())
 			.subject("Your password reset code for RPCN")
-			.text(format!(
+			.header(lettre::message::header::ContentType::TEXT_PLAIN)
+			.body(format!(
 				"Your password reset code for username {} is:\n{}\n\nNote that this code can only be used once!",
 				npid, reset_token
-			))
-			.build()
-			.unwrap();
-		self.send_email(email_to_send)
+			)).unwrap();
+		self.send_email(email_to_send).map_err(|e| format!("SMTP error: {}", e))
 	}
 
 	pub async fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
@@ -197,7 +192,7 @@ impl Client {
 
 		let email = email.trim().to_string();
 
-		if EmailAddress::new(email.clone()).is_err() || email.contains(' ') {
+		if email.parse::<lettre::Address>().is_err() || email.contains(' ') {
 			warn!("Invalid email provided: {}", email);
 			return Err(ErrorType::InvalidInput);
 		}
