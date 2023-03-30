@@ -542,14 +542,23 @@ impl Room {
 			}
 			final_group_list = Some(builder.create_vector(&group_list));
 		}
-		let mut final_internalbinattr = None;
-		if !self.bin_attr_internal.is_empty() {
+		let final_internalbinattr = {
 			let mut bin_list = Vec::new();
 			for bin in &self.bin_attr_internal {
 				bin_list.push(bin.to_flatbuffer(builder));
+
+				// Should we include bin attrs that haven't been set?
+				// if bin.data.cur_size != 0 {
+				// 	bin_list.push(bin.to_flatbuffer(builder));
+				// }
 			}
-			final_internalbinattr = Some(builder.create_vector(&bin_list));
-		}
+
+			if bin_list.is_empty() {
+				None
+			} else {
+				Some(builder.create_vector(&bin_list))
+			}
+		};
 
 		let mut rbuild = RoomDataInternalBuilder::new(builder);
 		rbuild.add_serverId(self.server_id);
@@ -558,16 +567,16 @@ impl Room {
 		rbuild.add_roomId(self.room_id);
 		rbuild.add_passwordSlotMask(self.password_slot_mask);
 		rbuild.add_maxSlot(self.max_slot as u32);
-		if !self.users.is_empty() {
-			rbuild.add_memberList(final_member_list.unwrap());
+		if let Some(final_member_list) = final_member_list {
+			rbuild.add_memberList(final_member_list);
 		}
 		rbuild.add_ownerId(self.owner);
-		if !self.group_config.is_empty() {
-			rbuild.add_roomGroup(final_group_list.unwrap());
+		if let Some(final_group_list) = final_group_list {
+			rbuild.add_roomGroup(final_group_list);
 		}
 		rbuild.add_flagAttr(self.flag_attr);
-		if !self.bin_attr_internal.is_empty() {
-			rbuild.add_roomBinAttrInternal(final_internalbinattr.unwrap());
+		if let Some(final_internalbinattr) = final_internalbinattr {
+			rbuild.add_roomBinAttrInternal(final_internalbinattr);
 		}
 		rbuild.finish()
 	}
@@ -819,11 +828,7 @@ impl Room {
 				let op = op.unwrap();
 
 				// Unsure if cur_size should be compared to data's size
-				let len_compare = if data.len() > self.search_bin_attr.attr.len() {
-					self.search_bin_attr.attr.len()
-				} else {
-					data.len()
-				};
+				let len_compare = std::cmp::min(data.len(), self.search_bin_attr.attr.len());
 				let equality = self.search_bin_attr.attr[0..len_compare] == data[0..len_compare];
 
 				match op {
