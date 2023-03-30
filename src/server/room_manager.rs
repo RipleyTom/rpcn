@@ -101,9 +101,16 @@ impl<const N: usize> RoomBinAttr<N> {
 }
 pub struct RoomMemberBinAttr {
 	update_date: u64,
-	data: RoomBinAttr<64>,
+	data: RoomBinAttr<128>,
 }
 impl RoomMemberBinAttr {
+	pub fn new() -> RoomMemberBinAttr {
+		RoomMemberBinAttr {
+			update_date: Client::get_psn_timestamp(),
+			data: RoomBinAttr::with_id(SCE_NP_MATCHING2_ROOMMEMBER_BIN_ATTR_INTERNAL_1_ID),
+		}
+	}
+
 	pub fn from_flatbuffer(fb: &BinAttr) -> RoomMemberBinAttr {
 		let data = RoomBinAttr::from_flatbuffer(fb);
 		RoomMemberBinAttr {
@@ -254,7 +261,7 @@ struct RoomUser {
 	flag_attr: u32,
 
 	group_id: u8,
-	member_attr: BTreeMap<u16, RoomMemberBinAttr>,
+	member_attr: RoomMemberBinAttr,
 	team_id: u8,
 
 	member_id: u16,
@@ -262,17 +269,31 @@ struct RoomUser {
 impl RoomUser {
 	pub fn from_CreateJoinRoomRequest(fb: &CreateJoinRoomRequest) -> RoomUser {
 		let group_id = 0;
-		let mut member_attr: BTreeMap<u16, RoomMemberBinAttr> = BTreeMap::new();
 
 		if let Some(_vec) = fb.joinRoomGroupLabel() {
 			// Add group to room and set id TODO
 		}
-		if let Some(vec) = fb.roomMemberBinAttrInternal() {
-			for i in 0..vec.len() {
-				let member_binattr = RoomMemberBinAttr::from_flatbuffer(&vec.get(i));
-				member_attr.insert(member_binattr.data.id, RoomMemberBinAttr::from_flatbuffer(&vec.get(i)));
+
+		let member_attr = {
+			if let Some(vec) = fb.roomMemberBinAttrInternal() {
+				if vec.len() == 1 {
+					let bin_attr = &vec.get(0);
+					if bin_attr.id() == SCE_NP_MATCHING2_ROOMMEMBER_BIN_ATTR_INTERNAL_1_ID {
+						RoomMemberBinAttr::from_flatbuffer(bin_attr)
+					} else {
+						error!("CreateJoinRoom request with unexpected id in room member bin: {}", bin_attr.id());
+						// ensure coherency
+						RoomMemberBinAttr::new()
+					}
+				} else {
+					error!("CreateJoinRoom request with {} member binary attribute(s)!", vec.len());
+					RoomMemberBinAttr::new()
+				}
+			} else {
+				RoomMemberBinAttr::new()
 			}
-		}
+		};
+
 		let team_id = fb.teamId();
 
 		RoomUser {
@@ -291,17 +312,31 @@ impl RoomUser {
 	}
 	pub fn from_JoinRoomRequest(fb: &JoinRoomRequest) -> RoomUser {
 		let group_id = 0;
-		let mut member_attr: BTreeMap<u16, RoomMemberBinAttr> = BTreeMap::new();
 
 		if let Some(_vec) = fb.joinRoomGroupLabel() {
 			// Find/Create corresponding group and set id
 		}
-		if let Some(vec) = fb.roomMemberBinAttrInternal() {
-			for i in 0..vec.len() {
-				let member_binattr = RoomMemberBinAttr::from_flatbuffer(&vec.get(i));
-				member_attr.insert(member_binattr.data.id, RoomMemberBinAttr::from_flatbuffer(&vec.get(i)));
+
+		let member_attr = {
+			if let Some(vec) = fb.roomMemberBinAttrInternal() {
+				if vec.len() == 1 {
+					let bin_attr = &vec.get(0);
+					if bin_attr.id() == SCE_NP_MATCHING2_ROOMMEMBER_BIN_ATTR_INTERNAL_1_ID {
+						RoomMemberBinAttr::from_flatbuffer(bin_attr)
+					} else {
+						error!("JoinRoom request with unexpected id in room member bin: {}", bin_attr.id());
+						// ensure coherency
+						RoomMemberBinAttr::new()
+					}
+				} else {
+					error!("JoinRoom request with {} member binary attribute(s)!", vec.len());
+					RoomMemberBinAttr::new()
+				}
+			} else {
+				RoomMemberBinAttr::new()
 			}
-		}
+		};
+
 		let team_id = fb.teamId();
 
 		RoomUser {
@@ -332,14 +367,9 @@ impl RoomUser {
 			},
 		);
 
-		let bin_attr = if !self.member_attr.is_empty() {
-			let mut bin_attrs = Vec::new();
-			for binattr in self.member_attr.values() {
-				bin_attrs.push(binattr.to_flatbuffer(builder));
-			}
+		let bin_attr = {
+			let bin_attrs = vec![self.member_attr.to_flatbuffer(builder)];
 			Some(builder.create_vector(&bin_attrs))
-		} else {
-			None
 		};
 
 		let room_group = if self.group_id != 0 {
@@ -1286,7 +1316,7 @@ impl RoomManager {
 			return Err(ErrorType::NotFound);
 		}
 
-		let new_binattr;
+		let mut new_binattr = None;
 		let target_member_id;
 		let prev_team_id;
 		{
@@ -1314,15 +1344,18 @@ impl RoomManager {
 
 			if let Some(fb_member_binattr) = req.roomMemberBinAttrInternal() {
 				let mut vec_new_binattr = Vec::new();
-				for i in 0..fb_member_binattr.len() {
-					let member_binattr = RoomMemberBinAttr::from_flatbuffer(&fb_member_binattr.get(i));
-					let member_binattr_id = member_binattr.data.id;
-					user.member_attr.insert(member_binattr_id, member_binattr);
-					vec_new_binattr.push(member_binattr_id);
+				if fb_member_binattr.len() == 1 {
+					let bin_attr = RoomMemberBinAttr::from_flatbuffer(&fb_member_binattr.get(0));
+					if bin_attr.data.id == SCE_NP_MATCHING2_ROOMMEMBER_BIN_ATTR_INTERNAL_1_ID {
+						user.member_attr = RoomMemberBinAttr::from_flatbuffer(&fb_member_binattr.get(0));
+						vec_new_binattr.push(user.member_attr.data.id);
+						new_binattr = Some(vec_new_binattr);
+					} else {
+						error!("SetRoomMemberDataInternal request with unexpected id in room member data: {}", bin_attr.data.id);
+					}
+				} else {
+					error!("SetRoomMemberDataInternal request with {} member binary attribute(s)!", fb_member_binattr.len());
 				}
-				new_binattr = Some(vec_new_binattr);
-			} else {
-				new_binattr = None;
 			}
 		}
 
