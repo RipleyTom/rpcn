@@ -5,66 +5,39 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use tokio::fs;
 
 use crate::server::client::*;
-use crate::server::database::{DbError, DbScoreInfo};
+use crate::server::database::db_score::DbScoreInfo;
+use crate::server::database::DbError;
 use crate::server::Server;
 
 const SCORE_DATA_DIRECTORY: &str = "score_data";
+const SCORE_FILE_EXTENSION: &str = "sdt";
 static SCORE_DATA_ID_DISPENSER: AtomicU64 = AtomicU64::new(1);
 
 impl Server {
 	pub fn initialize_score_data_handler() -> Result<(), String> {
-		match std::fs::create_dir(SCORE_DATA_DIRECTORY) {
-			Ok(_) => {}
-			Err(e) => match e.kind() {
-				io::ErrorKind::AlreadyExists => {}
-				other_error => {
-					return Err(format!("Failed to create score_data directory: {}", other_error));
-				}
-			},
-		}
-
-		let mut max = 0u64;
-
-		for file in std::fs::read_dir(SCORE_DATA_DIRECTORY).map_err(|e| format!("Failed to list score_data directory: {}", e))? {
-			if let Err(e) = file {
-				println!("Error reading file inside {}: {}", SCORE_DATA_DIRECTORY, e);
-				continue;
-			}
-			let file = file.unwrap();
-
-			let filename = file.file_name().into_string();
-			if filename.is_err() {
-				println!("A file inside score_data contains invalid unicode");
-				continue;
-			}
-			let filename = filename.unwrap();
-
-			let split_filename = filename.split_once('.');
-			if split_filename.is_none() {
-				println!("A file inside score_data doesn't contain a dot");
-				continue;
-			}
-			let (file_prefix, file_suffix) = split_filename.unwrap();
-
-			if file_suffix != "sdt" {
-				println!("A file in score_data is not a .sdt");
-				continue;
-			}
-
-			let r = file_prefix.parse::<u64>();
-			if r.is_err() {
-				println!("A file inside score_data doesn't have an integer filename: {}", filename);
-				continue;
-			}
-			let r = r.unwrap();
-
-			if r > max {
-				max = r;
-			}
-		}
-
-		max += 1;
+		let max = Server::create_data_directory(SCORE_DATA_DIRECTORY, SCORE_FILE_EXTENSION)?;
 		SCORE_DATA_ID_DISPENSER.store(max, Ordering::SeqCst);
+		Ok(())
+	}
+
+	pub fn clean_score_data(conn: r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+		let db = Database::new(conn);
+
+		let dir_ids_list = Server::get_ids_from_directory(SCORE_DATA_DIRECTORY, SCORE_FILE_EXTENSION)?;
+		let db_ids_list = db.score_get_all_data_ids().map_err(|_| String::from("Failure to get score data ids from database"))?;
+
+		let unused_ids = dir_ids_list.difference(&db_ids_list);
+		let mut num_deleted = 0;
+
+		for unused_id in unused_ids {
+			let filename = Client::score_id_to_path(*unused_id);
+			std::fs::remove_file(&filename).map_err(|e| format!("Failed to delete score data file({}): {}", filename, e))?;
+			num_deleted += 1;
+		}
+
+		if num_deleted != 0 {
+			println!("Deleted {} score data files", num_deleted);
+		}
 
 		Ok(())
 	}
@@ -72,7 +45,7 @@ impl Server {
 
 impl Client {
 	fn score_id_to_path(id: u64) -> String {
-		format!("{}/{:020}.sdt", SCORE_DATA_DIRECTORY, id)
+		format!("{}/{:020}.{}", SCORE_DATA_DIRECTORY, id, SCORE_FILE_EXTENSION)
 	}
 
 	async fn create_score_data_file(data: &[u8]) -> u64 {
@@ -156,14 +129,7 @@ impl Client {
 	}
 
 	pub async fn record_score(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let score_req = data.get_flatbuffer::<RecordScoreRequest>();
-
-		if data.error() || score_req.is_err() {
-			warn!("Error while extracting data from RecordScore command");
-			return Err(ErrorType::Malformed);
-		}
-		let score_req = score_req.unwrap();
+		let (com_id, score_req) = self.get_com_and_fb::<RecordScoreRequest>(data)?;
 
 		let score_infos = DbScoreInfo {
 			user_id: self.client_info.user_id,
@@ -234,19 +200,8 @@ impl Client {
 	}
 
 	pub async fn get_score_data(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let score_req = data.get_flatbuffer::<GetScoreGameDataRequest>();
-
-		if data.error() || score_req.is_err() {
-			warn!("Error while extracting data from GetScoreData command");
-			return Err(ErrorType::Malformed);
-		}
-		let score_req = score_req.unwrap();
-
-		if score_req.npId().is_none() {
-			return Ok(ErrorType::NotFound);
-		}
-		let npid = score_req.npId().unwrap();
+		let (com_id, score_req) = self.get_com_and_fb::<GetScoreGameDataRequest>(data)?;
+		let npid = Client::validate_and_unwrap(score_req.npId())?;
 
 		let db = Database::new(self.get_database_connection()?);
 		let user_id = db.get_user_id(npid);
@@ -275,15 +230,8 @@ impl Client {
 	}
 
 	pub async fn get_score_range(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let score_req = data.get_flatbuffer::<GetScoreRangeRequest>();
+		let (com_id, score_req) = self.get_com_and_fb::<GetScoreRangeRequest>(data)?;
 
-		if data.error() || score_req.is_err() {
-			warn!("Error while extracting data from GetScoreRange command");
-			return Err(ErrorType::Malformed);
-		}
-
-		let score_req = score_req.unwrap();
 		let getscore_result = self.score_cache.get_score_range(
 			&com_id,
 			score_req.boardId(),
@@ -301,15 +249,7 @@ impl Client {
 	}
 
 	pub async fn get_score_friends(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let score_req = data.get_flatbuffer::<GetScoreFriendsRequest>();
-
-		if data.error() || score_req.is_err() {
-			warn!("Error while extracting data from GetScoreFriends command");
-			return Err(ErrorType::Malformed);
-		}
-
-		let score_req = score_req.unwrap();
+		let (com_id, score_req) = self.get_com_and_fb::<GetScoreFriendsRequest>(data)?;
 
 		let mut id_vec = Vec::new();
 
@@ -323,7 +263,7 @@ impl Client {
 			self_ci.friends.clone()
 		};
 
-		friends.iter().for_each(|user_id| id_vec.push((*user_id, 0)));
+		friends.iter().for_each(|(user_id, _)| id_vec.push((*user_id, 0)));
 		id_vec.truncate(score_req.max() as usize);
 
 		let getscore_result = self.score_cache.get_score_ids(&com_id, score_req.boardId(), &id_vec, score_req.withComment(), score_req.withGameInfo());
@@ -336,15 +276,7 @@ impl Client {
 	}
 
 	pub async fn get_score_npid(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let score_req = data.get_flatbuffer::<GetScoreNpIdRequest>();
-
-		if data.error() || score_req.is_err() {
-			warn!("Error while extracting data from GetScoreNpid command");
-			return Err(ErrorType::Malformed);
-		}
-
-		let score_req = score_req.unwrap();
+		let (com_id, score_req) = self.get_com_and_fb::<GetScoreNpIdRequest>(data)?;
 
 		let db = Database::new(self.get_database_connection()?);
 

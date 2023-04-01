@@ -6663,3 +6663,2363 @@ impl core::fmt::Debug for GetScoreGameDataRequest<'_> {
       ds.finish()
   }
 }
+pub enum TusUserOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusUser<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusUser<'a> {
+  type Inner = TusUser<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusUser<'a> {
+  pub const VT_VUSER: flatbuffers::VOffsetT = 4;
+  pub const VT_NPID: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusUser { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusUserArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusUser<'bldr>> {
+    let mut builder = TusUserBuilder::new(_fbb);
+    if let Some(x) = args.npid { builder.add_npid(x); }
+    builder.add_vuser(args.vuser);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn vuser(&self) -> bool {
+    self._tab.get::<bool>(TusUser::VT_VUSER, Some(false)).unwrap()
+  }
+  #[inline]
+  pub fn npid(&self) -> Option<&'a str> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusUser::VT_NPID, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusUser<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<bool>("vuser", Self::VT_VUSER, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("npid", Self::VT_NPID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusUserArgs<'a> {
+    pub vuser: bool,
+    pub npid: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for TusUserArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusUserArgs {
+      vuser: false,
+      npid: None,
+    }
+  }
+}
+
+pub struct TusUserBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusUserBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_vuser(&mut self, vuser: bool) {
+    self.fbb_.push_slot::<bool>(TusUser::VT_VUSER, vuser, false);
+  }
+  #[inline]
+  pub fn add_npid(&mut self, npid: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusUser::VT_NPID, npid);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusUserBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusUserBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusUser<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusUser<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusUser");
+      ds.field("vuser", &self.vuser());
+      ds.field("npid", &self.npid());
+      ds.finish()
+  }
+}
+pub enum TusVariableOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusVariable<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusVariable<'a> {
+  type Inner = TusVariable<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusVariable<'a> {
+  pub const VT_OWNERID: flatbuffers::VOffsetT = 4;
+  pub const VT_HASDATA: flatbuffers::VOffsetT = 6;
+  pub const VT_LASTCHANGEDDATE: flatbuffers::VOffsetT = 8;
+  pub const VT_LASTCHANGEDAUTHORID: flatbuffers::VOffsetT = 10;
+  pub const VT_VARIABLE: flatbuffers::VOffsetT = 12;
+  pub const VT_OLDVARIABLE: flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusVariable { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusVariableArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusVariable<'bldr>> {
+    let mut builder = TusVariableBuilder::new(_fbb);
+    builder.add_oldVariable(args.oldVariable);
+    builder.add_variable(args.variable);
+    builder.add_lastChangedDate(args.lastChangedDate);
+    if let Some(x) = args.lastChangedAuthorId { builder.add_lastChangedAuthorId(x); }
+    if let Some(x) = args.ownerId { builder.add_ownerId(x); }
+    builder.add_hasData(args.hasData);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn ownerId(&self) -> Option<&'a str> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusVariable::VT_OWNERID, None)
+  }
+  #[inline]
+  pub fn hasData(&self) -> bool {
+    self._tab.get::<bool>(TusVariable::VT_HASDATA, Some(false)).unwrap()
+  }
+  #[inline]
+  pub fn lastChangedDate(&self) -> u64 {
+    self._tab.get::<u64>(TusVariable::VT_LASTCHANGEDDATE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn lastChangedAuthorId(&self) -> Option<&'a str> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusVariable::VT_LASTCHANGEDAUTHORID, None)
+  }
+  #[inline]
+  pub fn variable(&self) -> i64 {
+    self._tab.get::<i64>(TusVariable::VT_VARIABLE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn oldVariable(&self) -> i64 {
+    self._tab.get::<i64>(TusVariable::VT_OLDVARIABLE, Some(0)).unwrap()
+  }
+}
+
+impl flatbuffers::Verifiable for TusVariable<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("ownerId", Self::VT_OWNERID, false)?
+     .visit_field::<bool>("hasData", Self::VT_HASDATA, false)?
+     .visit_field::<u64>("lastChangedDate", Self::VT_LASTCHANGEDDATE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("lastChangedAuthorId", Self::VT_LASTCHANGEDAUTHORID, false)?
+     .visit_field::<i64>("variable", Self::VT_VARIABLE, false)?
+     .visit_field::<i64>("oldVariable", Self::VT_OLDVARIABLE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusVariableArgs<'a> {
+    pub ownerId: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub hasData: bool,
+    pub lastChangedDate: u64,
+    pub lastChangedAuthorId: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub variable: i64,
+    pub oldVariable: i64,
+}
+impl<'a> Default for TusVariableArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusVariableArgs {
+      ownerId: None,
+      hasData: false,
+      lastChangedDate: 0,
+      lastChangedAuthorId: None,
+      variable: 0,
+      oldVariable: 0,
+    }
+  }
+}
+
+pub struct TusVariableBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusVariableBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_ownerId(&mut self, ownerId: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusVariable::VT_OWNERID, ownerId);
+  }
+  #[inline]
+  pub fn add_hasData(&mut self, hasData: bool) {
+    self.fbb_.push_slot::<bool>(TusVariable::VT_HASDATA, hasData, false);
+  }
+  #[inline]
+  pub fn add_lastChangedDate(&mut self, lastChangedDate: u64) {
+    self.fbb_.push_slot::<u64>(TusVariable::VT_LASTCHANGEDDATE, lastChangedDate, 0);
+  }
+  #[inline]
+  pub fn add_lastChangedAuthorId(&mut self, lastChangedAuthorId: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusVariable::VT_LASTCHANGEDAUTHORID, lastChangedAuthorId);
+  }
+  #[inline]
+  pub fn add_variable(&mut self, variable: i64) {
+    self.fbb_.push_slot::<i64>(TusVariable::VT_VARIABLE, variable, 0);
+  }
+  #[inline]
+  pub fn add_oldVariable(&mut self, oldVariable: i64) {
+    self.fbb_.push_slot::<i64>(TusVariable::VT_OLDVARIABLE, oldVariable, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusVariableBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusVariableBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusVariable<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusVariable<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusVariable");
+      ds.field("ownerId", &self.ownerId());
+      ds.field("hasData", &self.hasData());
+      ds.field("lastChangedDate", &self.lastChangedDate());
+      ds.field("lastChangedAuthorId", &self.lastChangedAuthorId());
+      ds.field("variable", &self.variable());
+      ds.field("oldVariable", &self.oldVariable());
+      ds.finish()
+  }
+}
+pub enum TusVarResponseOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusVarResponse<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusVarResponse<'a> {
+  type Inner = TusVarResponse<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusVarResponse<'a> {
+  pub const VT_VARS: flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusVarResponse { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusVarResponseArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusVarResponse<'bldr>> {
+    let mut builder = TusVarResponseBuilder::new(_fbb);
+    if let Some(x) = args.vars { builder.add_vars(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn vars(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusVariable<'a>>>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusVariable>>>>(TusVarResponse::VT_VARS, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusVarResponse<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<TusVariable>>>>("vars", Self::VT_VARS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusVarResponseArgs<'a> {
+    pub vars: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusVariable<'a>>>>>,
+}
+impl<'a> Default for TusVarResponseArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusVarResponseArgs {
+      vars: None,
+    }
+  }
+}
+
+pub struct TusVarResponseBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusVarResponseBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_vars(&mut self, vars: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<TusVariable<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusVarResponse::VT_VARS, vars);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusVarResponseBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusVarResponseBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusVarResponse<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusVarResponse<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusVarResponse");
+      ds.field("vars", &self.vars());
+      ds.finish()
+  }
+}
+pub enum TusSetMultiSlotVariableRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusSetMultiSlotVariableRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusSetMultiSlotVariableRequest<'a> {
+  type Inner = TusSetMultiSlotVariableRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusSetMultiSlotVariableRequest<'a> {
+  pub const VT_USER: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTIDARRAY: flatbuffers::VOffsetT = 6;
+  pub const VT_VARIABLEARRAY: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusSetMultiSlotVariableRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusSetMultiSlotVariableRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusSetMultiSlotVariableRequest<'bldr>> {
+    let mut builder = TusSetMultiSlotVariableRequestBuilder::new(_fbb);
+    if let Some(x) = args.variableArray { builder.add_variableArray(x); }
+    if let Some(x) = args.slotIdArray { builder.add_slotIdArray(x); }
+    if let Some(x) = args.user { builder.add_user(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn user(&self) -> Option<TusUser<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusSetMultiSlotVariableRequest::VT_USER, None)
+  }
+  #[inline]
+  pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusSetMultiSlotVariableRequest::VT_SLOTIDARRAY, None)
+  }
+  #[inline]
+  pub fn variableArray(&self) -> Option<flatbuffers::Vector<'a, i64>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i64>>>(TusSetMultiSlotVariableRequest::VT_VARIABLEARRAY, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusSetMultiSlotVariableRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusUser>>("user", Self::VT_USER, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i32>>>("slotIdArray", Self::VT_SLOTIDARRAY, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i64>>>("variableArray", Self::VT_VARIABLEARRAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusSetMultiSlotVariableRequestArgs<'a> {
+    pub user: Option<flatbuffers::WIPOffset<TusUser<'a>>>,
+    pub slotIdArray: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i32>>>,
+    pub variableArray: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i64>>>,
+}
+impl<'a> Default for TusSetMultiSlotVariableRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusSetMultiSlotVariableRequestArgs {
+      user: None,
+      slotIdArray: None,
+      variableArray: None,
+    }
+  }
+}
+
+pub struct TusSetMultiSlotVariableRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusSetMultiSlotVariableRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusSetMultiSlotVariableRequest::VT_USER, user);
+  }
+  #[inline]
+  pub fn add_slotIdArray(&mut self, slotIdArray: flatbuffers::WIPOffset<flatbuffers::Vector<'b , i32>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusSetMultiSlotVariableRequest::VT_SLOTIDARRAY, slotIdArray);
+  }
+  #[inline]
+  pub fn add_variableArray(&mut self, variableArray: flatbuffers::WIPOffset<flatbuffers::Vector<'b , i64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusSetMultiSlotVariableRequest::VT_VARIABLEARRAY, variableArray);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusSetMultiSlotVariableRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusSetMultiSlotVariableRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusSetMultiSlotVariableRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusSetMultiSlotVariableRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusSetMultiSlotVariableRequest");
+      ds.field("user", &self.user());
+      ds.field("slotIdArray", &self.slotIdArray());
+      ds.field("variableArray", &self.variableArray());
+      ds.finish()
+  }
+}
+pub enum TusGetMultiSlotVariableRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusGetMultiSlotVariableRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusGetMultiSlotVariableRequest<'a> {
+  type Inner = TusGetMultiSlotVariableRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusGetMultiSlotVariableRequest<'a> {
+  pub const VT_USER: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTIDARRAY: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusGetMultiSlotVariableRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusGetMultiSlotVariableRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusGetMultiSlotVariableRequest<'bldr>> {
+    let mut builder = TusGetMultiSlotVariableRequestBuilder::new(_fbb);
+    if let Some(x) = args.slotIdArray { builder.add_slotIdArray(x); }
+    if let Some(x) = args.user { builder.add_user(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn user(&self) -> Option<TusUser<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusGetMultiSlotVariableRequest::VT_USER, None)
+  }
+  #[inline]
+  pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusGetMultiSlotVariableRequest::VT_SLOTIDARRAY, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusGetMultiSlotVariableRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusUser>>("user", Self::VT_USER, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i32>>>("slotIdArray", Self::VT_SLOTIDARRAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusGetMultiSlotVariableRequestArgs<'a> {
+    pub user: Option<flatbuffers::WIPOffset<TusUser<'a>>>,
+    pub slotIdArray: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i32>>>,
+}
+impl<'a> Default for TusGetMultiSlotVariableRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusGetMultiSlotVariableRequestArgs {
+      user: None,
+      slotIdArray: None,
+    }
+  }
+}
+
+pub struct TusGetMultiSlotVariableRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusGetMultiSlotVariableRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusGetMultiSlotVariableRequest::VT_USER, user);
+  }
+  #[inline]
+  pub fn add_slotIdArray(&mut self, slotIdArray: flatbuffers::WIPOffset<flatbuffers::Vector<'b , i32>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusGetMultiSlotVariableRequest::VT_SLOTIDARRAY, slotIdArray);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetMultiSlotVariableRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusGetMultiSlotVariableRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusGetMultiSlotVariableRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusGetMultiSlotVariableRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusGetMultiSlotVariableRequest");
+      ds.field("user", &self.user());
+      ds.field("slotIdArray", &self.slotIdArray());
+      ds.finish()
+  }
+}
+pub enum TusGetMultiUserVariableRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusGetMultiUserVariableRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusGetMultiUserVariableRequest<'a> {
+  type Inner = TusGetMultiUserVariableRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusGetMultiUserVariableRequest<'a> {
+  pub const VT_USERS: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTID: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusGetMultiUserVariableRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusGetMultiUserVariableRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusGetMultiUserVariableRequest<'bldr>> {
+    let mut builder = TusGetMultiUserVariableRequestBuilder::new(_fbb);
+    builder.add_slotId(args.slotId);
+    if let Some(x) = args.users { builder.add_users(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn users(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser<'a>>>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser>>>>(TusGetMultiUserVariableRequest::VT_USERS, None)
+  }
+  #[inline]
+  pub fn slotId(&self) -> i32 {
+    self._tab.get::<i32>(TusGetMultiUserVariableRequest::VT_SLOTID, Some(0)).unwrap()
+  }
+}
+
+impl flatbuffers::Verifiable for TusGetMultiUserVariableRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<TusUser>>>>("users", Self::VT_USERS, false)?
+     .visit_field::<i32>("slotId", Self::VT_SLOTID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusGetMultiUserVariableRequestArgs<'a> {
+    pub users: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser<'a>>>>>,
+    pub slotId: i32,
+}
+impl<'a> Default for TusGetMultiUserVariableRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusGetMultiUserVariableRequestArgs {
+      users: None,
+      slotId: 0,
+    }
+  }
+}
+
+pub struct TusGetMultiUserVariableRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusGetMultiUserVariableRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_users(&mut self, users: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<TusUser<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusGetMultiUserVariableRequest::VT_USERS, users);
+  }
+  #[inline]
+  pub fn add_slotId(&mut self, slotId: i32) {
+    self.fbb_.push_slot::<i32>(TusGetMultiUserVariableRequest::VT_SLOTID, slotId, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetMultiUserVariableRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusGetMultiUserVariableRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusGetMultiUserVariableRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusGetMultiUserVariableRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusGetMultiUserVariableRequest");
+      ds.field("users", &self.users());
+      ds.field("slotId", &self.slotId());
+      ds.finish()
+  }
+}
+pub enum TusGetFriendsVariableRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusGetFriendsVariableRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusGetFriendsVariableRequest<'a> {
+  type Inner = TusGetFriendsVariableRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusGetFriendsVariableRequest<'a> {
+  pub const VT_SLOTID: flatbuffers::VOffsetT = 4;
+  pub const VT_INCLUDESELF: flatbuffers::VOffsetT = 6;
+  pub const VT_SORTTYPE: flatbuffers::VOffsetT = 8;
+  pub const VT_ARRAYNUM: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusGetFriendsVariableRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusGetFriendsVariableRequestArgs
+  ) -> flatbuffers::WIPOffset<TusGetFriendsVariableRequest<'bldr>> {
+    let mut builder = TusGetFriendsVariableRequestBuilder::new(_fbb);
+    builder.add_arrayNum(args.arrayNum);
+    builder.add_sortType(args.sortType);
+    builder.add_slotId(args.slotId);
+    builder.add_includeSelf(args.includeSelf);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn slotId(&self) -> i32 {
+    self._tab.get::<i32>(TusGetFriendsVariableRequest::VT_SLOTID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn includeSelf(&self) -> bool {
+    self._tab.get::<bool>(TusGetFriendsVariableRequest::VT_INCLUDESELF, Some(false)).unwrap()
+  }
+  #[inline]
+  pub fn sortType(&self) -> i32 {
+    self._tab.get::<i32>(TusGetFriendsVariableRequest::VT_SORTTYPE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn arrayNum(&self) -> u32 {
+    self._tab.get::<u32>(TusGetFriendsVariableRequest::VT_ARRAYNUM, Some(0)).unwrap()
+  }
+}
+
+impl flatbuffers::Verifiable for TusGetFriendsVariableRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<i32>("slotId", Self::VT_SLOTID, false)?
+     .visit_field::<bool>("includeSelf", Self::VT_INCLUDESELF, false)?
+     .visit_field::<i32>("sortType", Self::VT_SORTTYPE, false)?
+     .visit_field::<u32>("arrayNum", Self::VT_ARRAYNUM, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusGetFriendsVariableRequestArgs {
+    pub slotId: i32,
+    pub includeSelf: bool,
+    pub sortType: i32,
+    pub arrayNum: u32,
+}
+impl<'a> Default for TusGetFriendsVariableRequestArgs {
+  #[inline]
+  fn default() -> Self {
+    TusGetFriendsVariableRequestArgs {
+      slotId: 0,
+      includeSelf: false,
+      sortType: 0,
+      arrayNum: 0,
+    }
+  }
+}
+
+pub struct TusGetFriendsVariableRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusGetFriendsVariableRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_slotId(&mut self, slotId: i32) {
+    self.fbb_.push_slot::<i32>(TusGetFriendsVariableRequest::VT_SLOTID, slotId, 0);
+  }
+  #[inline]
+  pub fn add_includeSelf(&mut self, includeSelf: bool) {
+    self.fbb_.push_slot::<bool>(TusGetFriendsVariableRequest::VT_INCLUDESELF, includeSelf, false);
+  }
+  #[inline]
+  pub fn add_sortType(&mut self, sortType: i32) {
+    self.fbb_.push_slot::<i32>(TusGetFriendsVariableRequest::VT_SORTTYPE, sortType, 0);
+  }
+  #[inline]
+  pub fn add_arrayNum(&mut self, arrayNum: u32) {
+    self.fbb_.push_slot::<u32>(TusGetFriendsVariableRequest::VT_ARRAYNUM, arrayNum, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetFriendsVariableRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusGetFriendsVariableRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusGetFriendsVariableRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusGetFriendsVariableRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusGetFriendsVariableRequest");
+      ds.field("slotId", &self.slotId());
+      ds.field("includeSelf", &self.includeSelf());
+      ds.field("sortType", &self.sortType());
+      ds.field("arrayNum", &self.arrayNum());
+      ds.finish()
+  }
+}
+pub enum TusAddAndGetVariableRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusAddAndGetVariableRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusAddAndGetVariableRequest<'a> {
+  type Inner = TusAddAndGetVariableRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusAddAndGetVariableRequest<'a> {
+  pub const VT_USER: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTID: flatbuffers::VOffsetT = 6;
+  pub const VT_INVARIABLE: flatbuffers::VOffsetT = 8;
+  pub const VT_ISLASTCHANGEDDATE: flatbuffers::VOffsetT = 10;
+  pub const VT_ISLASTCHANGEDAUTHORID: flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusAddAndGetVariableRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusAddAndGetVariableRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusAddAndGetVariableRequest<'bldr>> {
+    let mut builder = TusAddAndGetVariableRequestBuilder::new(_fbb);
+    builder.add_inVariable(args.inVariable);
+    if let Some(x) = args.isLastChangedAuthorId { builder.add_isLastChangedAuthorId(x); }
+    if let Some(x) = args.isLastChangedDate { builder.add_isLastChangedDate(x); }
+    builder.add_slotId(args.slotId);
+    if let Some(x) = args.user { builder.add_user(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn user(&self) -> Option<TusUser<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusAddAndGetVariableRequest::VT_USER, None)
+  }
+  #[inline]
+  pub fn slotId(&self) -> i32 {
+    self._tab.get::<i32>(TusAddAndGetVariableRequest::VT_SLOTID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn inVariable(&self) -> i64 {
+    self._tab.get::<i64>(TusAddAndGetVariableRequest::VT_INVARIABLE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn isLastChangedDate(&self) -> Option<flatbuffers::Vector<'a, u64>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(TusAddAndGetVariableRequest::VT_ISLASTCHANGEDDATE, None)
+  }
+  #[inline]
+  pub fn isLastChangedAuthorId(&self) -> Option<&'a str> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusAddAndGetVariableRequest::VT_ISLASTCHANGEDAUTHORID, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusAddAndGetVariableRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusUser>>("user", Self::VT_USER, false)?
+     .visit_field::<i32>("slotId", Self::VT_SLOTID, false)?
+     .visit_field::<i64>("inVariable", Self::VT_INVARIABLE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>("isLastChangedDate", Self::VT_ISLASTCHANGEDDATE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("isLastChangedAuthorId", Self::VT_ISLASTCHANGEDAUTHORID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusAddAndGetVariableRequestArgs<'a> {
+    pub user: Option<flatbuffers::WIPOffset<TusUser<'a>>>,
+    pub slotId: i32,
+    pub inVariable: i64,
+    pub isLastChangedDate: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+    pub isLastChangedAuthorId: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for TusAddAndGetVariableRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusAddAndGetVariableRequestArgs {
+      user: None,
+      slotId: 0,
+      inVariable: 0,
+      isLastChangedDate: None,
+      isLastChangedAuthorId: None,
+    }
+  }
+}
+
+pub struct TusAddAndGetVariableRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusAddAndGetVariableRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusAddAndGetVariableRequest::VT_USER, user);
+  }
+  #[inline]
+  pub fn add_slotId(&mut self, slotId: i32) {
+    self.fbb_.push_slot::<i32>(TusAddAndGetVariableRequest::VT_SLOTID, slotId, 0);
+  }
+  #[inline]
+  pub fn add_inVariable(&mut self, inVariable: i64) {
+    self.fbb_.push_slot::<i64>(TusAddAndGetVariableRequest::VT_INVARIABLE, inVariable, 0);
+  }
+  #[inline]
+  pub fn add_isLastChangedDate(&mut self, isLastChangedDate: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusAddAndGetVariableRequest::VT_ISLASTCHANGEDDATE, isLastChangedDate);
+  }
+  #[inline]
+  pub fn add_isLastChangedAuthorId(&mut self, isLastChangedAuthorId: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusAddAndGetVariableRequest::VT_ISLASTCHANGEDAUTHORID, isLastChangedAuthorId);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusAddAndGetVariableRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusAddAndGetVariableRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusAddAndGetVariableRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusAddAndGetVariableRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusAddAndGetVariableRequest");
+      ds.field("user", &self.user());
+      ds.field("slotId", &self.slotId());
+      ds.field("inVariable", &self.inVariable());
+      ds.field("isLastChangedDate", &self.isLastChangedDate());
+      ds.field("isLastChangedAuthorId", &self.isLastChangedAuthorId());
+      ds.finish()
+  }
+}
+pub enum TusTryAndSetVariableRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusTryAndSetVariableRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusTryAndSetVariableRequest<'a> {
+  type Inner = TusTryAndSetVariableRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusTryAndSetVariableRequest<'a> {
+  pub const VT_USER: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTID: flatbuffers::VOffsetT = 6;
+  pub const VT_OPETYPE: flatbuffers::VOffsetT = 8;
+  pub const VT_VARIABLE: flatbuffers::VOffsetT = 10;
+  pub const VT_ISLASTCHANGEDDATE: flatbuffers::VOffsetT = 12;
+  pub const VT_ISLASTCHANGEDAUTHORID: flatbuffers::VOffsetT = 14;
+  pub const VT_COMPAREVALUE: flatbuffers::VOffsetT = 16;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusTryAndSetVariableRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusTryAndSetVariableRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusTryAndSetVariableRequest<'bldr>> {
+    let mut builder = TusTryAndSetVariableRequestBuilder::new(_fbb);
+    builder.add_variable(args.variable);
+    if let Some(x) = args.compareValue { builder.add_compareValue(x); }
+    if let Some(x) = args.isLastChangedAuthorId { builder.add_isLastChangedAuthorId(x); }
+    if let Some(x) = args.isLastChangedDate { builder.add_isLastChangedDate(x); }
+    builder.add_opeType(args.opeType);
+    builder.add_slotId(args.slotId);
+    if let Some(x) = args.user { builder.add_user(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn user(&self) -> Option<TusUser<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusTryAndSetVariableRequest::VT_USER, None)
+  }
+  #[inline]
+  pub fn slotId(&self) -> i32 {
+    self._tab.get::<i32>(TusTryAndSetVariableRequest::VT_SLOTID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn opeType(&self) -> i32 {
+    self._tab.get::<i32>(TusTryAndSetVariableRequest::VT_OPETYPE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn variable(&self) -> i64 {
+    self._tab.get::<i64>(TusTryAndSetVariableRequest::VT_VARIABLE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn isLastChangedDate(&self) -> Option<flatbuffers::Vector<'a, u64>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(TusTryAndSetVariableRequest::VT_ISLASTCHANGEDDATE, None)
+  }
+  #[inline]
+  pub fn isLastChangedAuthorId(&self) -> Option<&'a str> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusTryAndSetVariableRequest::VT_ISLASTCHANGEDAUTHORID, None)
+  }
+  #[inline]
+  pub fn compareValue(&self) -> Option<flatbuffers::Vector<'a, i64>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i64>>>(TusTryAndSetVariableRequest::VT_COMPAREVALUE, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusTryAndSetVariableRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusUser>>("user", Self::VT_USER, false)?
+     .visit_field::<i32>("slotId", Self::VT_SLOTID, false)?
+     .visit_field::<i32>("opeType", Self::VT_OPETYPE, false)?
+     .visit_field::<i64>("variable", Self::VT_VARIABLE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>("isLastChangedDate", Self::VT_ISLASTCHANGEDDATE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("isLastChangedAuthorId", Self::VT_ISLASTCHANGEDAUTHORID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i64>>>("compareValue", Self::VT_COMPAREVALUE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusTryAndSetVariableRequestArgs<'a> {
+    pub user: Option<flatbuffers::WIPOffset<TusUser<'a>>>,
+    pub slotId: i32,
+    pub opeType: i32,
+    pub variable: i64,
+    pub isLastChangedDate: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+    pub isLastChangedAuthorId: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub compareValue: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i64>>>,
+}
+impl<'a> Default for TusTryAndSetVariableRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusTryAndSetVariableRequestArgs {
+      user: None,
+      slotId: 0,
+      opeType: 0,
+      variable: 0,
+      isLastChangedDate: None,
+      isLastChangedAuthorId: None,
+      compareValue: None,
+    }
+  }
+}
+
+pub struct TusTryAndSetVariableRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusTryAndSetVariableRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusTryAndSetVariableRequest::VT_USER, user);
+  }
+  #[inline]
+  pub fn add_slotId(&mut self, slotId: i32) {
+    self.fbb_.push_slot::<i32>(TusTryAndSetVariableRequest::VT_SLOTID, slotId, 0);
+  }
+  #[inline]
+  pub fn add_opeType(&mut self, opeType: i32) {
+    self.fbb_.push_slot::<i32>(TusTryAndSetVariableRequest::VT_OPETYPE, opeType, 0);
+  }
+  #[inline]
+  pub fn add_variable(&mut self, variable: i64) {
+    self.fbb_.push_slot::<i64>(TusTryAndSetVariableRequest::VT_VARIABLE, variable, 0);
+  }
+  #[inline]
+  pub fn add_isLastChangedDate(&mut self, isLastChangedDate: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusTryAndSetVariableRequest::VT_ISLASTCHANGEDDATE, isLastChangedDate);
+  }
+  #[inline]
+  pub fn add_isLastChangedAuthorId(&mut self, isLastChangedAuthorId: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusTryAndSetVariableRequest::VT_ISLASTCHANGEDAUTHORID, isLastChangedAuthorId);
+  }
+  #[inline]
+  pub fn add_compareValue(&mut self, compareValue: flatbuffers::WIPOffset<flatbuffers::Vector<'b , i64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusTryAndSetVariableRequest::VT_COMPAREVALUE, compareValue);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusTryAndSetVariableRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusTryAndSetVariableRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusTryAndSetVariableRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusTryAndSetVariableRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusTryAndSetVariableRequest");
+      ds.field("user", &self.user());
+      ds.field("slotId", &self.slotId());
+      ds.field("opeType", &self.opeType());
+      ds.field("variable", &self.variable());
+      ds.field("isLastChangedDate", &self.isLastChangedDate());
+      ds.field("isLastChangedAuthorId", &self.isLastChangedAuthorId());
+      ds.field("compareValue", &self.compareValue());
+      ds.finish()
+  }
+}
+pub enum TusDeleteMultiSlotVariableRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusDeleteMultiSlotVariableRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusDeleteMultiSlotVariableRequest<'a> {
+  type Inner = TusDeleteMultiSlotVariableRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusDeleteMultiSlotVariableRequest<'a> {
+  pub const VT_USER: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTIDARRAY: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusDeleteMultiSlotVariableRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusDeleteMultiSlotVariableRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusDeleteMultiSlotVariableRequest<'bldr>> {
+    let mut builder = TusDeleteMultiSlotVariableRequestBuilder::new(_fbb);
+    if let Some(x) = args.slotIdArray { builder.add_slotIdArray(x); }
+    if let Some(x) = args.user { builder.add_user(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn user(&self) -> Option<TusUser<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusDeleteMultiSlotVariableRequest::VT_USER, None)
+  }
+  #[inline]
+  pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusDeleteMultiSlotVariableRequest::VT_SLOTIDARRAY, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusDeleteMultiSlotVariableRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusUser>>("user", Self::VT_USER, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i32>>>("slotIdArray", Self::VT_SLOTIDARRAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusDeleteMultiSlotVariableRequestArgs<'a> {
+    pub user: Option<flatbuffers::WIPOffset<TusUser<'a>>>,
+    pub slotIdArray: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i32>>>,
+}
+impl<'a> Default for TusDeleteMultiSlotVariableRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusDeleteMultiSlotVariableRequestArgs {
+      user: None,
+      slotIdArray: None,
+    }
+  }
+}
+
+pub struct TusDeleteMultiSlotVariableRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusDeleteMultiSlotVariableRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusDeleteMultiSlotVariableRequest::VT_USER, user);
+  }
+  #[inline]
+  pub fn add_slotIdArray(&mut self, slotIdArray: flatbuffers::WIPOffset<flatbuffers::Vector<'b , i32>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDeleteMultiSlotVariableRequest::VT_SLOTIDARRAY, slotIdArray);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDeleteMultiSlotVariableRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusDeleteMultiSlotVariableRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusDeleteMultiSlotVariableRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusDeleteMultiSlotVariableRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusDeleteMultiSlotVariableRequest");
+      ds.field("user", &self.user());
+      ds.field("slotIdArray", &self.slotIdArray());
+      ds.finish()
+  }
+}
+pub enum TusSetDataRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusSetDataRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusSetDataRequest<'a> {
+  type Inner = TusSetDataRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusSetDataRequest<'a> {
+  pub const VT_USER: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTID: flatbuffers::VOffsetT = 6;
+  pub const VT_DATA: flatbuffers::VOffsetT = 8;
+  pub const VT_INFO: flatbuffers::VOffsetT = 10;
+  pub const VT_ISLASTCHANGEDDATE: flatbuffers::VOffsetT = 12;
+  pub const VT_ISLASTCHANGEDAUTHORID: flatbuffers::VOffsetT = 14;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusSetDataRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusSetDataRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusSetDataRequest<'bldr>> {
+    let mut builder = TusSetDataRequestBuilder::new(_fbb);
+    if let Some(x) = args.isLastChangedAuthorId { builder.add_isLastChangedAuthorId(x); }
+    if let Some(x) = args.isLastChangedDate { builder.add_isLastChangedDate(x); }
+    if let Some(x) = args.info { builder.add_info(x); }
+    if let Some(x) = args.data { builder.add_data(x); }
+    builder.add_slotId(args.slotId);
+    if let Some(x) = args.user { builder.add_user(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn user(&self) -> Option<TusUser<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusSetDataRequest::VT_USER, None)
+  }
+  #[inline]
+  pub fn slotId(&self) -> i32 {
+    self._tab.get::<i32>(TusSetDataRequest::VT_SLOTID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn data(&self) -> Option<&'a [u8]> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusSetDataRequest::VT_DATA, None).map(|v| v.safe_slice())
+  }
+  #[inline]
+  pub fn info(&self) -> Option<&'a [u8]> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusSetDataRequest::VT_INFO, None).map(|v| v.safe_slice())
+  }
+  #[inline]
+  pub fn isLastChangedDate(&self) -> Option<flatbuffers::Vector<'a, u64>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(TusSetDataRequest::VT_ISLASTCHANGEDDATE, None)
+  }
+  #[inline]
+  pub fn isLastChangedAuthorId(&self) -> Option<&'a str> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusSetDataRequest::VT_ISLASTCHANGEDAUTHORID, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusSetDataRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusUser>>("user", Self::VT_USER, false)?
+     .visit_field::<i32>("slotId", Self::VT_SLOTID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("data", Self::VT_DATA, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("info", Self::VT_INFO, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>("isLastChangedDate", Self::VT_ISLASTCHANGEDDATE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("isLastChangedAuthorId", Self::VT_ISLASTCHANGEDAUTHORID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusSetDataRequestArgs<'a> {
+    pub user: Option<flatbuffers::WIPOffset<TusUser<'a>>>,
+    pub slotId: i32,
+    pub data: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+    pub info: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+    pub isLastChangedDate: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
+    pub isLastChangedAuthorId: Option<flatbuffers::WIPOffset<&'a str>>,
+}
+impl<'a> Default for TusSetDataRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusSetDataRequestArgs {
+      user: None,
+      slotId: 0,
+      data: None,
+      info: None,
+      isLastChangedDate: None,
+      isLastChangedAuthorId: None,
+    }
+  }
+}
+
+pub struct TusSetDataRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusSetDataRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusSetDataRequest::VT_USER, user);
+  }
+  #[inline]
+  pub fn add_slotId(&mut self, slotId: i32) {
+    self.fbb_.push_slot::<i32>(TusSetDataRequest::VT_SLOTID, slotId, 0);
+  }
+  #[inline]
+  pub fn add_data(&mut self, data: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusSetDataRequest::VT_DATA, data);
+  }
+  #[inline]
+  pub fn add_info(&mut self, info: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusSetDataRequest::VT_INFO, info);
+  }
+  #[inline]
+  pub fn add_isLastChangedDate(&mut self, isLastChangedDate: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusSetDataRequest::VT_ISLASTCHANGEDDATE, isLastChangedDate);
+  }
+  #[inline]
+  pub fn add_isLastChangedAuthorId(&mut self, isLastChangedAuthorId: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusSetDataRequest::VT_ISLASTCHANGEDAUTHORID, isLastChangedAuthorId);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusSetDataRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusSetDataRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusSetDataRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusSetDataRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusSetDataRequest");
+      ds.field("user", &self.user());
+      ds.field("slotId", &self.slotId());
+      ds.field("data", &self.data());
+      ds.field("info", &self.info());
+      ds.field("isLastChangedDate", &self.isLastChangedDate());
+      ds.field("isLastChangedAuthorId", &self.isLastChangedAuthorId());
+      ds.finish()
+  }
+}
+pub enum TusDataStatusOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusDataStatus<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusDataStatus<'a> {
+  type Inner = TusDataStatus<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusDataStatus<'a> {
+  pub const VT_OWNERID: flatbuffers::VOffsetT = 4;
+  pub const VT_HASDATA: flatbuffers::VOffsetT = 6;
+  pub const VT_LASTCHANGEDDATE: flatbuffers::VOffsetT = 8;
+  pub const VT_LASTCHANGEDAUTHORID: flatbuffers::VOffsetT = 10;
+  pub const VT_INFO: flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusDataStatus { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusDataStatusArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusDataStatus<'bldr>> {
+    let mut builder = TusDataStatusBuilder::new(_fbb);
+    builder.add_lastChangedDate(args.lastChangedDate);
+    if let Some(x) = args.info { builder.add_info(x); }
+    if let Some(x) = args.lastChangedAuthorId { builder.add_lastChangedAuthorId(x); }
+    if let Some(x) = args.ownerId { builder.add_ownerId(x); }
+    builder.add_hasData(args.hasData);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn ownerId(&self) -> Option<&'a str> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusDataStatus::VT_OWNERID, None)
+  }
+  #[inline]
+  pub fn hasData(&self) -> bool {
+    self._tab.get::<bool>(TusDataStatus::VT_HASDATA, Some(false)).unwrap()
+  }
+  #[inline]
+  pub fn lastChangedDate(&self) -> u64 {
+    self._tab.get::<u64>(TusDataStatus::VT_LASTCHANGEDDATE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn lastChangedAuthorId(&self) -> Option<&'a str> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusDataStatus::VT_LASTCHANGEDAUTHORID, None)
+  }
+  #[inline]
+  pub fn info(&self) -> Option<&'a [u8]> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusDataStatus::VT_INFO, None).map(|v| v.safe_slice())
+  }
+}
+
+impl flatbuffers::Verifiable for TusDataStatus<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("ownerId", Self::VT_OWNERID, false)?
+     .visit_field::<bool>("hasData", Self::VT_HASDATA, false)?
+     .visit_field::<u64>("lastChangedDate", Self::VT_LASTCHANGEDDATE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("lastChangedAuthorId", Self::VT_LASTCHANGEDAUTHORID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("info", Self::VT_INFO, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusDataStatusArgs<'a> {
+    pub ownerId: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub hasData: bool,
+    pub lastChangedDate: u64,
+    pub lastChangedAuthorId: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub info: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+}
+impl<'a> Default for TusDataStatusArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusDataStatusArgs {
+      ownerId: None,
+      hasData: false,
+      lastChangedDate: 0,
+      lastChangedAuthorId: None,
+      info: None,
+    }
+  }
+}
+
+pub struct TusDataStatusBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusDataStatusBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_ownerId(&mut self, ownerId: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDataStatus::VT_OWNERID, ownerId);
+  }
+  #[inline]
+  pub fn add_hasData(&mut self, hasData: bool) {
+    self.fbb_.push_slot::<bool>(TusDataStatus::VT_HASDATA, hasData, false);
+  }
+  #[inline]
+  pub fn add_lastChangedDate(&mut self, lastChangedDate: u64) {
+    self.fbb_.push_slot::<u64>(TusDataStatus::VT_LASTCHANGEDDATE, lastChangedDate, 0);
+  }
+  #[inline]
+  pub fn add_lastChangedAuthorId(&mut self, lastChangedAuthorId: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDataStatus::VT_LASTCHANGEDAUTHORID, lastChangedAuthorId);
+  }
+  #[inline]
+  pub fn add_info(&mut self, info: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDataStatus::VT_INFO, info);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDataStatusBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusDataStatusBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusDataStatus<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusDataStatus<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusDataStatus");
+      ds.field("ownerId", &self.ownerId());
+      ds.field("hasData", &self.hasData());
+      ds.field("lastChangedDate", &self.lastChangedDate());
+      ds.field("lastChangedAuthorId", &self.lastChangedAuthorId());
+      ds.field("info", &self.info());
+      ds.finish()
+  }
+}
+pub enum TusDataOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusData<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusData<'a> {
+  type Inner = TusData<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusData<'a> {
+  pub const VT_STATUS: flatbuffers::VOffsetT = 4;
+  pub const VT_DATA: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusData { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusDataArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusData<'bldr>> {
+    let mut builder = TusDataBuilder::new(_fbb);
+    if let Some(x) = args.data { builder.add_data(x); }
+    if let Some(x) = args.status { builder.add_status(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn status(&self) -> Option<TusDataStatus<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusDataStatus>>(TusData::VT_STATUS, None)
+  }
+  #[inline]
+  pub fn data(&self) -> Option<&'a [u8]> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusData::VT_DATA, None).map(|v| v.safe_slice())
+  }
+}
+
+impl flatbuffers::Verifiable for TusData<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusDataStatus>>("status", Self::VT_STATUS, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("data", Self::VT_DATA, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusDataArgs<'a> {
+    pub status: Option<flatbuffers::WIPOffset<TusDataStatus<'a>>>,
+    pub data: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+}
+impl<'a> Default for TusDataArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusDataArgs {
+      status: None,
+      data: None,
+    }
+  }
+}
+
+pub struct TusDataBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusDataBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_status(&mut self, status: flatbuffers::WIPOffset<TusDataStatus<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusDataStatus>>(TusData::VT_STATUS, status);
+  }
+  #[inline]
+  pub fn add_data(&mut self, data: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusData::VT_DATA, data);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDataBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusDataBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusData<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusData<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusData");
+      ds.field("status", &self.status());
+      ds.field("data", &self.data());
+      ds.finish()
+  }
+}
+pub enum TusDataStatusResponseOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusDataStatusResponse<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusDataStatusResponse<'a> {
+  type Inner = TusDataStatusResponse<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusDataStatusResponse<'a> {
+  pub const VT_STATUS: flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusDataStatusResponse { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusDataStatusResponseArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusDataStatusResponse<'bldr>> {
+    let mut builder = TusDataStatusResponseBuilder::new(_fbb);
+    if let Some(x) = args.status { builder.add_status(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn status(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusDataStatus<'a>>>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusDataStatus>>>>(TusDataStatusResponse::VT_STATUS, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusDataStatusResponse<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<TusDataStatus>>>>("status", Self::VT_STATUS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusDataStatusResponseArgs<'a> {
+    pub status: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusDataStatus<'a>>>>>,
+}
+impl<'a> Default for TusDataStatusResponseArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusDataStatusResponseArgs {
+      status: None,
+    }
+  }
+}
+
+pub struct TusDataStatusResponseBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusDataStatusResponseBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_status(&mut self, status: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<TusDataStatus<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDataStatusResponse::VT_STATUS, status);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDataStatusResponseBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusDataStatusResponseBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusDataStatusResponse<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusDataStatusResponse<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusDataStatusResponse");
+      ds.field("status", &self.status());
+      ds.finish()
+  }
+}
+pub enum TusGetDataRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusGetDataRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusGetDataRequest<'a> {
+  type Inner = TusGetDataRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusGetDataRequest<'a> {
+  pub const VT_USER: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTID: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusGetDataRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusGetDataRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusGetDataRequest<'bldr>> {
+    let mut builder = TusGetDataRequestBuilder::new(_fbb);
+    builder.add_slotId(args.slotId);
+    if let Some(x) = args.user { builder.add_user(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn user(&self) -> Option<TusUser<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusGetDataRequest::VT_USER, None)
+  }
+  #[inline]
+  pub fn slotId(&self) -> i32 {
+    self._tab.get::<i32>(TusGetDataRequest::VT_SLOTID, Some(0)).unwrap()
+  }
+}
+
+impl flatbuffers::Verifiable for TusGetDataRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusUser>>("user", Self::VT_USER, false)?
+     .visit_field::<i32>("slotId", Self::VT_SLOTID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusGetDataRequestArgs<'a> {
+    pub user: Option<flatbuffers::WIPOffset<TusUser<'a>>>,
+    pub slotId: i32,
+}
+impl<'a> Default for TusGetDataRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusGetDataRequestArgs {
+      user: None,
+      slotId: 0,
+    }
+  }
+}
+
+pub struct TusGetDataRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusGetDataRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusGetDataRequest::VT_USER, user);
+  }
+  #[inline]
+  pub fn add_slotId(&mut self, slotId: i32) {
+    self.fbb_.push_slot::<i32>(TusGetDataRequest::VT_SLOTID, slotId, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetDataRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusGetDataRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusGetDataRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusGetDataRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusGetDataRequest");
+      ds.field("user", &self.user());
+      ds.field("slotId", &self.slotId());
+      ds.finish()
+  }
+}
+pub enum TusGetMultiSlotDataStatusRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusGetMultiSlotDataStatusRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusGetMultiSlotDataStatusRequest<'a> {
+  type Inner = TusGetMultiSlotDataStatusRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusGetMultiSlotDataStatusRequest<'a> {
+  pub const VT_USER: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTIDARRAY: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusGetMultiSlotDataStatusRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusGetMultiSlotDataStatusRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusGetMultiSlotDataStatusRequest<'bldr>> {
+    let mut builder = TusGetMultiSlotDataStatusRequestBuilder::new(_fbb);
+    if let Some(x) = args.slotIdArray { builder.add_slotIdArray(x); }
+    if let Some(x) = args.user { builder.add_user(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn user(&self) -> Option<TusUser<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusGetMultiSlotDataStatusRequest::VT_USER, None)
+  }
+  #[inline]
+  pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusGetMultiSlotDataStatusRequest::VT_SLOTIDARRAY, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusGetMultiSlotDataStatusRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusUser>>("user", Self::VT_USER, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i32>>>("slotIdArray", Self::VT_SLOTIDARRAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusGetMultiSlotDataStatusRequestArgs<'a> {
+    pub user: Option<flatbuffers::WIPOffset<TusUser<'a>>>,
+    pub slotIdArray: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i32>>>,
+}
+impl<'a> Default for TusGetMultiSlotDataStatusRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusGetMultiSlotDataStatusRequestArgs {
+      user: None,
+      slotIdArray: None,
+    }
+  }
+}
+
+pub struct TusGetMultiSlotDataStatusRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusGetMultiSlotDataStatusRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusGetMultiSlotDataStatusRequest::VT_USER, user);
+  }
+  #[inline]
+  pub fn add_slotIdArray(&mut self, slotIdArray: flatbuffers::WIPOffset<flatbuffers::Vector<'b , i32>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusGetMultiSlotDataStatusRequest::VT_SLOTIDARRAY, slotIdArray);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetMultiSlotDataStatusRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusGetMultiSlotDataStatusRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusGetMultiSlotDataStatusRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusGetMultiSlotDataStatusRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusGetMultiSlotDataStatusRequest");
+      ds.field("user", &self.user());
+      ds.field("slotIdArray", &self.slotIdArray());
+      ds.finish()
+  }
+}
+pub enum TusGetMultiUserDataStatusRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusGetMultiUserDataStatusRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusGetMultiUserDataStatusRequest<'a> {
+  type Inner = TusGetMultiUserDataStatusRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusGetMultiUserDataStatusRequest<'a> {
+  pub const VT_USERS: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTID: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusGetMultiUserDataStatusRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusGetMultiUserDataStatusRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusGetMultiUserDataStatusRequest<'bldr>> {
+    let mut builder = TusGetMultiUserDataStatusRequestBuilder::new(_fbb);
+    builder.add_slotId(args.slotId);
+    if let Some(x) = args.users { builder.add_users(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn users(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser<'a>>>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser>>>>(TusGetMultiUserDataStatusRequest::VT_USERS, None)
+  }
+  #[inline]
+  pub fn slotId(&self) -> i32 {
+    self._tab.get::<i32>(TusGetMultiUserDataStatusRequest::VT_SLOTID, Some(0)).unwrap()
+  }
+}
+
+impl flatbuffers::Verifiable for TusGetMultiUserDataStatusRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<TusUser>>>>("users", Self::VT_USERS, false)?
+     .visit_field::<i32>("slotId", Self::VT_SLOTID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusGetMultiUserDataStatusRequestArgs<'a> {
+    pub users: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser<'a>>>>>,
+    pub slotId: i32,
+}
+impl<'a> Default for TusGetMultiUserDataStatusRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusGetMultiUserDataStatusRequestArgs {
+      users: None,
+      slotId: 0,
+    }
+  }
+}
+
+pub struct TusGetMultiUserDataStatusRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusGetMultiUserDataStatusRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_users(&mut self, users: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<TusUser<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusGetMultiUserDataStatusRequest::VT_USERS, users);
+  }
+  #[inline]
+  pub fn add_slotId(&mut self, slotId: i32) {
+    self.fbb_.push_slot::<i32>(TusGetMultiUserDataStatusRequest::VT_SLOTID, slotId, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetMultiUserDataStatusRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusGetMultiUserDataStatusRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusGetMultiUserDataStatusRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusGetMultiUserDataStatusRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusGetMultiUserDataStatusRequest");
+      ds.field("users", &self.users());
+      ds.field("slotId", &self.slotId());
+      ds.finish()
+  }
+}
+pub enum TusGetFriendsDataStatusRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusGetFriendsDataStatusRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusGetFriendsDataStatusRequest<'a> {
+  type Inner = TusGetFriendsDataStatusRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusGetFriendsDataStatusRequest<'a> {
+  pub const VT_SLOTID: flatbuffers::VOffsetT = 4;
+  pub const VT_INCLUDESELF: flatbuffers::VOffsetT = 6;
+  pub const VT_SORTTYPE: flatbuffers::VOffsetT = 8;
+  pub const VT_ARRAYNUM: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusGetFriendsDataStatusRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusGetFriendsDataStatusRequestArgs
+  ) -> flatbuffers::WIPOffset<TusGetFriendsDataStatusRequest<'bldr>> {
+    let mut builder = TusGetFriendsDataStatusRequestBuilder::new(_fbb);
+    builder.add_arrayNum(args.arrayNum);
+    builder.add_sortType(args.sortType);
+    builder.add_slotId(args.slotId);
+    builder.add_includeSelf(args.includeSelf);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn slotId(&self) -> i32 {
+    self._tab.get::<i32>(TusGetFriendsDataStatusRequest::VT_SLOTID, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn includeSelf(&self) -> bool {
+    self._tab.get::<bool>(TusGetFriendsDataStatusRequest::VT_INCLUDESELF, Some(false)).unwrap()
+  }
+  #[inline]
+  pub fn sortType(&self) -> i32 {
+    self._tab.get::<i32>(TusGetFriendsDataStatusRequest::VT_SORTTYPE, Some(0)).unwrap()
+  }
+  #[inline]
+  pub fn arrayNum(&self) -> u32 {
+    self._tab.get::<u32>(TusGetFriendsDataStatusRequest::VT_ARRAYNUM, Some(0)).unwrap()
+  }
+}
+
+impl flatbuffers::Verifiable for TusGetFriendsDataStatusRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<i32>("slotId", Self::VT_SLOTID, false)?
+     .visit_field::<bool>("includeSelf", Self::VT_INCLUDESELF, false)?
+     .visit_field::<i32>("sortType", Self::VT_SORTTYPE, false)?
+     .visit_field::<u32>("arrayNum", Self::VT_ARRAYNUM, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusGetFriendsDataStatusRequestArgs {
+    pub slotId: i32,
+    pub includeSelf: bool,
+    pub sortType: i32,
+    pub arrayNum: u32,
+}
+impl<'a> Default for TusGetFriendsDataStatusRequestArgs {
+  #[inline]
+  fn default() -> Self {
+    TusGetFriendsDataStatusRequestArgs {
+      slotId: 0,
+      includeSelf: false,
+      sortType: 0,
+      arrayNum: 0,
+    }
+  }
+}
+
+pub struct TusGetFriendsDataStatusRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusGetFriendsDataStatusRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_slotId(&mut self, slotId: i32) {
+    self.fbb_.push_slot::<i32>(TusGetFriendsDataStatusRequest::VT_SLOTID, slotId, 0);
+  }
+  #[inline]
+  pub fn add_includeSelf(&mut self, includeSelf: bool) {
+    self.fbb_.push_slot::<bool>(TusGetFriendsDataStatusRequest::VT_INCLUDESELF, includeSelf, false);
+  }
+  #[inline]
+  pub fn add_sortType(&mut self, sortType: i32) {
+    self.fbb_.push_slot::<i32>(TusGetFriendsDataStatusRequest::VT_SORTTYPE, sortType, 0);
+  }
+  #[inline]
+  pub fn add_arrayNum(&mut self, arrayNum: u32) {
+    self.fbb_.push_slot::<u32>(TusGetFriendsDataStatusRequest::VT_ARRAYNUM, arrayNum, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetFriendsDataStatusRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusGetFriendsDataStatusRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusGetFriendsDataStatusRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusGetFriendsDataStatusRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusGetFriendsDataStatusRequest");
+      ds.field("slotId", &self.slotId());
+      ds.field("includeSelf", &self.includeSelf());
+      ds.field("sortType", &self.sortType());
+      ds.field("arrayNum", &self.arrayNum());
+      ds.finish()
+  }
+}
+pub enum TusDeleteMultiSlotDataRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct TusDeleteMultiSlotDataRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for TusDeleteMultiSlotDataRequest<'a> {
+  type Inner = TusDeleteMultiSlotDataRequest<'a>;
+  #[inline]
+  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table { buf, loc } }
+  }
+}
+
+impl<'a> TusDeleteMultiSlotDataRequest<'a> {
+  pub const VT_USER: flatbuffers::VOffsetT = 4;
+  pub const VT_SLOTIDARRAY: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    TusDeleteMultiSlotDataRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args TusDeleteMultiSlotDataRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<TusDeleteMultiSlotDataRequest<'bldr>> {
+    let mut builder = TusDeleteMultiSlotDataRequestBuilder::new(_fbb);
+    if let Some(x) = args.slotIdArray { builder.add_slotIdArray(x); }
+    if let Some(x) = args.user { builder.add_user(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn user(&self) -> Option<TusUser<'a>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusDeleteMultiSlotDataRequest::VT_USER, None)
+  }
+  #[inline]
+  pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
+    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusDeleteMultiSlotDataRequest::VT_SLOTIDARRAY, None)
+  }
+}
+
+impl flatbuffers::Verifiable for TusDeleteMultiSlotDataRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<TusUser>>("user", Self::VT_USER, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, i32>>>("slotIdArray", Self::VT_SLOTIDARRAY, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct TusDeleteMultiSlotDataRequestArgs<'a> {
+    pub user: Option<flatbuffers::WIPOffset<TusUser<'a>>>,
+    pub slotIdArray: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, i32>>>,
+}
+impl<'a> Default for TusDeleteMultiSlotDataRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    TusDeleteMultiSlotDataRequestArgs {
+      user: None,
+      slotIdArray: None,
+    }
+  }
+}
+
+pub struct TusDeleteMultiSlotDataRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> TusDeleteMultiSlotDataRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusDeleteMultiSlotDataRequest::VT_USER, user);
+  }
+  #[inline]
+  pub fn add_slotIdArray(&mut self, slotIdArray: flatbuffers::WIPOffset<flatbuffers::Vector<'b , i32>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDeleteMultiSlotDataRequest::VT_SLOTIDARRAY, slotIdArray);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDeleteMultiSlotDataRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    TusDeleteMultiSlotDataRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<TusDeleteMultiSlotDataRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for TusDeleteMultiSlotDataRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("TusDeleteMultiSlotDataRequest");
+      ds.field("user", &self.user());
+      ds.field("slotIdArray", &self.slotIdArray());
+      ds.finish()
+  }
+}

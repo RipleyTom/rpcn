@@ -3,7 +3,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::server::client::{Client, ComId, ErrorType};
-use crate::server::database::{Database, DbBoardInfo, DbScoreInfo};
+use crate::server::database::db_score::{DbBoardInfo, DbScoreInfo};
+use crate::server::database::Database;
 use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::Server;
 
@@ -413,7 +414,7 @@ impl ScoresCache {
 			// Score itself doesn't need to be checked as only current user can change it
 
 			let rank = table.npid_lookup[&user_id][&character_id];
-			let mut the_score = &mut table.sorted_scores[rank];
+			let the_score = &mut table.sorted_scores[rank];
 
 			the_score.data_id = Some(data_id);
 		}

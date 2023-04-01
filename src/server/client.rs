@@ -1,9 +1,11 @@
 mod cmd_account;
 mod cmd_admin;
 mod cmd_friend;
+mod cmd_misc;
 mod cmd_room;
 mod cmd_score;
 mod cmd_server;
+pub mod cmd_tus;
 
 mod ticket;
 
@@ -20,6 +22,7 @@ use parking_lot::{Mutex, RwLock};
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::{mpsc, watch};
+use tokio::task;
 use tokio::time::timeout;
 use tokio_rustls::server::TlsStream;
 use tracing::{error, info, info_span, trace, warn, Instrument};
@@ -40,6 +43,7 @@ pub const MAX_PACKET_SIZE: u32 = 0x800000; // 8MiB
 
 pub type ComId = [u8; 9];
 
+#[derive(Clone)]
 pub struct ClientInfo {
 	pub user_id: i64,
 	pub npid: String,
@@ -56,11 +60,11 @@ pub struct ClientSignalingInfo {
 	pub addr_p2p: [u8; 4],
 	pub port_p2p: u16,
 	pub local_addr_p2p: [u8; 4],
-	pub friends: HashSet<i64>,
+	pub friends: HashMap<i64, String>,
 }
 
 impl ClientSignalingInfo {
-	pub fn new(channel: mpsc::Sender<Vec<u8>>, friends: HashSet<i64>) -> ClientSignalingInfo {
+	pub fn new(channel: mpsc::Sender<Vec<u8>>, friends: HashMap<i64, String>) -> ClientSignalingInfo {
 		ClientSignalingInfo {
 			channel,
 			addr_p2p: [0; 4],
@@ -86,9 +90,9 @@ impl TerminateWatch {
 	}
 }
 
+#[derive(Clone)]
 pub struct Client {
 	config: Arc<RwLock<Config>>,
-	tls_reader: io::ReadHalf<TlsStream<TcpStream>>,
 	channel_sender: mpsc::Sender<Vec<u8>>,
 	db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
 	room_manager: Arc<RwLock<RoomManager>>,
@@ -146,6 +150,20 @@ enum CommandType {
 	GetScoreRange,
 	GetScoreFriends,
 	GetScoreNpid,
+	GetNetworkTime,
+	TusSetMultiSlotVariable,
+	TusGetMultiSlotVariable,
+	TusGetMultiUserVariable,
+	TusGetFriendsVariable,
+	TusAddAndGetVariable,
+	TusTryAndSetVariable,
+	TusDeleteMultiSlotVariable,
+	TusSetData,
+	TusGetData,
+	TusGetMultiSlotDataStatus,
+	TusGetMultiUserDataStatus,
+	TusGetFriendsDataStatus,
+	TusDeleteMultiSlotData,
 	UpdateDomainBans = 0x0100,
 	TerminateServer,
 }
@@ -197,11 +215,60 @@ pub enum ErrorType {
 	ScoreNotBest,                // A better score is already registered for that user/character_id
 	ScoreInvalid,                // Score for player was found but wasn't what was expected
 	ScoreHasData,                // Score already has data
+	CondFail,                    // Condition related to query failed
 	Unsupported,
 }
 
 pub fn com_id_to_string(com_id: &ComId) -> String {
 	com_id.iter().map(|c| *c as char).collect()
+}
+
+impl Drop for Client {
+	fn drop(&mut self) {
+		// This code is here instead of at the end of process in case of thread panic to ensure user is properly 'cleaned out' of the system
+		if self.authentified {
+			let mut self_clone = self.clone();
+			task::spawn(async move {
+				// leave all rooms user is still in
+				let rooms = self_clone.room_manager.read().get_rooms_by_user(self_clone.client_info.user_id);
+
+				if let Some(rooms) = rooms {
+					for room in rooms {
+						self_clone.leave_room(&self_clone.room_manager, &room.0, room.1, None, EventCause::MemberDisappeared).await;
+					}
+				}
+
+				// Notify friends that the user went offline and remove him from signaling infos
+				let mut to_notif: HashSet<i64> = HashSet::new();
+				let timestamp;
+				{
+					let mut sign_infos = self_clone.signaling_infos.write();
+					timestamp = Client::get_timestamp_nanos();
+					if let Some(infos) = sign_infos.get(&self_clone.client_info.user_id) {
+						to_notif = infos.friends.iter().map(|(user_id, _username)| *user_id).collect();
+					}
+					sign_infos.remove(&self_clone.client_info.user_id);
+				}
+
+				let notif = Client::create_friend_status_notification(&self_clone.client_info.npid, timestamp, false);
+				self_clone.send_notification(&notif, &to_notif).await;
+
+				// Remove user from game stats
+				self_clone.game_tracker.decrease_num_users();
+
+				if let Some(ref cur_com_id) = self_clone.current_game.0 {
+					self_clone.game_tracker.decrease_count_psn(cur_com_id);
+				}
+
+				if let Some(ref cur_service_id) = self_clone.current_game.1 {
+					self_clone.game_tracker.decrease_count_ticket(cur_service_id);
+				}
+
+				// Needed to make sure this is not called recursively!
+				self_clone.authentified = false;
+			});
+		}
+	}
 }
 
 impl Client {
@@ -214,7 +281,7 @@ impl Client {
 		score_cache: Arc<ScoresCache>,
 		terminate_watch: TerminateWatch,
 		game_tracker: Arc<GameTracker>,
-	) -> Client {
+	) -> (Client, io::ReadHalf<TlsStream<TcpStream>>) {
 		let client_info = ClientInfo {
 			user_id: 0,
 			npid: String::new(),
@@ -238,21 +305,23 @@ impl Client {
 
 		tokio::spawn(fut_sock_writer);
 
-		Client {
-			config,
+		(
+			Client {
+				config,
+				channel_sender,
+				db_pool,
+				room_manager,
+				signaling_infos,
+				score_cache,
+				authentified: false,
+				client_info,
+				post_reply_notifications: Vec::new(),
+				terminate_watch,
+				current_game: (None, None),
+				game_tracker,
+			},
 			tls_reader,
-			channel_sender,
-			db_pool,
-			room_manager,
-			signaling_infos,
-			score_cache,
-			authentified: false,
-			client_info,
-			post_reply_notifications: Vec::new(),
-			terminate_watch,
-			current_game: (None, None),
-			game_tracker,
-		}
+		)
 	}
 
 	// Logging Functions
@@ -276,7 +345,7 @@ impl Client {
 	}
 
 	///// Command Processing
-	pub async fn process(&mut self) {
+	pub async fn process(&mut self, tls_reader: &mut io::ReadHalf<TlsStream<TcpStream>>) {
 		if *self.terminate_watch.recv.borrow_and_update() {
 			return;
 		}
@@ -286,7 +355,7 @@ impl Client {
 
 			let r;
 			if !self.authentified {
-				let timeout_r = timeout(Duration::from_secs(10), self.tls_reader.read_exact(&mut header_data)).await;
+				let timeout_r = timeout(Duration::from_secs(10), tls_reader.read_exact(&mut header_data)).await;
 				if timeout_r.is_err() {
 					trace!("Unauthentified client timeouted after 10 seconds");
 					break 'main_client_loop;
@@ -298,7 +367,7 @@ impl Client {
 						assert!(*self.terminate_watch.recv.borrow());
 						break 'main_client_loop;
 					}
-					result = self.tls_reader.read_exact(&mut header_data) => {
+					result = tls_reader.read_exact(&mut header_data) => {
 						r = result;
 					}
 				}
@@ -331,7 +400,7 @@ impl Client {
 						break 'main_client_loop;
 					}
 
-					if self.interpret_command(command, packet_size, packet_id).instrument(npid_span).await.is_err() {
+					if self.interpret_command(tls_reader, command, packet_size, packet_id).instrument(npid_span).await.is_err() {
 						info!("Disconnecting client({})", self.client_info.npid);
 						break 'main_client_loop;
 					}
@@ -342,46 +411,9 @@ impl Client {
 				}
 			}
 		}
-
-		if self.authentified {
-			// leave all rooms user is still in
-			let rooms = self.room_manager.read().get_rooms_by_user(self.client_info.user_id);
-
-			if let Some(rooms) = rooms {
-				for room in rooms {
-					self.leave_room(&self.room_manager, &room.0, room.1, None, EventCause::MemberDisappeared).await;
-				}
-			}
-
-			// Notify friends that the user went offline and remove him from signaling infos
-			let mut to_notif: HashSet<i64> = HashSet::new();
-			let timestamp;
-			{
-				let mut sign_infos = self.signaling_infos.write();
-				timestamp = Client::get_timestamp_nanos();
-				if let Some(infos) = sign_infos.get(&self.client_info.user_id) {
-					to_notif = infos.friends.clone();
-				}
-				sign_infos.remove(&self.client_info.user_id);
-			}
-
-			let notif = Client::create_friend_status_notification(&self.client_info.npid, timestamp, false);
-			self.send_notification(&notif, &to_notif).await;
-
-			// Remove user from game stats
-			self.game_tracker.decrease_num_users();
-
-			if let Some(ref cur_com_id) = self.current_game.0 {
-				self.game_tracker.decrease_count_psn(cur_com_id);
-			}
-
-			if let Some(ref cur_service_id) = self.current_game.1 {
-				self.game_tracker.decrease_count_ticket(cur_service_id);
-			}
-		}
 	}
 
-	async fn interpret_command(&mut self, command: u16, length: u32, packet_id: u64) -> Result<(), ()> {
+	async fn interpret_command(&mut self, tls_reader: &mut io::ReadHalf<TlsStream<TcpStream>>, command: u16, length: u32, packet_id: u64) -> Result<(), ()> {
 		if length < HEADER_SIZE {
 			warn!("Malformed packet(size < {})", HEADER_SIZE);
 			return Err(());
@@ -391,7 +423,7 @@ impl Client {
 
 		let mut data = vec![0; to_read as usize];
 
-		let r = self.tls_reader.read_exact(&mut data).await;
+		let r = tls_reader.read_exact(&mut data).await;
 
 		match r {
 			Ok(_) => {
@@ -501,6 +533,20 @@ impl Client {
 			CommandType::GetScoreRange => self.get_score_range(data, reply).await,
 			CommandType::GetScoreFriends => self.get_score_friends(data, reply).await,
 			CommandType::GetScoreNpid => self.get_score_npid(data, reply).await,
+			CommandType::GetNetworkTime => self.get_network_time(reply),
+			CommandType::TusSetMultiSlotVariable => self.tus_set_multislot_variable(data).await,
+			CommandType::TusGetMultiSlotVariable => self.tus_get_multislot_variable(data, reply).await,
+			CommandType::TusGetMultiUserVariable => self.tus_get_multiuser_variable(data, reply).await,
+			CommandType::TusGetFriendsVariable => self.tus_get_friends_variable(data, reply).await,
+			CommandType::TusAddAndGetVariable => self.tus_add_and_get_variable(data, reply).await,
+			CommandType::TusTryAndSetVariable => self.tus_try_and_set_variable(data, reply).await,
+			CommandType::TusDeleteMultiSlotVariable => self.tus_delete_multislot_variable(data).await,
+			CommandType::TusSetData => self.tus_set_data(data).await,
+			CommandType::TusGetData => self.tus_get_data(data, reply).await,
+			CommandType::TusGetMultiSlotDataStatus => self.tus_get_multislot_data_status(data, reply).await,
+			CommandType::TusGetMultiUserDataStatus => self.tus_get_multiuser_data_status(data, reply).await,
+			CommandType::TusGetFriendsDataStatus => self.tus_get_friends_data_status(data, reply).await,
+			CommandType::TusDeleteMultiSlotData => self.tus_delete_multislot_data(data).await,
 			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
 			CommandType::TerminateServer => self.req_admin_terminate_server(),
 			_ => {
@@ -519,7 +565,7 @@ impl Client {
 		SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as u32
 	}
 	pub fn get_psn_timestamp() -> u64 {
-		(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_micros() + (62135596800 * 1000 * 1000)) as u64
+		(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_micros() + (62_135_596_800 * 1000 * 1000)) as u64
 	}
 
 	fn get_database_connection(&self) -> Result<r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>, ErrorType> {
@@ -735,14 +781,8 @@ impl Client {
 		}
 		let sendmessage_req = sendmessage_req.unwrap();
 
-		let message = sendmessage_req.message();
-		let npids = sendmessage_req.npids();
-		if message.is_none() || npids.is_none() {
-			warn!("Error while extracting data from SendMessage command(missing message or npids)");
-			return Err(ErrorType::Malformed);
-		}
-		let message = message.unwrap();
-		let npids = npids.unwrap();
+		let message = Client::validate_and_unwrap(sendmessage_req.message())?;
+		let npids = Client::validate_and_unwrap(sendmessage_req.npids())?;
 
 		// Get all the IDs
 		let mut ids = HashSet::new();
@@ -771,7 +811,7 @@ impl Client {
 		{
 			let sig_infos = self.signaling_infos.read();
 			let user_si = sig_infos.get(&self.client_info.user_id).unwrap();
-			if !user_si.friends.is_superset(&ids) {
+			if !user_si.friends.keys().map(|k| *k).collect::<HashSet<i64>>().is_superset(&ids) {
 				warn!("Requested to send a message to a non-friend!");
 				return Ok(ErrorType::InvalidInput);
 			}
@@ -788,4 +828,48 @@ impl Client {
 
 		Ok(ErrorType::NoError)
 	}
+
+	//Helper for avoiding potentially pointless queries to database
+	pub fn get_username_with_helper(&self, user_id: i64, helper_list: &HashMap<i64, String>, db: &Database) -> Result<String, ErrorType> {
+		if let Some(npid) = helper_list.get(&user_id) {
+			return Ok(npid.clone());
+		}
+
+		db.get_username(user_id).map_err(|_| ErrorType::DbFail)
+	}
+
+	// Various helpers to help with validation
+	pub fn get_com_and_fb<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&mut self, data: &'a mut StreamExtractor) -> Result<(ComId, T::Inner), ErrorType> {
+		let com_id = self.get_com_id_with_redir(data);
+		let tus_req = data.get_flatbuffer::<T>();
+
+		if data.error() || tus_req.is_err() {
+			warn!("Validation error while extracting data into {}", std::any::type_name::<T>());
+			return Err(ErrorType::Malformed);
+		}
+		let tus_req = tus_req.unwrap();
+
+		Ok((com_id, tus_req))
+	}
+
+	pub fn validate_and_unwrap<T>(opt: Option<T>) -> Result<T, ErrorType> {
+		if opt.is_none() {
+			warn!("Validation error while validating {}", std::any::type_name::<T>());
+			return Err(ErrorType::Malformed);
+		}
+
+		Ok(opt.unwrap())
+	}
 }
+
+macro_rules! validate_all {
+	($($x:expr),*) => {
+		{
+			(
+			$(Client::validate_and_unwrap($x)?,)*
+			)
+		}
+	}
+}
+
+pub(crate) use validate_all;
