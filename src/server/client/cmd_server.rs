@@ -11,11 +11,6 @@ impl Client {
 			return Err(ErrorType::Malformed);
 		}
 
-		// TODO: Generalize this (redirects DeS US queries to EU servers)
-		// if com_id == "NPWR00881" {
-		//     com_id = String::from("NPWR01249");
-		// }
-
 		let servs = Database::new(self.get_database_connection()?).get_server_list(&com_id, self.config.read().is_create_missing());
 		if servs.is_err() {
 			return Err(ErrorType::DbFail);

@@ -67,10 +67,10 @@ impl Client {
 			{
 				let mut sign_infos = self.signaling_infos.write();
 				if let Some(user) = sign_infos.get_mut(&self.client_info.user_id) {
-					user.friends.insert(friend_user_id);
+					user.friends.insert(friend_user_id, friend_npid.clone());
 				}
 				if let Some(other_user) = sign_infos.get_mut(&friend_user_id) {
-					other_user.friends.insert(self.client_info.user_id);
+					other_user.friends.insert(self.client_info.user_id, self.client_info.npid.clone());
 					friend_online = true;
 				} else {
 					friend_online = false;

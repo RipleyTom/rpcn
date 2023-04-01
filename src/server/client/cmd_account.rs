@@ -32,7 +32,10 @@ impl Client {
 			let mut smtp_client_builder = SmtpTransport::relay(&host)?;
 
 			if !login.is_empty() {
-				smtp_client_builder = smtp_client_builder.credentials(Credentials::new(login, password)).authentication(vec![Mechanism::Plain]).hello_name(lettre::transport::smtp::extension::ClientId::Domain("np.rpcs3.net".to_string()));
+				smtp_client_builder = smtp_client_builder
+					.credentials(Credentials::new(login, password))
+					.authentication(vec![Mechanism::Plain])
+					.hello_name(lettre::transport::smtp::extension::ClientId::Domain("np.rpcs3.net".to_string()));
 			}
 
 			smtp_client = smtp_client_builder.build();
@@ -44,24 +47,32 @@ impl Client {
 
 	fn send_token_mail(&self, email_addr: &str, npid: &str, token: &str) -> Result<(), String> {
 		let email_to_send = Message::builder()
-			.to(Mailbox::new(Some(npid.to_owned()), email_addr.parse().map_err(|e| format!("Error parsing email({}): {}", email_addr, e) )?))
+			.to(Mailbox::new(
+				Some(npid.to_owned()),
+				email_addr.parse().map_err(|e| format!("Error parsing email({}): {}", email_addr, e))?,
+			))
 			.from("RPCN <np@rpcs3.net>".parse().unwrap())
 			.subject("Your token for RPCN")
 			.header(lettre::message::header::ContentType::TEXT_PLAIN)
-			.body(format!("Your token for username {} is:\n{}", npid, token)).unwrap();
+			.body(format!("Your token for username {} is:\n{}", npid, token))
+			.unwrap();
 		self.send_email(email_to_send).map_err(|e| format!("SMTP error: {}", e))
 	}
 
 	fn send_reset_token_mail(&self, email_addr: &str, npid: &str, reset_token: &str) -> Result<(), String> {
 		let email_to_send = Message::builder()
-			.to(Mailbox::new(Some(npid.to_owned()), email_addr.parse().map_err(|e| format!("Error parsing email({}): {}", email_addr, e) )?))
+			.to(Mailbox::new(
+				Some(npid.to_owned()),
+				email_addr.parse().map_err(|e| format!("Error parsing email({}): {}", email_addr, e))?,
+			))
 			.from("RPCN <np@rpcs3.net>".parse().unwrap())
 			.subject("Your password reset code for RPCN")
 			.header(lettre::message::header::ContentType::TEXT_PLAIN)
 			.body(format!(
 				"Your password reset code for username {} is:\n{}\n\nNote that this code can only be used once!",
 				npid, reset_token
-			)).unwrap();
+			))
+			.unwrap();
 		self.send_email(email_to_send).map_err(|e| format!("SMTP error: {}", e))
 	}
 
@@ -69,7 +80,7 @@ impl Client {
 		let login = data.get_string(false);
 		let password = data.get_string(false);
 		let token = data.get_string(true);
-		let friend_userids: HashSet<i64>;
+		let friend_userids: HashMap<i64, String>;
 
 		if data.error() {
 			warn!("Error while extracting data from Login command");
@@ -140,7 +151,7 @@ impl Client {
 					dump_usernames(reply, &rels.friend_requests_received);
 					dump_usernames(reply, &rels.blocked);
 
-					friend_userids = rels.friends.iter().map(|(userid, _username)| *userid).collect();
+					friend_userids = rels.friends.iter().map(|v| (*v).clone()).collect();
 
 					info!("Authentified as {}", &self.client_info.npid);
 					sign_infos.insert(self.client_info.user_id, ClientSignalingInfo::new(self.channel_sender.clone(), friend_userids.clone()));
@@ -161,7 +172,7 @@ impl Client {
 		if self.authentified {
 			// Notify friends that user has come Online
 			let notif = Client::create_friend_status_notification(&self.client_info.npid, timestamp, true);
-			self.send_notification(&notif, &friend_userids).await;
+			self.send_notification(&notif, &friend_userids.keys().map(|k| *k).collect()).await;
 			Ok(ErrorType::NoError)
 		} else {
 			Err(ErrorType::LoginError)

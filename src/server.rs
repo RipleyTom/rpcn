@@ -28,12 +28,13 @@ use room_manager::RoomManager;
 mod score_cache;
 use score_cache::ScoresCache;
 mod udp_server;
+mod utils;
 use crate::Config;
 
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 19;
+const PROTOCOL_VERSION: u32 = 20;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
@@ -50,6 +51,10 @@ impl Server {
 
 		let db_pool = Server::initialize_database()?;
 		let score_cache = Server::initialize_score(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
+		Server::initialize_tus_data_handler()?;
+
+		Server::clean_score_data(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
+		Server::clean_tus_data(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
 
 		let room_manager = Arc::new(RwLock::new(RoomManager::new()));
 		let signaling_infos = Arc::new(RwLock::new(HashMap::new()));
@@ -167,8 +172,8 @@ impl Server {
 						let fut_client = async move {
 							let mut stream = acceptor.accept(stream).await?;
 							stream.write_all(&servinfo_vec).await?;
-							let mut client = Client::new(config, stream, db_pool, room_manager, signaling_infos, score_cache, term_watch, game_tracker).await;
-							client.process().await;
+							let (mut client, mut tls_reader) = Client::new(config, stream, db_pool, room_manager, signaling_infos, score_cache, term_watch, game_tracker).await;
+							client.process(&mut tls_reader).await;
 							Ok(()) as io::Result<()>
 						};
 						handle.spawn(fut_client);

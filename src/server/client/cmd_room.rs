@@ -4,14 +4,7 @@ use crate::server::client::*;
 
 impl Client {
 	pub fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let create_req = data.get_flatbuffer::<CreateJoinRoomRequest>();
-
-		if data.error() || create_req.is_err() {
-			warn!("Error while extracting data from CreateRoom command");
-			return Err(ErrorType::Malformed);
-		}
-		let create_req = create_req.unwrap();
+		let (com_id, create_req) = self.get_com_and_fb::<CreateJoinRoomRequest>(data)?;
 
 		let server_id = Database::new(self.get_database_connection()?)
 			.get_corresponding_server(&com_id, create_req.worldId(), create_req.lobbyId())
@@ -31,14 +24,7 @@ impl Client {
 		Ok(ErrorType::NoError)
 	}
 	pub async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let join_req = data.get_flatbuffer::<JoinRoomRequest>();
-
-		if data.error() || join_req.is_err() {
-			warn!("Error while extracting data from JoinRoom command");
-			return Err(ErrorType::Malformed);
-		}
-		let join_req = join_req.unwrap();
+		let (com_id, join_req) = self.get_com_and_fb::<JoinRoomRequest>(data)?;
 
 		let room_id = join_req.roomId();
 		let user_ids: HashSet<i64>;
@@ -154,14 +140,7 @@ impl Client {
 	}
 
 	pub async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let leave_req = data.get_flatbuffer::<LeaveRoomRequest>();
-
-		if data.error() || leave_req.is_err() {
-			warn!("Error while extracting data from SearchRoom command");
-			return Err(ErrorType::Malformed);
-		}
-		let leave_req = leave_req.unwrap();
+		let (com_id, leave_req) = self.get_com_and_fb::<LeaveRoomRequest>(data)?;
 
 		let res = self
 			.leave_room(&self.room_manager, &com_id, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction)
@@ -170,14 +149,7 @@ impl Client {
 		Ok(res)
 	}
 	pub fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let search_req = data.get_flatbuffer::<SearchRoomRequest>();
-
-		if data.error() || search_req.is_err() {
-			warn!("Error while extracting data from SearchRoom command");
-			return Err(ErrorType::Malformed);
-		}
-		let search_req = search_req.unwrap();
+		let (com_id, search_req) = self.get_com_and_fb::<SearchRoomRequest>(data)?;
 
 		let resp = self.room_manager.read().search_room(&com_id, &search_req);
 		reply.extend(&(resp.len() as u32).to_le_bytes());
@@ -185,14 +157,7 @@ impl Client {
 		Ok(ErrorType::NoError)
 	}
 	pub fn req_get_roomdata_external_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let getdata_req = data.get_flatbuffer::<GetRoomDataExternalListRequest>();
-
-		if data.error() || getdata_req.is_err() {
-			warn!("Error while extracting data from GetRoomDataExternalList command");
-			return Err(ErrorType::Malformed);
-		}
-		let getdata_req = getdata_req.unwrap();
+		let (com_id, getdata_req) = self.get_com_and_fb::<GetRoomDataExternalListRequest>(data)?;
 
 		let resp = self.room_manager.read().get_roomdata_external_list(&com_id, &getdata_req);
 
@@ -203,14 +168,7 @@ impl Client {
 	}
 
 	pub fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let setdata_req = data.get_flatbuffer::<SetRoomDataExternalRequest>();
-
-		if data.error() || setdata_req.is_err() {
-			warn!("Error while extracting data from SetRoomDataExternal command");
-			return Err(ErrorType::Malformed);
-		}
-		let setdata_req = setdata_req.unwrap();
+		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomDataExternalRequest>(data)?;
 
 		if let Err(e) = self.room_manager.write().set_roomdata_external(&com_id, &setdata_req) {
 			Ok(e)
@@ -219,14 +177,7 @@ impl Client {
 		}
 	}
 	pub fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let getdata_req = data.get_flatbuffer::<GetRoomDataInternalRequest>();
-
-		if data.error() || getdata_req.is_err() {
-			warn!("Error while extracting data from GetRoomDataInternal command");
-			return Err(ErrorType::Malformed);
-		}
-		let getdata_req = getdata_req.unwrap();
+		let (com_id, getdata_req) = self.get_com_and_fb::<GetRoomDataInternalRequest>(data)?;
 
 		let resp = self.room_manager.read().get_roomdata_internal(&com_id, &getdata_req);
 		if let Err(e) = resp {
@@ -239,14 +190,7 @@ impl Client {
 		Ok(ErrorType::NoError)
 	}
 	pub async fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let setdata_req = data.get_flatbuffer::<SetRoomDataInternalRequest>();
-
-		if data.error() || setdata_req.is_err() {
-			warn!("Error while extracting data from SetRoomDataInternal command");
-			return Err(ErrorType::Malformed);
-		}
-		let setdata_req = setdata_req.unwrap();
+		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomDataInternalRequest>(data)?;
 
 		let room_id = setdata_req.roomId();
 		let res = self.room_manager.write().set_roomdata_internal(&com_id, &setdata_req, self.client_info.user_id);
@@ -266,14 +210,7 @@ impl Client {
 		}
 	}
 	pub async fn req_set_roommemberdata_internal(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let setdata_req = data.get_flatbuffer::<SetRoomMemberDataInternalRequest>();
-
-		if data.error() || setdata_req.is_err() {
-			warn!("Error while extracting data from SetRoomMemberDataInternal command");
-			return Err(ErrorType::Malformed);
-		}
-		let setdata_req = setdata_req.unwrap();
+		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomMemberDataInternalRequest>(data)?;
 
 		let room_id = setdata_req.roomId();
 		let res = self.room_manager.write().set_roommemberdata_internal(&com_id, &setdata_req, self.client_info.user_id);
@@ -326,14 +263,7 @@ impl Client {
 		Ok(ErrorType::NoError)
 	}
 	pub async fn req_send_room_message(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let msg_req = data.get_flatbuffer::<SendRoomMessageRequest>();
-
-		if data.error() || msg_req.is_err() {
-			warn!("Error while extracting data from SendRoomMessage command");
-			return Err(ErrorType::Malformed);
-		}
-		let msg_req = msg_req.unwrap();
+		let (com_id, msg_req) = self.get_com_and_fb::<SendRoomMessageRequest>(data)?;
 
 		let room_id = msg_req.roomId();
 		let (notif, member_id, users);

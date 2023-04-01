@@ -198,14 +198,14 @@ impl Config {
 	}
 
 	pub fn load_server_redirections(&mut self) {
-		if let Ok(mut file_redirs) = File::open("server_redirs.txt") {
+		if let Ok(mut file_redirs) = File::open("server_redirs.cfg") {
 			let mut buf_file = String::new();
 			let _ = file_redirs.read_to_string(&mut buf_file);
 			self.server_redirs = buf_file
 				.lines()
 				.filter_map(|line| {
 					let parsed: Vec<&[u8]> = line.trim().split("=>").map(|x| x.as_bytes()).collect();
-					if parsed.len() != 2 || parsed[0].len() != 9 || parsed[1].len() != 9 {
+					if line.is_empty() || line.chars().nth(0).unwrap() == '#' || parsed.len() != 2 || parsed[0].len() != 9 || parsed[1].len() != 9 {
 						None
 					} else {
 						Some((parsed[0].try_into().unwrap(), parsed[1].try_into().unwrap()))
