@@ -57,6 +57,8 @@ enum SceNpMatching2FlagAttr {
 
 const SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER: u32 = 0x80000000;
 
+const CREATOR_ROOM_MEMBER_ID: u16 = 16;
+
 #[repr(u8)]
 #[derive(FromPrimitive, Clone, Debug)]
 #[allow(clippy::enum_variant_names)]
@@ -134,7 +136,7 @@ impl RoomBinAttrInternal {
 	pub fn with_id(id: u16) -> RoomBinAttrInternal {
 		RoomBinAttrInternal {
 			update_date: Client::get_psn_timestamp(),
-			update_member_id: 1,
+			update_member_id: CREATOR_ROOM_MEMBER_ID,
 			data: RoomBinAttr::<256>::with_id(id),
 		}
 	}
@@ -455,8 +457,7 @@ impl Room {
 
 		if let Some(vec) = fb.roomBinAttrInternal() {
 			for i in 0..vec.len() {
-				// Since we're creating the room member id is always 1
-				let room_binattr_internal_from_fb = RoomBinAttrInternal::from_flatbuffer(&vec.get(i), 1);
+				let room_binattr_internal_from_fb = RoomBinAttrInternal::from_flatbuffer(&vec.get(i), CREATOR_ROOM_MEMBER_ID);
 
 				if room_binattr_internal_from_fb.data.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID && room_binattr_internal_from_fb.data.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_2_ID {
 					error!("Invalid Room BinAttr Internal ID in CreateRoom: {}", room_binattr_internal_from_fb.data.id);
