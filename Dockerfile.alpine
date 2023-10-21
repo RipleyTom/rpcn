@@ -1,0 +1,13 @@
+FROM rust:alpine3.18 as builder
+WORKDIR /usr/src/rpcn
+COPY . .
+RUN cargo install --path .
+
+FROM alpine:latest
+WORKDIR /rpcn
+RUN apk --no-cache add openssl
+RUN openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem -subj '/CN=localhost'
+COPY --from=builder /usr/local/cargo/bin/rpcn /usr/local/bin/rpcn
+COPY --from=builder /usr/src/rpcn/*.cfg ./
+
+CMD ["rpcn"]
