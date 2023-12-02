@@ -27,7 +27,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       if: github.ref == 'refs/heads/master'
       with:
-        file: rpcn-linux.tar.gz
+        files: rpcn-linux.tar.gz
 
   build-win:
     runs-on: windows-latest
@@ -53,4 +53,4 @@ jobs:
       uses: softprops/action-gh-release@v1
       if: github.ref == 'refs/heads/master'
       with:
-        file: rpcn-win.zip
+        files: rpcn-win.zip
