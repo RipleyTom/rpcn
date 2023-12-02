@@ -25,7 +25,7 @@ jobs:
         path: rpcn-linux.tar.gz
     - name: Release
       uses: softprops/action-gh-release@v1
-      if: github.ref == 'refs/heads/master'
+      if: startsWith(github.ref, 'refs/tags/')
       with:
         files: rpcn-linux.tar.gz
 
@@ -51,6 +51,6 @@ jobs:
         path: rpcn-win.zip
     - name: Release
       uses: softprops/action-gh-release@v1
-      if: github.ref == 'refs/heads/master'
+      if: startsWith(github.ref, 'refs/tags/')
       with:
         files: rpcn-win.zip
