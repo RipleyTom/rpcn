@@ -69,7 +69,7 @@ impl Server {
 
 				for (index, score) in sorted_scores.iter().enumerate() {
 					users_list.insert(score.user_id);
-					let user_entry = npid_lookup.entry(score.user_id).or_insert_with(HashMap::new);
+					let user_entry: &mut HashMap<i32, usize> = npid_lookup.entry(score.user_id).or_default();
 					user_entry.insert(score.character_id, index);
 				}
 
@@ -252,7 +252,7 @@ impl ScoresCache {
 		if (table.sorted_scores.len() < table.table_info.rank_limit as usize) || score.cmp(table.sorted_scores.last().unwrap(), table.table_info.sort_mode) == Ordering::Less {
 			let insert_pos = table.sorted_scores.binary_search_by(|probe| probe.cmp(score, table.table_info.sort_mode)).unwrap_err();
 			table.sorted_scores.insert(insert_pos, (*score).clone());
-			table.npid_lookup.entry(score.user_id).or_insert_with(HashMap::new).insert(score.character_id, insert_pos);
+			table.npid_lookup.entry(score.user_id).or_default().insert(score.character_id, insert_pos);
 
 			let reorder_start = if let Some(pos) = initial_pos { std::cmp::min(pos, insert_pos + 1) } else { insert_pos + 1 };
 

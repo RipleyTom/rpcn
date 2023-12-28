@@ -1,5 +1,6 @@
 #[allow(clippy::all)]
 #[allow(unused_imports)]
+#[rustfmt::skip]
 pub mod np2_structs_generated;
 
 pub mod fb_helpers;

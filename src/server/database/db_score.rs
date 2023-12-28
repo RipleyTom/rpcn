@@ -53,7 +53,7 @@ impl Database {
 
 			for row in rows {
 				let to_insert = row.unwrap();
-				if hs_data_ids.insert(to_insert) == false {
+				if !hs_data_ids.insert(to_insert) {
 					println!("Duplicate score data_id found: {}!", to_insert);
 					return Err(DbError::Internal);
 				}

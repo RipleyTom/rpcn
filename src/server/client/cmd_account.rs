@@ -1,5 +1,7 @@
 // Account Management Commands
 
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use crate::server::client::*;
 use crate::server::database::DbError;
 
@@ -11,6 +13,8 @@ fn strip_email(email: &str) -> String {
 	let alias_split: Vec<&str> = tokens[0].split('+').collect();
 	format!("{}@{}", alias_split[0], tokens[1])
 }
+
+static EMAIL_ID_DISPENSER: AtomicU64 = AtomicU64::new(1);
 
 impl Client {
 	pub fn is_admin(&self) -> bool {
@@ -45,35 +49,34 @@ impl Client {
 		Ok(())
 	}
 
-	fn send_token_mail(&self, email_addr: &str, npid: &str, token: &str) -> Result<(), String> {
+	fn send_email_template(&self, email_addr: &str, email_username: &str, subject: &str, body: String) -> Result<(), String> {
+		let message_id = format!("{}.{}@rpcs3.net", Client::get_timestamp_nanos(), EMAIL_ID_DISPENSER.fetch_add(1, Ordering::SeqCst));
+
 		let email_to_send = Message::builder()
 			.to(Mailbox::new(
-				Some(npid.to_owned()),
+				Some(email_username.to_owned()),
 				email_addr.parse().map_err(|e| format!("Error parsing email({}): {}", email_addr, e))?,
 			))
 			.from("RPCN <np@rpcs3.net>".parse().unwrap())
-			.subject("Your token for RPCN")
+			.subject(subject)
 			.header(lettre::message::header::ContentType::TEXT_PLAIN)
-			.body(format!("Your token for username {} is:\n{}", npid, token))
+			.message_id(Some(message_id))
+			.body(body)
 			.unwrap();
 		self.send_email(email_to_send).map_err(|e| format!("SMTP error: {}", e))
 	}
 
+	fn send_token_mail(&self, email_addr: &str, npid: &str, token: &str) -> Result<(), String> {
+		self.send_email_template(email_addr, npid, "Your token for RPCN", format!("Your token for username {} is:\n{}", npid, token))
+	}
+
 	fn send_reset_token_mail(&self, email_addr: &str, npid: &str, reset_token: &str) -> Result<(), String> {
-		let email_to_send = Message::builder()
-			.to(Mailbox::new(
-				Some(npid.to_owned()),
-				email_addr.parse().map_err(|e| format!("Error parsing email({}): {}", email_addr, e))?,
-			))
-			.from("RPCN <np@rpcs3.net>".parse().unwrap())
-			.subject("Your password reset code for RPCN")
-			.header(lettre::message::header::ContentType::TEXT_PLAIN)
-			.body(format!(
-				"Your password reset code for username {} is:\n{}\n\nNote that this code can only be used once!",
-				npid, reset_token
-			))
-			.unwrap();
-		self.send_email(email_to_send).map_err(|e| format!("SMTP error: {}", e))
+		self.send_email_template(
+			email_addr,
+			npid,
+			"Your password reset code for RPCN",
+			format!("Your password reset code for username {} is:\n{}\n\nNote that this code can only be used once!", npid, reset_token),
+		)
 	}
 
 	pub async fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
@@ -93,9 +96,9 @@ impl Client {
 
 			match db.check_user(&login, &password, &token, self.config.read().is_email_validated()) {
 				Ok(user_data) => {
-					let mut sign_infos = self.signaling_infos.write();
+					let mut client_infos = self.shared.client_infos.write();
 
-					if sign_infos.contains_key(&user_data.user_id) {
+					if client_infos.contains_key(&user_data.user_id) {
 						return Err(ErrorType::LoginAlreadyLoggedIn);
 					}
 
@@ -131,22 +134,27 @@ impl Client {
 					};
 
 					let dump_usernames_and_status =
-						|reply: &mut Vec<u8>, v_usernames: &Vec<(i64, String)>, sign_infos: &parking_lot::lock_api::RwLockWriteGuard<parking_lot::RawRwLock, HashMap<i64, ClientSignalingInfo>>| {
+						|reply: &mut Vec<u8>, v_usernames: &Vec<(i64, String)>, client_infos: &parking_lot::lock_api::RwLockWriteGuard<parking_lot::RawRwLock, HashMap<i64, ClientSharedInfo>>| {
 							reply.extend(&(v_usernames.len() as u32).to_le_bytes());
-							for (userid, username) in v_usernames {
+							'users_loop: for (user_id, username) in v_usernames {
 								reply.extend(username.as_bytes());
 								reply.push(0);
-								if sign_infos.contains_key(userid) {
-									reply.push(1);
+								if let Some(client_info) = client_infos.get(user_id) {
+									reply.push(1); // status
+									if let Some(ref presence_info) = client_info.friend_info.read().presence {
+										presence_info.dump(reply);
+										continue 'users_loop;
+									}
 								} else {
-									reply.push(0);
+									reply.push(0); // status
 								}
+								ClientSharedPresence::dump_empty(reply);
 							}
 						};
 
 					timestamp = Client::get_timestamp_nanos();
 
-					dump_usernames_and_status(reply, &rels.friends, &sign_infos);
+					dump_usernames_and_status(reply, &rels.friends, &client_infos);
 					dump_usernames(reply, &rels.friend_requests);
 					dump_usernames(reply, &rels.friend_requests_received);
 					dump_usernames(reply, &rels.blocked);
@@ -154,9 +162,9 @@ impl Client {
 					friend_userids = rels.friends.iter().map(|v| (*v).clone()).collect();
 
 					info!("Authentified as {}", &self.client_info.npid);
-					sign_infos.insert(self.client_info.user_id, ClientSignalingInfo::new(self.channel_sender.clone(), friend_userids.clone()));
+					client_infos.insert(self.client_info.user_id, ClientSharedInfo::new(friend_userids.clone(), self.channel_sender.clone()));
 
-					self.game_tracker.increase_num_users();
+					self.shared.game_tracker.increase_num_users();
 				}
 				Err(e) => {
 					return Err(match e {
@@ -172,7 +180,7 @@ impl Client {
 		if self.authentified {
 			// Notify friends that user has come Online
 			let notif = Client::create_friend_status_notification(&self.client_info.npid, timestamp, true);
-			self.send_notification(&notif, &friend_userids.keys().map(|k| *k).collect()).await;
+			self.send_notification(&notif, &friend_userids.keys().copied().collect()).await;
 			Ok(ErrorType::NoError)
 		} else {
 			Err(ErrorType::LoginError)

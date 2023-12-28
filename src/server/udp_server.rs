@@ -8,12 +8,12 @@ use parking_lot::RwLock;
 use tokio::net::UdpSocket;
 use tracing::{error, info, warn};
 
-use crate::server::client::{ClientSignalingInfo, TerminateWatch};
+use crate::server::client::{ClientSharedInfo, TerminateWatch};
 use crate::server::Server;
 
 pub struct UdpServer {
 	host: String,
-	signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
+	client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
 	term_watch: TerminateWatch,
 	socket: Option<UdpSocket>,
 }
@@ -21,7 +21,7 @@ pub struct UdpServer {
 impl Server {
 	pub async fn start_udp_server(&self, term_watch: TerminateWatch) -> io::Result<()> {
 		// Starts udp signaling helper
-		let mut udp_serv = UdpServer::new(self.config.read().get_host(), self.signaling_infos.clone(), term_watch);
+		let mut udp_serv = UdpServer::new(self.config.read().get_host(), self.client_infos.clone(), term_watch);
 		udp_serv.start().await?;
 
 		tokio::task::spawn(async move {
@@ -33,10 +33,10 @@ impl Server {
 }
 
 impl UdpServer {
-	pub fn new(s_host: &str, signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>, term_watch: TerminateWatch) -> UdpServer {
+	pub fn new(s_host: &str, client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>, term_watch: TerminateWatch) -> UdpServer {
 		UdpServer {
 			host: String::from(s_host),
-			signaling_infos,
+			client_infos,
 			term_watch,
 			socket: None,
 		}
@@ -93,34 +93,26 @@ impl UdpServer {
 					};
 					let ip_port = src.port();
 
-					let mut need_update = false;
-					// Get a read lock to check if an udpate is needed
 					{
-						let si = self.signaling_infos.read();
-						let user_si = si.get(&user_id);
+						let client_infos = self.client_infos.read();
+						let client_info = client_infos.get(&user_id);
 
-						match user_si {
+						match client_info {
 							None => continue,
-							Some(user_si) => {
-								if user_si.port_p2p != ip_port || user_si.addr_p2p != ip_addr || user_si.local_addr_p2p != local_addr {
-									need_update = true;
+							Some(client_info) => {
+								let need_update = {
+									let client_si = client_info.signaling_info.read();
+									client_si.port_p2p != ip_port || client_si.addr_p2p != ip_addr || client_si.local_addr_p2p != local_addr
+								};
+
+								if need_update {
+									let mut client_si = client_info.signaling_info.write();
+									client_si.port_p2p = ip_port;
+									client_si.addr_p2p = ip_addr;
+									client_si.local_addr_p2p = local_addr;
 								}
 							}
 						}
-					}
-
-					if need_update {
-						let mut si = self.signaling_infos.write();
-						let user_si = si.get_mut(&user_id);
-
-						if user_si.is_none() {
-							continue;
-						}
-
-						let user_si = user_si.unwrap();
-						user_si.port_p2p = ip_port;
-						user_si.addr_p2p = ip_addr;
-						user_si.local_addr_p2p = local_addr;
 					}
 
 					send_buf[0..2].clone_from_slice(&0u16.to_le_bytes()); // VPort 0

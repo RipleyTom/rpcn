@@ -136,7 +136,7 @@ impl Client {
 			character_id: score_req.pcId(),
 			score: score_req.score(),
 			comment: score_req.comment().map(|s| s.to_owned()),
-			game_info: score_req.data().map(|v| v.to_owned()),
+			game_info: score_req.data().map(|v| v.iter().collect()),
 			data_id: None,
 			timestamp: Client::get_psn_timestamp(),
 		};
@@ -147,6 +147,7 @@ impl Client {
 		match res {
 			Ok(board_infos) => {
 				let pos = self
+					.shared
 					.score_cache
 					.insert_score(&board_infos, &com_id, score_req.boardId(), &score_infos, &self.client_info.npid, &self.client_info.online_name);
 				reply.extend(&pos.to_le_bytes());
@@ -173,6 +174,7 @@ impl Client {
 
 		// Before going further make sure that the score exist
 		if let Err(e) = self
+			.shared
 			.score_cache
 			.contains_score_with_no_data(&com_id, self.client_info.user_id, score_req.pcId(), score_req.boardId(), score_req.score())
 		{
@@ -182,7 +184,11 @@ impl Client {
 		let score_data_id = Client::create_score_data_file(&score_data).await;
 
 		// Update cache
-		if let Err(e) = self.score_cache.set_game_data(&com_id, self.client_info.user_id, score_req.pcId(), score_req.boardId(), score_data_id) {
+		if let Err(e) = self
+			.shared
+			.score_cache
+			.set_game_data(&com_id, self.client_info.user_id, score_req.pcId(), score_req.boardId(), score_data_id)
+		{
 			Client::delete_score_data(score_data_id).await;
 			return Ok(e);
 		}
@@ -211,7 +217,7 @@ impl Client {
 		}
 		let user_id = user_id.unwrap();
 
-		let data_id = self.score_cache.get_game_data_id(&com_id, user_id, score_req.pcId(), score_req.boardId());
+		let data_id = self.shared.score_cache.get_game_data_id(&com_id, user_id, score_req.pcId(), score_req.boardId());
 		if let Err(e) = data_id {
 			return Ok(e);
 		}
@@ -232,7 +238,7 @@ impl Client {
 	pub async fn get_score_range(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let (com_id, score_req) = self.get_com_and_fb::<GetScoreRangeRequest>(data)?;
 
-		let getscore_result = self.score_cache.get_score_range(
+		let getscore_result = self.shared.score_cache.get_score_range(
 			&com_id,
 			score_req.boardId(),
 			score_req.startRank(),
@@ -257,16 +263,15 @@ impl Client {
 			id_vec.push((self.client_info.user_id, 0));
 		}
 
-		let friends = {
-			let sig_infos = self.signaling_infos.read();
-			let self_ci = sig_infos.get(&self.client_info.user_id).unwrap();
-			self_ci.friends.clone()
-		};
+		let friends = { self.shared.client_infos.read().get(&self.client_info.user_id).unwrap().friend_info.read().friends.clone() };
 
 		friends.iter().for_each(|(user_id, _)| id_vec.push((*user_id, 0)));
 		id_vec.truncate(score_req.max() as usize);
 
-		let getscore_result = self.score_cache.get_score_ids(&com_id, score_req.boardId(), &id_vec, score_req.withComment(), score_req.withGameInfo());
+		let getscore_result = self
+			.shared
+			.score_cache
+			.get_score_ids(&com_id, score_req.boardId(), &id_vec, score_req.withComment(), score_req.withGameInfo());
 		let finished_data = getscore_result.serialize();
 
 		reply.extend(&(finished_data.len() as u32).to_le_bytes());
@@ -289,7 +294,10 @@ impl Client {
 			}
 		}
 
-		let getscore_result = self.score_cache.get_score_ids(&com_id, score_req.boardId(), &id_vec, score_req.withComment(), score_req.withGameInfo());
+		let getscore_result = self
+			.shared
+			.score_cache
+			.get_score_ids(&com_id, score_req.boardId(), &id_vec, score_req.withComment(), score_req.withGameInfo());
 		let finished_data = getscore_result.serialize();
 
 		reply.extend(&(finished_data.len() as u32).to_le_bytes());

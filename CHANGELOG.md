@@ -5,15 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-<!---
-## [Unreleased]
--->
+## [0.9.0] - 2024-01-04
+
+### Added
+
+- Presence support
+
+### Fixed
+
+- Added Message-ID to emails sent to help with some SMTP relays
+
+### Misc
+
+- Updated Flatbuffers to v23.5.26
+- Updated hyper to v1.1
+- Refactored data hierarchy for Client
+- Minor code cleanups
+
+
+## [0.8.2] - 2023-12-30
+
+### Fixed
+
+- Fixed tus_add_and_get_vuser_variable db query
+
 
 ## [0.8.1] - 2023-12-29
 
 ### Fixed
 
 - Fixed TUS data query failing because of info NOT NULL constraint fail
+
 
 ## [0.8.0] - 2023-12-28
 
@@ -34,5 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed users getting stuck in logged in state if the thread panics by moving logging out procedures to Client Drop impl.
 
 ### Misc
+
 - Added worlds for Playstation Home to config
 - Added server_redirs.cfg that contains DeS example

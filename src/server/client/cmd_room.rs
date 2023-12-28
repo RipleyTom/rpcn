@@ -18,7 +18,7 @@ impl Client {
 				ErrorType::InvalidInput
 			})?;
 
-		let resp = self.room_manager.write().create_room(&com_id, &create_req, &self.client_info, server_id);
+		let resp = self.shared.room_manager.write().create_room(&com_id, &create_req, &self.client_info, server_id);
 		reply.extend(&(resp.len() as u32).to_le_bytes());
 		reply.extend(resp);
 		Ok(ErrorType::NoError)
@@ -30,7 +30,7 @@ impl Client {
 		let user_ids: HashSet<i64>;
 		let (notif, member_id, users, siginfo, owner);
 		{
-			let mut room_manager = self.room_manager.write();
+			let mut room_manager = self.shared.room_manager.write();
 			if !room_manager.room_exists(&com_id, room_id) {
 				warn!("User requested to join a room that doesn't exist!");
 				return Ok(ErrorType::RoomMissing);
@@ -143,7 +143,7 @@ impl Client {
 		let (com_id, leave_req) = self.get_com_and_fb::<LeaveRoomRequest>(data)?;
 
 		let res = self
-			.leave_room(&self.room_manager, &com_id, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction)
+			.leave_room(&self.shared.room_manager, &com_id, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction)
 			.await;
 		reply.extend(&leave_req.roomId().to_le_bytes());
 		Ok(res)
@@ -151,7 +151,7 @@ impl Client {
 	pub fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let (com_id, search_req) = self.get_com_and_fb::<SearchRoomRequest>(data)?;
 
-		let resp = self.room_manager.read().search_room(&com_id, &search_req);
+		let resp = self.shared.room_manager.read().search_room(&com_id, &search_req);
 		reply.extend(&(resp.len() as u32).to_le_bytes());
 		reply.extend(resp);
 		Ok(ErrorType::NoError)
@@ -159,7 +159,7 @@ impl Client {
 	pub fn req_get_roomdata_external_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let (com_id, getdata_req) = self.get_com_and_fb::<GetRoomDataExternalListRequest>(data)?;
 
-		let resp = self.room_manager.read().get_roomdata_external_list(&com_id, &getdata_req);
+		let resp = self.shared.room_manager.read().get_roomdata_external_list(&com_id, &getdata_req);
 
 		reply.extend(&(resp.len() as u32).to_le_bytes());
 		reply.extend(resp);
@@ -170,7 +170,7 @@ impl Client {
 	pub fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomDataExternalRequest>(data)?;
 
-		if let Err(e) = self.room_manager.write().set_roomdata_external(&com_id, &setdata_req) {
+		if let Err(e) = self.shared.room_manager.write().set_roomdata_external(&com_id, &setdata_req) {
 			Ok(e)
 		} else {
 			Ok(ErrorType::NoError)
@@ -179,7 +179,7 @@ impl Client {
 	pub fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let (com_id, getdata_req) = self.get_com_and_fb::<GetRoomDataInternalRequest>(data)?;
 
-		let resp = self.room_manager.read().get_roomdata_internal(&com_id, &getdata_req);
+		let resp = self.shared.room_manager.read().get_roomdata_internal(&com_id, &getdata_req);
 		if let Err(e) = resp {
 			reply.push(e);
 		} else {
@@ -193,7 +193,7 @@ impl Client {
 		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomDataInternalRequest>(data)?;
 
 		let room_id = setdata_req.roomId();
-		let res = self.room_manager.write().set_roomdata_internal(&com_id, &setdata_req, self.client_info.user_id);
+		let res = self.shared.room_manager.write().set_roomdata_internal(&com_id, &setdata_req, self.client_info.user_id);
 
 		match res {
 			Ok((users, notif_data)) => {
@@ -213,7 +213,7 @@ impl Client {
 		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomMemberDataInternalRequest>(data)?;
 
 		let room_id = setdata_req.roomId();
-		let res = self.room_manager.write().set_roommemberdata_internal(&com_id, &setdata_req, self.client_info.user_id);
+		let res = self.shared.room_manager.write().set_roommemberdata_internal(&com_id, &setdata_req, self.client_info.user_id);
 
 		match res {
 			Ok((users, notif_data)) => {
@@ -237,7 +237,7 @@ impl Client {
 			return Err(ErrorType::Malformed);
 		}
 
-		let infos = self.room_manager.read().get_room_infos(&com_id, room_id);
+		let infos = self.shared.room_manager.read().get_room_infos(&com_id, room_id);
 		if let Err(e) = infos {
 			return Ok(e);
 		}
@@ -269,7 +269,7 @@ impl Client {
 		let (notif, member_id, users);
 		let mut dst_vec: Vec<u16> = Vec::new();
 		{
-			let room_manager = self.room_manager.read();
+			let room_manager = self.shared.room_manager.read();
 			if !room_manager.room_exists(&com_id, room_id) {
 				warn!("User requested to send a message to a room that doesn't exist!");
 				return Ok(ErrorType::InvalidInput);
@@ -316,11 +316,11 @@ impl Client {
 				},
 			);
 
-			let mut msg_vec: Vec<u8> = Vec::new();
+			let msg_vec: Vec<u8>;
 			if let Some(msg) = msg_req.msg() {
-				for i in 0..msg.len() {
-					msg_vec.push(*msg.get(i).unwrap());
-				}
+				msg_vec = msg.iter().collect();
+			} else {
+				msg_vec = Vec::new();
 			}
 			let msg = Some(builder.create_vector(&msg_vec));
 

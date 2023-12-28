@@ -55,22 +55,86 @@ pub struct ClientInfo {
 	pub banned: bool,
 }
 
-pub struct ClientSignalingInfo {
-	pub channel: mpsc::Sender<Vec<u8>>,
+pub struct ClientSharedSignalingInfo {
 	pub addr_p2p: [u8; 4],
 	pub port_p2p: u16,
 	pub local_addr_p2p: [u8; 4],
-	pub friends: HashMap<i64, String>,
 }
 
-impl ClientSignalingInfo {
-	pub fn new(channel: mpsc::Sender<Vec<u8>>, friends: HashMap<i64, String>) -> ClientSignalingInfo {
-		ClientSignalingInfo {
-			channel,
+impl ClientSharedSignalingInfo {
+	fn new() -> ClientSharedSignalingInfo {
+		ClientSharedSignalingInfo {
 			addr_p2p: [0; 4],
 			port_p2p: 0,
 			local_addr_p2p: [0; 4],
-			friends,
+		}
+	}
+}
+
+#[derive(Clone)]
+pub struct ClientSharedPresence {
+	pub communication_id: ComId,
+	pub title: String,
+	pub status: String,
+	pub comment: String,
+	pub data: Vec<u8>,
+}
+
+impl ClientSharedPresence {
+	pub fn new(communication_id: ComId, title: &str, status: Option<&str>, comment: Option<&str>, data: Option<&[u8]>) -> ClientSharedPresence {
+		ClientSharedPresence {
+			communication_id,
+			title: title.to_string(),
+			status: status.map(|s| s.to_string()).unwrap_or_default(),
+			comment: comment.map(|s| s.to_string()).unwrap_or_default(),
+			data: data.map(|d| d.to_vec()).unwrap_or_default(),
+		}
+	}
+
+	pub fn dump(&self, vec: &mut Vec<u8>) {
+		vec.extend(self.communication_id);
+		vec.extend(self.title.as_bytes());
+		vec.push(0);
+		vec.extend(self.status.as_bytes());
+		vec.push(0);
+		vec.extend(self.comment.as_bytes());
+		vec.push(0);
+		vec.extend((self.data.len() as u32).to_le_bytes());
+		vec.extend(&self.data);
+	}
+
+	pub fn dump_empty(vec: &mut Vec<u8>) {
+		vec.extend([0; 9]); // com_id
+		vec.push(0); // title
+		vec.push(0); // status string
+		vec.push(0); // comment
+		vec.extend(0u32.to_le_bytes()); // data
+	}
+}
+
+pub struct ClientSharedFriendInfo {
+	pub friends: HashMap<i64, String>,
+	pub presence: Option<ClientSharedPresence>,
+}
+
+impl ClientSharedFriendInfo {
+	fn new(friends: HashMap<i64, String>) -> ClientSharedFriendInfo {
+		ClientSharedFriendInfo { friends, presence: None }
+	}
+}
+
+pub struct ClientSharedInfo {
+	pub signaling_info: RwLock<ClientSharedSignalingInfo>,
+	pub friend_info: RwLock<ClientSharedFriendInfo>,
+	pub channel: mpsc::Sender<Vec<u8>>,
+}
+
+impl ClientSharedInfo {
+	pub fn new(friends: HashMap<i64, String>, channel: mpsc::Sender<Vec<u8>>) -> ClientSharedInfo {
+		ClientSharedInfo {
+			signaling_info: RwLock::new(ClientSharedSignalingInfo::new()),
+			friend_info: RwLock::new(ClientSharedFriendInfo::new(friends)),
+			channel,
 		}
 	}
 }
@@ -91,19 +155,24 @@ impl TerminateWatch {
 }
 
 #[derive(Clone)]
+pub struct SharedData {
+	room_manager: Arc<RwLock<RoomManager>>,
+	client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
+	score_cache: Arc<ScoresCache>,
+	game_tracker: Arc<GameTracker>,
+}
+
+#[derive(Clone)]
 pub struct Client {
 	config: Arc<RwLock<Config>>,
 	channel_sender: mpsc::Sender<Vec<u8>>,
 	db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
-	room_manager: Arc<RwLock<RoomManager>>,
-	signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
-	score_cache: Arc<ScoresCache>,
+	shared: SharedData,
 	authentified: bool,
 	client_info: ClientInfo,
 	post_reply_notifications: Vec<Vec<u8>>,
 	terminate_watch: TerminateWatch,
 	current_game: (Option<ComId>, Option<String>),
-	game_tracker: Arc<GameTracker>,
 }
 
 #[repr(u8)]
@@ -164,6 +233,8 @@ enum CommandType {
 	TusGetMultiUserDataStatus,
 	TusGetFriendsDataStatus,
 	TusDeleteMultiSlotData,
+	ClearPresence,
+	SetPresence,
 	UpdateDomainBans = 0x0100,
 	TerminateServer,
 }
@@ -223,6 +294,17 @@ pub fn com_id_to_string(com_id: &ComId) -> String {
 	com_id.iter().map(|c| *c as char).collect()
 }
 
+impl SharedData {
+	pub fn new(room_manager: Arc<RwLock<RoomManager>>, client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>, score_cache: Arc<ScoresCache>, game_tracker: Arc<GameTracker>) -> SharedData {
+		SharedData {
+			room_manager,
+			client_infos,
+			score_cache,
+			game_tracker,
+		}
+	}
+}
+
 impl Drop for Client {
 	fn drop(&mut self) {
 		// This code is here instead of at the end of process in case of thread panic to ensure user is properly 'cleaned out' of the system
@@ -230,11 +312,11 @@ impl Drop for Client {
 			let mut self_clone = self.clone();
 			task::spawn(async move {
 				// leave all rooms user is still in
-				let rooms = self_clone.room_manager.read().get_rooms_by_user(self_clone.client_info.user_id);
+				let rooms = self_clone.shared.room_manager.read().get_rooms_by_user(self_clone.client_info.user_id);
 
 				if let Some(rooms) = rooms {
 					for room in rooms {
-						self_clone.leave_room(&self_clone.room_manager, &room.0, room.1, None, EventCause::MemberDisappeared).await;
+						self_clone.leave_room(&self_clone.shared.room_manager, &room.0, room.1, None, EventCause::MemberDisappeared).await;
 					}
 				}
 
@@ -242,26 +324,26 @@ impl Drop for Client {
 				let mut to_notif: HashSet<i64> = HashSet::new();
 				let timestamp;
 				{
-					let mut sign_infos = self_clone.signaling_infos.write();
+					let mut client_infos = self_clone.shared.client_infos.write();
 					timestamp = Client::get_timestamp_nanos();
-					if let Some(infos) = sign_infos.get(&self_clone.client_info.user_id) {
-						to_notif = infos.friends.iter().map(|(user_id, _username)| *user_id).collect();
+					if let Some(client_info) = client_infos.get(&self_clone.client_info.user_id) {
+						to_notif = client_info.friend_info.read().friends.keys().copied().collect();
 					}
-					sign_infos.remove(&self_clone.client_info.user_id);
+					client_infos.remove(&self_clone.client_info.user_id);
 				}
 
 				let notif = Client::create_friend_status_notification(&self_clone.client_info.npid, timestamp, false);
 				self_clone.send_notification(&notif, &to_notif).await;
 
 				// Remove user from game stats
-				self_clone.game_tracker.decrease_num_users();
+				self_clone.shared.game_tracker.decrease_num_users();
 
 				if let Some(ref cur_com_id) = self_clone.current_game.0 {
-					self_clone.game_tracker.decrease_count_psn(cur_com_id);
+					self_clone.shared.game_tracker.decrease_count_psn(cur_com_id);
 				}
 
 				if let Some(ref cur_service_id) = self_clone.current_game.1 {
-					self_clone.game_tracker.decrease_count_ticket(cur_service_id);
+					self_clone.shared.game_tracker.decrease_count_ticket(cur_service_id);
 				}
 
 				// Needed to make sure this is not called recursively!
@@ -276,11 +358,8 @@ impl Client {
 		config: Arc<RwLock<Config>>,
 		tls_stream: TlsStream<TcpStream>,
 		db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
-		room_manager: Arc<RwLock<RoomManager>>,
-		signaling_infos: Arc<RwLock<HashMap<i64, ClientSignalingInfo>>>,
-		score_cache: Arc<ScoresCache>,
+		shared: SharedData,
 		terminate_watch: TerminateWatch,
-		game_tracker: Arc<GameTracker>,
 	) -> (Client, io::ReadHalf<TlsStream<TcpStream>>) {
 		let client_info = ClientInfo {
 			user_id: 0,
@@ -310,15 +389,12 @@ impl Client {
 				config,
 				channel_sender,
 				db_pool,
-				room_manager,
-				signaling_infos,
-				score_cache,
+				shared,
 				authentified: false,
 				client_info,
 				post_reply_notifications: Vec::new(),
 				terminate_watch,
 				current_game: (None, None),
-				game_tracker,
 			},
 			tls_reader,
 		)
@@ -547,6 +623,8 @@ impl Client {
 			CommandType::TusGetMultiUserDataStatus => self.tus_get_multiuser_data_status(data, reply).await,
 			CommandType::TusGetFriendsDataStatus => self.tus_get_friends_data_status(data, reply).await,
 			CommandType::TusDeleteMultiSlotData => self.tus_delete_multislot_data(data).await,
+			CommandType::ClearPresence => self.clear_presence().await,
+			CommandType::SetPresence => self.set_presence(data).await,
 			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
 			CommandType::TerminateServer => self.req_admin_terminate_server(),
 			_ => {
@@ -581,13 +659,13 @@ impl Client {
 
 		if let Some(ref mut cur_com_id) = self.current_game.0 {
 			if *cur_com_id != final_com_id {
-				self.game_tracker.decrease_count_psn(cur_com_id);
+				self.shared.game_tracker.decrease_count_psn(cur_com_id);
 				*cur_com_id = final_com_id;
-				self.game_tracker.increase_count_psn(&final_com_id);
+				self.shared.game_tracker.increase_count_psn(&final_com_id);
 			}
 		} else {
 			self.current_game.0 = Some(final_com_id);
-			self.game_tracker.increase_count_psn(&final_com_id);
+			self.shared.game_tracker.increase_count_psn(&final_com_id);
 		}
 
 		final_com_id
@@ -607,11 +685,12 @@ impl Client {
 		let mut port_p2p = 0;
 		let mut local_ip = [0; 4];
 		{
-			let sig_infos = self.signaling_infos.read();
-			if let Some(entry) = sig_infos.get(&from.1) {
-				addr_p2p = entry.addr_p2p;
-				port_p2p = entry.port_p2p;
-				local_ip = entry.local_addr_p2p;
+			let client_infos = self.shared.client_infos.read();
+			if let Some(client_entry) = client_infos.get(&from.1) {
+				let client_si = client_entry.signaling_info.read();
+				addr_p2p = client_si.addr_p2p;
+				port_p2p = client_si.port_p2p;
+				local_ip = client_si.local_addr_p2p;
 			}
 		}
 
@@ -640,20 +719,21 @@ impl Client {
 					for user in &to {
 						let mut tosend = false; // tosend is there to avoid double locking on signaling_infos
 						{
-							let sig_infos = self.signaling_infos.read();
-							let user_si = sig_infos.get(user.1);
+							let client_infos = self.shared.client_infos.read();
+							let client_entry = client_infos.get(user.1);
 
-							if let Some(user_si) = user_si {
+							if let Some(client_entry) = client_entry {
+								let client_si = client_entry.signaling_info.read();
 								s_self_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&user.0.to_le_bytes());
 
-								if user_si.addr_p2p == addr_p2p {
+								if client_si.addr_p2p == addr_p2p {
 									user_ids_local.insert(*user.1);
-									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.local_addr_p2p);
+									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&client_si.local_addr_p2p);
 									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_le_bytes());
 								} else {
 									user_ids_extern.insert(*user.1);
-									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
-									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_le_bytes());
+									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&client_si.addr_p2p);
+									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&client_si.port_p2p.to_le_bytes());
 								}
 
 								tosend = true;
@@ -674,21 +754,22 @@ impl Client {
 				// Send notification to user to connect to hub
 				let mut tosend = false;
 				{
-					let sig_infos = self.signaling_infos.read();
+					let client_infos = self.shared.client_infos.read();
 					let hub_user_id = *to.get(&hub).unwrap();
-					let user_si = sig_infos.get(&hub_user_id);
+					let client_entry = client_infos.get(&hub_user_id);
 
-					if let Some(user_si) = user_si {
+					if let Some(client_entry) = client_entry {
+						let client_si = client_entry.signaling_info.read();
 						s_self_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&hub.to_le_bytes());
 
-						if user_si.addr_p2p == addr_p2p {
+						if client_si.addr_p2p == addr_p2p {
 							user_ids_local.insert(hub_user_id);
-							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.local_addr_p2p);
+							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&client_si.local_addr_p2p);
 							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_le_bytes());
 						} else {
 							user_ids_extern.insert(hub_user_id);
-							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&user_si.addr_p2p);
-							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&user_si.port_p2p.to_le_bytes());
+							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&client_si.addr_p2p);
+							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&client_si.port_p2p.to_le_bytes());
 						}
 
 						tosend = true;
@@ -721,17 +802,18 @@ impl Client {
 		}
 
 		let user_id = user_id.unwrap();
-		let sig_infos = self.signaling_infos.read();
-		let caller_ip = sig_infos.get(&self.client_info.user_id).unwrap().addr_p2p;
-		if let Some(entry) = sig_infos.get(&user_id) {
-			if caller_ip == entry.addr_p2p {
-				reply.extend(&entry.local_addr_p2p);
+		let client_infos = self.shared.client_infos.read();
+		let caller_ip = client_infos.get(&self.client_info.user_id).unwrap().signaling_info.read().addr_p2p;
+		if let Some(client_info) = client_infos.get(&user_id) {
+			let client_si = client_info.signaling_info.read();
+			if caller_ip == client_si.addr_p2p {
+				reply.extend(&client_si.local_addr_p2p);
 				reply.extend(&3658u16.to_le_bytes());
-				info!("Requesting signaling infos for {} => (local) {:?}:{}", &npid, &entry.local_addr_p2p, 3658);
+				info!("Requesting signaling infos for {} => (local) {:?}:{}", &npid, &client_si.local_addr_p2p, 3658);
 			} else {
-				reply.extend(&entry.addr_p2p);
-				reply.extend(&((entry.port_p2p).to_le_bytes()));
-				info!("Requesting signaling infos for {} => (extern) {:?}:{}", &npid, &entry.addr_p2p, entry.port_p2p);
+				reply.extend(&client_si.addr_p2p);
+				reply.extend(&((client_si.port_p2p).to_le_bytes()));
+				info!("Requesting signaling infos for {} => (extern) {:?}:{}", &npid, &client_si.addr_p2p, client_si.port_p2p);
 			}
 			Ok(ErrorType::NoError)
 		} else {
@@ -751,13 +833,13 @@ impl Client {
 
 		if let Some(ref mut cur_service_id) = self.current_game.1 {
 			if *cur_service_id != service_id {
-				self.game_tracker.decrease_count_ticket(cur_service_id);
+				self.shared.game_tracker.decrease_count_ticket(cur_service_id);
 				*cur_service_id = service_id.clone();
-				self.game_tracker.increase_count_ticket(&service_id);
+				self.shared.game_tracker.increase_count_ticket(&service_id);
 			}
 		} else {
 			self.current_game.1 = Some(service_id.clone());
-			self.game_tracker.increase_count_ticket(&service_id);
+			self.shared.game_tracker.increase_count_ticket(&service_id);
 		}
 
 		let ticket;
@@ -809,9 +891,9 @@ impl Client {
 
 		// Ensure all recipients are friends(TODO: might not be necessary for all messages?)
 		{
-			let sig_infos = self.signaling_infos.read();
-			let user_si = sig_infos.get(&self.client_info.user_id).unwrap();
-			if !user_si.friends.keys().map(|k| *k).collect::<HashSet<i64>>().is_superset(&ids) {
+			let client_infos = self.shared.client_infos.read();
+			let client_fi = client_infos.get(&self.client_info.user_id).unwrap().friend_info.read();
+			if !client_fi.friends.keys().copied().collect::<HashSet<i64>>().is_superset(&ids) {
 				warn!("Requested to send a message to a non-friend!");
 				return Ok(ErrorType::InvalidInput);
 			}

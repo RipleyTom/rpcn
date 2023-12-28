@@ -15,6 +15,7 @@ pub enum NotificationType {
 	FriendStatus, // Set status of friend to Offline or Online
 	RoomMessageReceived,
 	MessageReceived,
+	FriendPresenceChanged,
 }
 
 impl Client {
@@ -50,12 +51,11 @@ impl Client {
 
 	pub async fn send_single_notification(&self, notif: &[u8], user_id: i64) {
 		let channel_copy;
-		let entry;
 		{
-			let sig_infos = self.signaling_infos.read();
-			entry = sig_infos.get(&user_id);
-			if let Some(c) = entry {
-				channel_copy = c.channel.clone();
+			let client_infos = self.shared.client_infos.read();
+			let client_info = client_infos.get(&user_id);
+			if let Some(client_info) = client_info {
+				channel_copy = client_info.channel.clone();
 			} else {
 				return;
 			}
