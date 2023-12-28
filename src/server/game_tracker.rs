@@ -6,9 +6,10 @@ use std::net::ToSocketAddrs;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use hyper::server::conn::Http;
+use hyper::server::conn::http1;
 use hyper::service::service_fn;
-use hyper::{Body, Method, Request, Response};
+use hyper::{Method, Request, Response};
+use hyper_util::rt::TokioIo;
 use parking_lot::RwLock;
 use tokio::net::TcpListener;
 use tracing::{info, warn};
@@ -61,11 +62,13 @@ impl GameTracker {
 					}
 
 					let (stream, peer_addr) = accept_res.unwrap();
+					let io = TokioIo::new(stream);
+
 					info!("Stat: new client from {}", peer_addr);
 					{
 						let game_tracker = game_tracker.clone();
 						tokio::task::spawn(async move {
-							if let Err(err) = Http::new().http1_only(true).http1_keep_alive(false).serve_connection(stream, service_fn(|r| GameTracker::handle_stat_server_req(r, game_tracker.clone()))).await {
+							if let Err(err) = http1::Builder::new().keep_alive(false).serve_connection(io, service_fn(|r| GameTracker::handle_stat_server_req(r, game_tracker.clone()))).await {
 								warn!("Stat: Error serving connection: {}", err);
 							}
 						});
@@ -79,7 +82,7 @@ impl GameTracker {
 		info!("GameTracker::server_proc terminating");
 	}
 
-	async fn handle_stat_server_req(req: Request<Body>, game_tracker: Arc<GameTracker>) -> Result<Response<String>, Infallible> {
+	async fn handle_stat_server_req(req: Request<hyper::body::Incoming>, game_tracker: Arc<GameTracker>) -> Result<Response<String>, Infallible> {
 		if req.method() != Method::GET || req.uri() != "/rpcn_stats" {
 			return Ok(Response::new("".to_owned()));
 		}

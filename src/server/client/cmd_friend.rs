@@ -65,12 +65,14 @@ impl Client {
 			// Update signaling infos
 			let friend_online: bool;
 			{
-				let mut sign_infos = self.signaling_infos.write();
-				if let Some(user) = sign_infos.get_mut(&self.client_info.user_id) {
-					user.friends.insert(friend_user_id, friend_npid.clone());
+				let client_infos = self.shared.client_infos.read();
+				if let Some(user_info) = client_infos.get(&self.client_info.user_id) {
+					let mut user_fi = user_info.friend_info.write();
+					user_fi.friends.insert(friend_user_id, friend_npid.clone());
 				}
-				if let Some(other_user) = sign_infos.get_mut(&friend_user_id) {
-					other_user.friends.insert(self.client_info.user_id, self.client_info.npid.clone());
+				if let Some(other_user_info) = client_infos.get(&friend_user_id) {
+					let mut other_user_fi = other_user_info.friend_info.write();
+					other_user_fi.friends.insert(self.client_info.user_id, self.client_info.npid.clone());
 					friend_online = true;
 				} else {
 					friend_online = false;
@@ -157,12 +159,14 @@ impl Client {
 		let friend_n = Client::create_notification(NotificationType::FriendLost, &n_msg);
 		self.send_single_notification(&friend_n, friend_user_id).await;
 		// Update signaling infos
-		let mut sign_infos = self.signaling_infos.write();
-		if let Some(user) = sign_infos.get_mut(&self.client_info.user_id) {
-			user.friends.remove(&friend_user_id);
+		let client_infos = self.shared.client_infos.read();
+		if let Some(client_info) = client_infos.get(&self.client_info.user_id) {
+			let mut user_fi = client_info.friend_info.write();
+			user_fi.friends.remove(&friend_user_id);
 		}
-		if let Some(other_user) = sign_infos.get_mut(&friend_user_id) {
-			other_user.friends.remove(&self.client_info.user_id);
+		if let Some(other_user_info) = client_infos.get(&friend_user_id) {
+			let mut other_user_fi = other_user_info.friend_info.write();
+			other_user_fi.friends.remove(&self.client_info.user_id);
 		}
 
 		Ok(ErrorType::NoError)

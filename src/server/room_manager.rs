@@ -89,7 +89,7 @@ impl<const N: usize> RoomBinAttr<N> {
 			} else {
 				fb_attrs.len()
 			};
-			attr[0..len].clone_from_slice(&fb_attrs[0..len]);
+			attr[0..len].clone_from_slice(&fb_attrs.bytes()[0..len]);
 			cur_size = len;
 		}
 
@@ -196,7 +196,7 @@ impl RoomGroupConfig {
 		let mut label = [0; 8];
 		if let Some(vec) = fb.label() {
 			if vec.len() == 8 {
-				label.clone_from_slice(&vec[0..8]);
+				label.clone_from_slice(&vec.bytes()[0..8]);
 			}
 		}
 		let with_password = fb.withPassword();
@@ -507,7 +507,7 @@ impl Room {
 		if let Some(password) = fb.roomPassword() {
 			if password.len() == 8 {
 				let mut room_password_data = [0; 8];
-				room_password_data.clone_from_slice(&password[0..8]);
+				room_password_data.clone_from_slice(&password.bytes()[0..8]);
 				room_password = Some(room_password_data);
 			}
 		}
@@ -860,7 +860,7 @@ impl Room {
 
 				// Unsure if cur_size should be compared to data's size
 				let len_compare = std::cmp::min(data.len(), self.search_bin_attr.attr.len());
-				let equality = self.search_bin_attr.attr[0..len_compare] == data[0..len_compare];
+				let equality = self.search_bin_attr.attr[0..len_compare] == data.bytes()[0..len_compare];
 
 				match op {
 					SceNpMatching2Operator::OperatorEq => {
@@ -974,15 +974,15 @@ impl RoomManager {
 		room.users.insert(member_id, room_user);
 
 		if room.lobby_id == 0 {
-			let daset = self.world_rooms.entry((*com_id, room.world_id)).or_insert_with(HashSet::new);
+			let daset = self.world_rooms.entry((*com_id, room.world_id)).or_default();
 			daset.insert(*room_cnt);
 		} else {
-			let daset = self.lobby_rooms.entry((*com_id, room.lobby_id)).or_insert_with(HashSet::new);
+			let daset = self.lobby_rooms.entry((*com_id, room.lobby_id)).or_default();
 			daset.insert(*room_cnt);
 		}
 
 		self.rooms.insert((*com_id, *room_cnt), room);
-		let user_set = self.user_rooms.entry(cinfo.user_id).or_insert_with(HashSet::new);
+		let user_set = self.user_rooms.entry(cinfo.user_id).or_default();
 		user_set.insert((*com_id, *room_cnt));
 
 		// Prepare roomDataInternal
@@ -1018,7 +1018,7 @@ impl RoomManager {
 			room.flag_attr |= SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32;
 		}
 
-		let user_set = self.user_rooms.entry(cinfo.user_id).or_insert_with(HashSet::new);
+		let user_set = self.user_rooms.entry(cinfo.user_id).or_default();
 		user_set.insert((*com_id, room.room_id));
 
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);

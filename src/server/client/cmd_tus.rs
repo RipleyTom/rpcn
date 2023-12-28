@@ -227,7 +227,7 @@ impl Client {
 		}
 
 		let vars = Some(builder.create_vector(&final_vars));
-		let tus_var_response = TusVarResponse::create(&mut builder, &TusVarResponseArgs { vars: vars });
+		let tus_var_response = TusVarResponse::create(&mut builder, &TusVarResponseArgs { vars });
 		builder.finish(tus_var_response, None);
 		let finished_data = builder.finished_data().to_vec();
 
@@ -318,7 +318,7 @@ impl Client {
 		}
 
 		let vars = Some(builder.create_vector(&final_vars));
-		let tus_var_response = TusVarResponse::create(&mut builder, &TusVarResponseArgs { vars: vars });
+		let tus_var_response = TusVarResponse::create(&mut builder, &TusVarResponseArgs { vars });
 		builder.finish(tus_var_response, None);
 		let finished_data = builder.finished_data().to_vec();
 
@@ -338,7 +338,7 @@ impl Client {
 		}
 		let sorting = sorting.unwrap();
 
-		let mut user_list = self.signaling_infos.read().get(&self.client_info.user_id).unwrap().friends.clone();
+		let mut user_list = self.shared.client_infos.read().get(&self.client_info.user_id).unwrap().friend_info.read().friends.clone();
 		if tus_req.includeSelf() {
 			user_list.insert(self.client_info.user_id, self.client_info.npid.clone());
 		}
@@ -349,13 +349,13 @@ impl Client {
 		if !user_list.is_empty() {
 			let db = Database::new(self.get_database_connection()?);
 			let vec_vars = db
-				.tus_get_user_variable_from_user_list(&com_id, &user_list.keys().map(|k| *k).collect::<Vec<i64>>(), tus_req.slotId(), sorting, tus_req.arrayNum())
+				.tus_get_user_variable_from_user_list(&com_id, &user_list.keys().copied().collect::<Vec<i64>>(), tus_req.slotId(), sorting, tus_req.arrayNum())
 				.map_err(|_| ErrorType::DbFail)?;
 
 			for (user_id, var) in &vec_vars {
 				let author_id_string = self.get_username_with_helper(var.author_id, &user_list, &db)?;
 
-				let owner_fb = Some(builder.create_string(&user_list.get(user_id).unwrap()));
+				let owner_fb = Some(builder.create_string(user_list.get(user_id).unwrap()));
 				let author_id_fb_string = Some(builder.create_string(&author_id_string));
 				final_vars.push(TusVariable::create(
 					&mut builder,
@@ -372,7 +372,7 @@ impl Client {
 		}
 
 		let vars = Some(builder.create_vector(&final_vars));
-		let tus_var_response = TusVarResponse::create(&mut builder, &TusVarResponseArgs { vars: vars });
+		let tus_var_response = TusVarResponse::create(&mut builder, &TusVarResponseArgs { vars });
 		builder.finish(tus_var_response, None);
 		let finished_data = builder.finished_data().to_vec();
 
@@ -417,10 +417,11 @@ impl Client {
 		};
 
 		let var = if user.vuser() {
-			db.tus_add_and_get_vuser_variable(&com_id, npid, slot, to_add, author_id, timestamp, compare_timestamp, compare_author).map_err(|e| {
-				error!("Error tus_add_and_get_vuser_variable: {}", e);
-				ErrorType::DbFail
-			})?
+			db.tus_add_and_get_vuser_variable(&com_id, npid, slot, to_add, author_id, timestamp, compare_timestamp, compare_author)
+				.map_err(|e| {
+					error!("Error tus_add_and_get_vuser_variable: {}", e);
+					ErrorType::DbFail
+				})?
 		} else {
 			let user_id = match db.get_user_id(npid) {
 				Err(DbError::Empty) => return Ok(ErrorType::NotFound),
@@ -432,10 +433,11 @@ impl Client {
 				return Ok(ErrorType::Unauthorized);
 			}
 
-			db.tus_add_and_get_user_variable(&com_id, user_id, slot, to_add, author_id, timestamp, compare_timestamp, compare_author).map_err(|e| {
-				error!("Error tus_add_and_get_user_variable: {}", e);
-				ErrorType::DbFail
-			})?
+			db.tus_add_and_get_user_variable(&com_id, user_id, slot, to_add, author_id, timestamp, compare_timestamp, compare_author)
+				.map_err(|e| {
+					error!("Error tus_add_and_get_user_variable: {}", e);
+					ErrorType::DbFail
+				})?
 		};
 
 		let author_id_string = db.get_username(var.author_id).map_err(|_| ErrorType::DbFail)?;
@@ -672,9 +674,19 @@ impl Client {
 				return ret_value;
 			}
 
-			let data_id = Client::create_tus_data_file(data).await;
+			let data_id = Client::create_tus_data_file(data.bytes()).await;
 
-			let res = db.tus_set_vuser_data(&com_id, npid, slot, data_id, &info, self.client_info.user_id, new_timestamp, compare_timestamp, compare_author_id);
+			let res = db.tus_set_vuser_data(
+				&com_id,
+				npid,
+				slot,
+				data_id,
+				&info.map(|v| v.bytes()),
+				self.client_info.user_id,
+				new_timestamp,
+				compare_timestamp,
+				compare_author_id,
+			);
 			match res {
 				Ok(tus_data) => {
 					if tus_data.author_id != self.client_info.user_id || tus_data.data_id != data_id || tus_data.timestamp != new_timestamp {
@@ -701,9 +713,9 @@ impl Client {
 				return ret_value;
 			}
 
-			let data_id = Client::create_tus_data_file(data).await;
+			let data_id = Client::create_tus_data_file(data.bytes()).await;
 
-			let res = db.tus_set_user_data(&com_id, user_id, slot, data_id, &info, user_id, new_timestamp, compare_timestamp, compare_author_id);
+			let res = db.tus_set_user_data(&com_id, user_id, slot, data_id, &info.map(|v| v.bytes()), user_id, new_timestamp, compare_timestamp, compare_author_id);
 			match res {
 				Ok(tus_data) => {
 					if tus_data.author_id != user_id || tus_data.data_id != data_id || tus_data.timestamp != new_timestamp {
@@ -746,7 +758,7 @@ impl Client {
 
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 
-		let owner_id = Some(builder.create_string(&npid));
+		let owner_id = Some(builder.create_string(npid));
 		let has_data;
 		let last_changed_date;
 		let last_changed_author_id;
@@ -831,7 +843,7 @@ impl Client {
 		let mut vec_list_fb_status = Vec::new();
 
 		for status in &vec_status {
-			let owner_id = Some(builder.create_string(&npid));
+			let owner_id = Some(builder.create_string(npid));
 			let has_data;
 			let last_changed_date;
 			let last_changed_author_id;
@@ -843,7 +855,7 @@ impl Client {
 				has_data = true;
 				last_changed_date = db_tus_data_status.timestamp;
 				last_changed_author_id = Some(builder.create_string(&author_id_string));
-				tus_info = Some(builder.create_vector(&db_tus_data_info));
+				tus_info = Some(builder.create_vector(db_tus_data_info));
 			} else {
 				has_data = false;
 				last_changed_date = 0;
@@ -923,7 +935,7 @@ impl Client {
 				has_data = true;
 				last_changed_date = db_tus_data_status.timestamp;
 				last_changed_author_id = Some(builder.create_string(&author_id_string));
-				tus_info = Some(builder.create_vector(&db_tus_data_info));
+				tus_info = Some(builder.create_vector(db_tus_data_info));
 			} else {
 				has_data = false;
 				last_changed_date = 0;
@@ -964,7 +976,7 @@ impl Client {
 		}
 		let sorting: TusStatusSorting = sorting.unwrap();
 
-		let mut user_list = self.signaling_infos.read().get(&self.client_info.user_id).unwrap().friends.clone();
+		let mut user_list = self.shared.client_infos.read().get(&self.client_info.user_id).unwrap().friend_info.read().friends.clone();
 		if tus_req.includeSelf() {
 			user_list.insert(self.client_info.user_id, self.client_info.npid.clone());
 		}
@@ -975,16 +987,16 @@ impl Client {
 		if !user_list.is_empty() {
 			let db = Database::new(self.get_database_connection()?);
 			let vec_vars = db
-				.tus_get_user_data_from_user_list(&com_id, &user_list.keys().map(|k| *k).collect::<Vec<i64>>(), tus_req.slotId(), sorting, tus_req.arrayNum())
+				.tus_get_user_data_from_user_list(&com_id, &user_list.keys().copied().collect::<Vec<i64>>(), tus_req.slotId(), sorting, tus_req.arrayNum())
 				.map_err(|_| ErrorType::DbFail)?;
 
 			for (user_id, var, db_tus_data_info) in &vec_vars {
 				let author_id_string = self.get_username_with_helper(var.author_id, &user_list, &db)?;
 
-				let owner_fb = Some(builder.create_string(&user_list.get(user_id).unwrap()));
+				let owner_fb = Some(builder.create_string(user_list.get(user_id).unwrap()));
 				let author_id_fb_string = Some(builder.create_string(&author_id_string));
 
-				let tus_info = Some(builder.create_vector(&db_tus_data_info));
+				let tus_info = Some(builder.create_vector(db_tus_data_info));
 
 				final_infos.push(TusDataStatus::create(
 					&mut builder,

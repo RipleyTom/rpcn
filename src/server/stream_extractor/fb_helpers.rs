@@ -6,7 +6,7 @@ pub fn dc_opt_data<'a>(builder: &mut flatbuffers::FlatBufferBuilder<'a>, opt_dat
 	let mut opt_data_vec_len: u32 = 0;
 	if let Some(opt_data) = opt_data {
 		for i in 0..16 {
-			opt_data_vec.push(*opt_data.data().unwrap().get(i).unwrap());
+			opt_data_vec.push(opt_data.data().unwrap().get(i));
 		}
 		opt_data_vec_len = opt_data.len();
 	} else {

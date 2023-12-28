@@ -19,8 +19,8 @@ pub struct BinAttr<'a> {
 impl<'a> flatbuffers::Follow<'a> for BinAttr<'a> {
   type Inner = BinAttr<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -29,7 +29,7 @@ impl<'a> BinAttr<'a> {
   pub const VT_DATA: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     BinAttr { _tab: table }
   }
   #[allow(unused_mut)]
@@ -46,11 +46,17 @@ impl<'a> BinAttr<'a> {
 
   #[inline]
   pub fn id(&self) -> u16 {
-    self._tab.get::<u16>(BinAttr::VT_ID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(BinAttr::VT_ID, Some(0)).unwrap()}
   }
   #[inline]
-  pub fn data(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(BinAttr::VT_DATA, None).map(|v| v.safe_slice())
+  pub fn data(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(BinAttr::VT_DATA, None)}
   }
 }
 
@@ -127,8 +133,8 @@ pub struct IntAttr<'a> {
 impl<'a> flatbuffers::Follow<'a> for IntAttr<'a> {
   type Inner = IntAttr<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -137,7 +143,7 @@ impl<'a> IntAttr<'a> {
   pub const VT_NUM: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     IntAttr { _tab: table }
   }
   #[allow(unused_mut)]
@@ -154,11 +160,17 @@ impl<'a> IntAttr<'a> {
 
   #[inline]
   pub fn id(&self) -> u16 {
-    self._tab.get::<u16>(IntAttr::VT_ID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(IntAttr::VT_ID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn num(&self) -> u32 {
-    self._tab.get::<u32>(IntAttr::VT_NUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(IntAttr::VT_NUM, Some(0)).unwrap()}
   }
 }
 
@@ -235,8 +247,8 @@ pub struct RoomMemberBinAttrInternal<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomMemberBinAttrInternal<'a> {
   type Inner = RoomMemberBinAttrInternal<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -245,7 +257,7 @@ impl<'a> RoomMemberBinAttrInternal<'a> {
   pub const VT_DATA: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomMemberBinAttrInternal { _tab: table }
   }
   #[allow(unused_mut)]
@@ -262,11 +274,17 @@ impl<'a> RoomMemberBinAttrInternal<'a> {
 
   #[inline]
   pub fn updateDate(&self) -> u64 {
-    self._tab.get::<u64>(RoomMemberBinAttrInternal::VT_UPDATEDATE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoomMemberBinAttrInternal::VT_UPDATEDATE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn data(&self) -> Option<BinAttr<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<BinAttr>>(RoomMemberBinAttrInternal::VT_DATA, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<BinAttr>>(RoomMemberBinAttrInternal::VT_DATA, None)}
   }
 }
 
@@ -343,8 +361,8 @@ pub struct BinAttrInternal<'a> {
 impl<'a> flatbuffers::Follow<'a> for BinAttrInternal<'a> {
   type Inner = BinAttrInternal<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -354,7 +372,7 @@ impl<'a> BinAttrInternal<'a> {
   pub const VT_DATA: flatbuffers::VOffsetT = 8;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     BinAttrInternal { _tab: table }
   }
   #[allow(unused_mut)]
@@ -372,15 +390,24 @@ impl<'a> BinAttrInternal<'a> {
 
   #[inline]
   pub fn updateDate(&self) -> u64 {
-    self._tab.get::<u64>(BinAttrInternal::VT_UPDATEDATE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(BinAttrInternal::VT_UPDATEDATE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn updateMemberId(&self) -> u16 {
-    self._tab.get::<u16>(BinAttrInternal::VT_UPDATEMEMBERID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(BinAttrInternal::VT_UPDATEMEMBERID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn data(&self) -> Option<BinAttr<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<BinAttr>>(BinAttrInternal::VT_DATA, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<BinAttr>>(BinAttrInternal::VT_DATA, None)}
   }
 }
 
@@ -465,8 +492,8 @@ pub struct OptParam<'a> {
 impl<'a> flatbuffers::Follow<'a> for OptParam<'a> {
   type Inner = OptParam<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -476,7 +503,7 @@ impl<'a> OptParam<'a> {
   pub const VT_HUBMEMBERID: flatbuffers::VOffsetT = 8;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     OptParam { _tab: table }
   }
   #[allow(unused_mut)]
@@ -494,15 +521,24 @@ impl<'a> OptParam<'a> {
 
   #[inline]
   pub fn type_(&self) -> u8 {
-    self._tab.get::<u8>(OptParam::VT_TYPE_, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(OptParam::VT_TYPE_, Some(0)).unwrap()}
   }
   #[inline]
   pub fn flag(&self) -> u8 {
-    self._tab.get::<u8>(OptParam::VT_FLAG, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(OptParam::VT_FLAG, Some(0)).unwrap()}
   }
   #[inline]
   pub fn hubMemberId(&self) -> u16 {
-    self._tab.get::<u16>(OptParam::VT_HUBMEMBERID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(OptParam::VT_HUBMEMBERID, Some(0)).unwrap()}
   }
 }
 
@@ -587,8 +623,8 @@ pub struct GroupConfig<'a> {
 impl<'a> flatbuffers::Follow<'a> for GroupConfig<'a> {
   type Inner = GroupConfig<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -599,7 +635,7 @@ impl<'a> GroupConfig<'a> {
   pub const VT_WITHPASSWORD: flatbuffers::VOffsetT = 10;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GroupConfig { _tab: table }
   }
   #[allow(unused_mut)]
@@ -618,19 +654,31 @@ impl<'a> GroupConfig<'a> {
 
   #[inline]
   pub fn slotNum(&self) -> u32 {
-    self._tab.get::<u32>(GroupConfig::VT_SLOTNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GroupConfig::VT_SLOTNUM, Some(0)).unwrap()}
   }
   #[inline]
   pub fn withLabel(&self) -> bool {
-    self._tab.get::<bool>(GroupConfig::VT_WITHLABEL, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GroupConfig::VT_WITHLABEL, Some(false)).unwrap()}
   }
   #[inline]
-  pub fn label(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(GroupConfig::VT_LABEL, None).map(|v| v.safe_slice())
+  pub fn label(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(GroupConfig::VT_LABEL, None)}
   }
   #[inline]
   pub fn withPassword(&self) -> bool {
-    self._tab.get::<bool>(GroupConfig::VT_WITHPASSWORD, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GroupConfig::VT_WITHPASSWORD, Some(false)).unwrap()}
   }
 }
 
@@ -723,8 +771,8 @@ pub struct UserInfo2<'a> {
 impl<'a> flatbuffers::Follow<'a> for UserInfo2<'a> {
   type Inner = UserInfo2<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -734,7 +782,7 @@ impl<'a> UserInfo2<'a> {
   pub const VT_AVATARURL: flatbuffers::VOffsetT = 8;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     UserInfo2 { _tab: table }
   }
   #[allow(unused_mut)]
@@ -752,15 +800,24 @@ impl<'a> UserInfo2<'a> {
 
   #[inline]
   pub fn npId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo2::VT_NPID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo2::VT_NPID, None)}
   }
   #[inline]
   pub fn onlineName(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo2::VT_ONLINENAME, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo2::VT_ONLINENAME, None)}
   }
   #[inline]
   pub fn avatarUrl(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo2::VT_AVATARURL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo2::VT_AVATARURL, None)}
   }
 }
 
@@ -845,8 +902,8 @@ pub struct RoomMemberDataInternal<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomMemberDataInternal<'a> {
   type Inner = RoomMemberDataInternal<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -861,7 +918,7 @@ impl<'a> RoomMemberDataInternal<'a> {
   pub const VT_ROOMMEMBERBINATTRINTERNAL: flatbuffers::VOffsetT = 18;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomMemberDataInternal { _tab: table }
   }
   #[allow(unused_mut)]
@@ -884,35 +941,59 @@ impl<'a> RoomMemberDataInternal<'a> {
 
   #[inline]
   pub fn userInfo(&self) -> Option<UserInfo2<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2>>(RoomMemberDataInternal::VT_USERINFO, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2>>(RoomMemberDataInternal::VT_USERINFO, None)}
   }
   #[inline]
   pub fn joinDate(&self) -> u64 {
-    self._tab.get::<u64>(RoomMemberDataInternal::VT_JOINDATE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoomMemberDataInternal::VT_JOINDATE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn memberId(&self) -> u16 {
-    self._tab.get::<u16>(RoomMemberDataInternal::VT_MEMBERID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomMemberDataInternal::VT_MEMBERID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn teamId(&self) -> u8 {
-    self._tab.get::<u8>(RoomMemberDataInternal::VT_TEAMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RoomMemberDataInternal::VT_TEAMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomGroup(&self) -> Option<RoomGroup<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<RoomGroup>>(RoomMemberDataInternal::VT_ROOMGROUP, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<RoomGroup>>(RoomMemberDataInternal::VT_ROOMGROUP, None)}
   }
   #[inline]
   pub fn natType(&self) -> u8 {
-    self._tab.get::<u8>(RoomMemberDataInternal::VT_NATTYPE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RoomMemberDataInternal::VT_NATTYPE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn flagAttr(&self) -> u32 {
-    self._tab.get::<u32>(RoomMemberDataInternal::VT_FLAGATTR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomMemberDataInternal::VT_FLAGATTR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomMemberBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomMemberBinAttrInternal<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomMemberBinAttrInternal>>>>(RoomMemberDataInternal::VT_ROOMMEMBERBINATTRINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomMemberBinAttrInternal>>>>(RoomMemberDataInternal::VT_ROOMMEMBERBINATTRINTERNAL, None)}
   }
 }
 
@@ -1037,8 +1118,8 @@ pub struct RoomGroup<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomGroup<'a> {
   type Inner = RoomGroup<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1051,7 +1132,7 @@ impl<'a> RoomGroup<'a> {
   pub const VT_CURGROUPMEMBERNUM: flatbuffers::VOffsetT = 14;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomGroup { _tab: table }
   }
   #[allow(unused_mut)]
@@ -1072,27 +1153,45 @@ impl<'a> RoomGroup<'a> {
 
   #[inline]
   pub fn groupId(&self) -> u8 {
-    self._tab.get::<u8>(RoomGroup::VT_GROUPID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RoomGroup::VT_GROUPID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn withPassword(&self) -> bool {
-    self._tab.get::<bool>(RoomGroup::VT_WITHPASSWORD, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(RoomGroup::VT_WITHPASSWORD, Some(false)).unwrap()}
   }
   #[inline]
   pub fn withLabel(&self) -> bool {
-    self._tab.get::<bool>(RoomGroup::VT_WITHLABEL, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(RoomGroup::VT_WITHLABEL, Some(false)).unwrap()}
   }
   #[inline]
-  pub fn label(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomGroup::VT_LABEL, None).map(|v| v.safe_slice())
+  pub fn label(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomGroup::VT_LABEL, None)}
   }
   #[inline]
   pub fn slotNum(&self) -> u32 {
-    self._tab.get::<u32>(RoomGroup::VT_SLOTNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomGroup::VT_SLOTNUM, Some(0)).unwrap()}
   }
   #[inline]
   pub fn curGroupMemberNum(&self) -> u32 {
-    self._tab.get::<u32>(RoomGroup::VT_CURGROUPMEMBERNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomGroup::VT_CURGROUPMEMBERNUM, Some(0)).unwrap()}
   }
 }
 
@@ -1201,8 +1300,8 @@ pub struct RoomDataInternal<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomDataInternal<'a> {
   type Inner = RoomDataInternal<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1220,7 +1319,7 @@ impl<'a> RoomDataInternal<'a> {
   pub const VT_ROOMBINATTRINTERNAL: flatbuffers::VOffsetT = 24;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomDataInternal { _tab: table }
   }
   #[allow(unused_mut)]
@@ -1246,47 +1345,80 @@ impl<'a> RoomDataInternal<'a> {
 
   #[inline]
   pub fn serverId(&self) -> u16 {
-    self._tab.get::<u16>(RoomDataInternal::VT_SERVERID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomDataInternal::VT_SERVERID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn worldId(&self) -> u32 {
-    self._tab.get::<u32>(RoomDataInternal::VT_WORLDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomDataInternal::VT_WORLDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn lobbyId(&self) -> u64 {
-    self._tab.get::<u64>(RoomDataInternal::VT_LOBBYID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoomDataInternal::VT_LOBBYID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(RoomDataInternal::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoomDataInternal::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn passwordSlotMask(&self) -> u64 {
-    self._tab.get::<u64>(RoomDataInternal::VT_PASSWORDSLOTMASK, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoomDataInternal::VT_PASSWORDSLOTMASK, Some(0)).unwrap()}
   }
   #[inline]
   pub fn maxSlot(&self) -> u32 {
-    self._tab.get::<u32>(RoomDataInternal::VT_MAXSLOT, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomDataInternal::VT_MAXSLOT, Some(0)).unwrap()}
   }
   #[inline]
   pub fn memberList(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomMemberDataInternal<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomMemberDataInternal>>>>(RoomDataInternal::VT_MEMBERLIST, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomMemberDataInternal>>>>(RoomDataInternal::VT_MEMBERLIST, None)}
   }
   #[inline]
   pub fn ownerId(&self) -> u16 {
-    self._tab.get::<u16>(RoomDataInternal::VT_OWNERID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomDataInternal::VT_OWNERID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomGroup(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroup<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroup>>>>(RoomDataInternal::VT_ROOMGROUP, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroup>>>>(RoomDataInternal::VT_ROOMGROUP, None)}
   }
   #[inline]
   pub fn flagAttr(&self) -> u32 {
-    self._tab.get::<u32>(RoomDataInternal::VT_FLAGATTR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomDataInternal::VT_FLAGATTR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttrInternal<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttrInternal>>>>(RoomDataInternal::VT_ROOMBINATTRINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttrInternal>>>>(RoomDataInternal::VT_ROOMBINATTRINTERNAL, None)}
   }
 }
 
@@ -1435,8 +1567,8 @@ pub struct RoomDataExternal<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomDataExternal<'a> {
   type Inner = RoomDataExternal<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1460,7 +1592,7 @@ impl<'a> RoomDataExternal<'a> {
   pub const VT_ROOMBINATTREXTERNAL: flatbuffers::VOffsetT = 36;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomDataExternal { _tab: table }
   }
   #[allow(unused_mut)]
@@ -1492,71 +1624,122 @@ impl<'a> RoomDataExternal<'a> {
 
   #[inline]
   pub fn serverId(&self) -> u16 {
-    self._tab.get::<u16>(RoomDataExternal::VT_SERVERID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomDataExternal::VT_SERVERID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn worldId(&self) -> u32 {
-    self._tab.get::<u32>(RoomDataExternal::VT_WORLDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomDataExternal::VT_WORLDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn publicSlotNum(&self) -> u16 {
-    self._tab.get::<u16>(RoomDataExternal::VT_PUBLICSLOTNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomDataExternal::VT_PUBLICSLOTNUM, Some(0)).unwrap()}
   }
   #[inline]
   pub fn privateSlotNum(&self) -> u16 {
-    self._tab.get::<u16>(RoomDataExternal::VT_PRIVATESLOTNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomDataExternal::VT_PRIVATESLOTNUM, Some(0)).unwrap()}
   }
   #[inline]
   pub fn lobbyId(&self) -> u64 {
-    self._tab.get::<u64>(RoomDataExternal::VT_LOBBYID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoomDataExternal::VT_LOBBYID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(RoomDataExternal::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoomDataExternal::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn openPublicSlotNum(&self) -> u16 {
-    self._tab.get::<u16>(RoomDataExternal::VT_OPENPUBLICSLOTNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomDataExternal::VT_OPENPUBLICSLOTNUM, Some(0)).unwrap()}
   }
   #[inline]
   pub fn maxSlot(&self) -> u16 {
-    self._tab.get::<u16>(RoomDataExternal::VT_MAXSLOT, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomDataExternal::VT_MAXSLOT, Some(0)).unwrap()}
   }
   #[inline]
   pub fn openPrivateSlotNum(&self) -> u16 {
-    self._tab.get::<u16>(RoomDataExternal::VT_OPENPRIVATESLOTNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomDataExternal::VT_OPENPRIVATESLOTNUM, Some(0)).unwrap()}
   }
   #[inline]
   pub fn curMemberNum(&self) -> u16 {
-    self._tab.get::<u16>(RoomDataExternal::VT_CURMEMBERNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(RoomDataExternal::VT_CURMEMBERNUM, Some(0)).unwrap()}
   }
   #[inline]
   pub fn passwordSlotMask(&self) -> u64 {
-    self._tab.get::<u64>(RoomDataExternal::VT_PASSWORDSLOTMASK, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoomDataExternal::VT_PASSWORDSLOTMASK, Some(0)).unwrap()}
   }
   #[inline]
   pub fn owner(&self) -> Option<UserInfo2<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2>>(RoomDataExternal::VT_OWNER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2>>(RoomDataExternal::VT_OWNER, None)}
   }
   #[inline]
   pub fn roomGroup(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroup<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroup>>>>(RoomDataExternal::VT_ROOMGROUP, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroup>>>>(RoomDataExternal::VT_ROOMGROUP, None)}
   }
   #[inline]
   pub fn flagAttr(&self) -> u32 {
-    self._tab.get::<u32>(RoomDataExternal::VT_FLAGATTR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomDataExternal::VT_FLAGATTR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomSearchableIntAttrExternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr>>>>(RoomDataExternal::VT_ROOMSEARCHABLEINTATTREXTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr>>>>(RoomDataExternal::VT_ROOMSEARCHABLEINTATTREXTERNAL, None)}
   }
   #[inline]
   pub fn roomSearchableBinAttrExternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(RoomDataExternal::VT_ROOMSEARCHABLEBINATTREXTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(RoomDataExternal::VT_ROOMSEARCHABLEBINATTREXTERNAL, None)}
   }
   #[inline]
   pub fn roomBinAttrExternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(RoomDataExternal::VT_ROOMBINATTREXTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(RoomDataExternal::VT_ROOMBINATTREXTERNAL, None)}
   }
 }
 
@@ -1753,8 +1936,8 @@ pub struct IntSearchFilter<'a> {
 impl<'a> flatbuffers::Follow<'a> for IntSearchFilter<'a> {
   type Inner = IntSearchFilter<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1763,7 +1946,7 @@ impl<'a> IntSearchFilter<'a> {
   pub const VT_ATTR: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     IntSearchFilter { _tab: table }
   }
   #[allow(unused_mut)]
@@ -1780,11 +1963,17 @@ impl<'a> IntSearchFilter<'a> {
 
   #[inline]
   pub fn searchOperator(&self) -> u8 {
-    self._tab.get::<u8>(IntSearchFilter::VT_SEARCHOPERATOR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(IntSearchFilter::VT_SEARCHOPERATOR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn attr(&self) -> Option<IntAttr<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<IntAttr>>(IntSearchFilter::VT_ATTR, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<IntAttr>>(IntSearchFilter::VT_ATTR, None)}
   }
 }
 
@@ -1861,8 +2050,8 @@ pub struct BinSearchFilter<'a> {
 impl<'a> flatbuffers::Follow<'a> for BinSearchFilter<'a> {
   type Inner = BinSearchFilter<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1871,7 +2060,7 @@ impl<'a> BinSearchFilter<'a> {
   pub const VT_ATTR: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     BinSearchFilter { _tab: table }
   }
   #[allow(unused_mut)]
@@ -1888,11 +2077,17 @@ impl<'a> BinSearchFilter<'a> {
 
   #[inline]
   pub fn searchOperator(&self) -> u8 {
-    self._tab.get::<u8>(BinSearchFilter::VT_SEARCHOPERATOR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(BinSearchFilter::VT_SEARCHOPERATOR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn attr(&self) -> Option<BinAttr<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<BinAttr>>(BinSearchFilter::VT_ATTR, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<BinAttr>>(BinSearchFilter::VT_ATTR, None)}
   }
 }
 
@@ -1969,8 +2164,8 @@ pub struct PresenceOptionData<'a> {
 impl<'a> flatbuffers::Follow<'a> for PresenceOptionData<'a> {
   type Inner = PresenceOptionData<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -1979,7 +2174,7 @@ impl<'a> PresenceOptionData<'a> {
   pub const VT_LEN: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     PresenceOptionData { _tab: table }
   }
   #[allow(unused_mut)]
@@ -1995,12 +2190,18 @@ impl<'a> PresenceOptionData<'a> {
 
 
   #[inline]
-  pub fn data(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(PresenceOptionData::VT_DATA, None).map(|v| v.safe_slice())
+  pub fn data(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(PresenceOptionData::VT_DATA, None)}
   }
   #[inline]
   pub fn len(&self) -> u32 {
-    self._tab.get::<u32>(PresenceOptionData::VT_LEN, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(PresenceOptionData::VT_LEN, Some(0)).unwrap()}
   }
 }
 
@@ -2077,8 +2278,8 @@ pub struct RoomGroupPasswordConfig<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomGroupPasswordConfig<'a> {
   type Inner = RoomGroupPasswordConfig<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -2087,7 +2288,7 @@ impl<'a> RoomGroupPasswordConfig<'a> {
   pub const VT_WITHPASSWORD: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomGroupPasswordConfig { _tab: table }
   }
   #[allow(unused_mut)]
@@ -2103,12 +2304,18 @@ impl<'a> RoomGroupPasswordConfig<'a> {
 
 
   #[inline]
-  pub fn groupId(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomGroupPasswordConfig::VT_GROUPID, None).map(|v| v.safe_slice())
+  pub fn groupId(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomGroupPasswordConfig::VT_GROUPID, None)}
   }
   #[inline]
   pub fn withPassword(&self) -> bool {
-    self._tab.get::<bool>(RoomGroupPasswordConfig::VT_WITHPASSWORD, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(RoomGroupPasswordConfig::VT_WITHPASSWORD, Some(false)).unwrap()}
   }
 }
 
@@ -2185,8 +2392,8 @@ pub struct SearchRoomRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for SearchRoomRequest<'a> {
   type Inner = SearchRoomRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -2203,7 +2410,7 @@ impl<'a> SearchRoomRequest<'a> {
   pub const VT_ATTRID: flatbuffers::VOffsetT = 22;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     SearchRoomRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -2228,43 +2435,73 @@ impl<'a> SearchRoomRequest<'a> {
 
   #[inline]
   pub fn option(&self) -> i32 {
-    self._tab.get::<i32>(SearchRoomRequest::VT_OPTION, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(SearchRoomRequest::VT_OPTION, Some(0)).unwrap()}
   }
   #[inline]
   pub fn worldId(&self) -> u32 {
-    self._tab.get::<u32>(SearchRoomRequest::VT_WORLDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SearchRoomRequest::VT_WORLDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn lobbyId(&self) -> u64 {
-    self._tab.get::<u64>(SearchRoomRequest::VT_LOBBYID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SearchRoomRequest::VT_LOBBYID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn rangeFilter_startIndex(&self) -> u32 {
-    self._tab.get::<u32>(SearchRoomRequest::VT_RANGEFILTER_STARTINDEX, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SearchRoomRequest::VT_RANGEFILTER_STARTINDEX, Some(0)).unwrap()}
   }
   #[inline]
   pub fn rangeFilter_max(&self) -> u32 {
-    self._tab.get::<u32>(SearchRoomRequest::VT_RANGEFILTER_MAX, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SearchRoomRequest::VT_RANGEFILTER_MAX, Some(0)).unwrap()}
   }
   #[inline]
   pub fn flagFilter(&self) -> u32 {
-    self._tab.get::<u32>(SearchRoomRequest::VT_FLAGFILTER, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SearchRoomRequest::VT_FLAGFILTER, Some(0)).unwrap()}
   }
   #[inline]
   pub fn flagAttr(&self) -> u32 {
-    self._tab.get::<u32>(SearchRoomRequest::VT_FLAGATTR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SearchRoomRequest::VT_FLAGATTR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn intFilter(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntSearchFilter<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntSearchFilter>>>>(SearchRoomRequest::VT_INTFILTER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntSearchFilter>>>>(SearchRoomRequest::VT_INTFILTER, None)}
   }
   #[inline]
   pub fn binFilter(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinSearchFilter<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinSearchFilter>>>>(SearchRoomRequest::VT_BINFILTER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinSearchFilter>>>>(SearchRoomRequest::VT_BINFILTER, None)}
   }
   #[inline]
   pub fn attrId(&self) -> Option<flatbuffers::Vector<'a, u16>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(SearchRoomRequest::VT_ATTRID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(SearchRoomRequest::VT_ATTRID, None)}
   }
 }
 
@@ -2405,8 +2642,8 @@ pub struct SearchRoomResponse<'a> {
 impl<'a> flatbuffers::Follow<'a> for SearchRoomResponse<'a> {
   type Inner = SearchRoomResponse<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -2417,7 +2654,7 @@ impl<'a> SearchRoomResponse<'a> {
   pub const VT_ROOMS: flatbuffers::VOffsetT = 10;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     SearchRoomResponse { _tab: table }
   }
   #[allow(unused_mut)]
@@ -2436,19 +2673,31 @@ impl<'a> SearchRoomResponse<'a> {
 
   #[inline]
   pub fn startIndex(&self) -> u32 {
-    self._tab.get::<u32>(SearchRoomResponse::VT_STARTINDEX, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SearchRoomResponse::VT_STARTINDEX, Some(0)).unwrap()}
   }
   #[inline]
   pub fn total(&self) -> u32 {
-    self._tab.get::<u32>(SearchRoomResponse::VT_TOTAL, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SearchRoomResponse::VT_TOTAL, Some(0)).unwrap()}
   }
   #[inline]
   pub fn size_(&self) -> u32 {
-    self._tab.get::<u32>(SearchRoomResponse::VT_SIZE_, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SearchRoomResponse::VT_SIZE_, Some(0)).unwrap()}
   }
   #[inline]
   pub fn rooms(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal>>>>(SearchRoomResponse::VT_ROOMS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal>>>>(SearchRoomResponse::VT_ROOMS, None)}
   }
 }
 
@@ -2541,8 +2790,8 @@ pub struct CreateJoinRoomRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for CreateJoinRoomRequest<'a> {
   type Inner = CreateJoinRoomRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -2566,7 +2815,7 @@ impl<'a> CreateJoinRoomRequest<'a> {
   pub const VT_SIGOPTPARAM: flatbuffers::VOffsetT = 36;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     CreateJoinRoomRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -2598,71 +2847,122 @@ impl<'a> CreateJoinRoomRequest<'a> {
 
   #[inline]
   pub fn worldId(&self) -> u32 {
-    self._tab.get::<u32>(CreateJoinRoomRequest::VT_WORLDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CreateJoinRoomRequest::VT_WORLDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn lobbyId(&self) -> u64 {
-    self._tab.get::<u64>(CreateJoinRoomRequest::VT_LOBBYID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CreateJoinRoomRequest::VT_LOBBYID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn maxSlot(&self) -> u32 {
-    self._tab.get::<u32>(CreateJoinRoomRequest::VT_MAXSLOT, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CreateJoinRoomRequest::VT_MAXSLOT, Some(0)).unwrap()}
   }
   #[inline]
   pub fn flagAttr(&self) -> u32 {
-    self._tab.get::<u32>(CreateJoinRoomRequest::VT_FLAGATTR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CreateJoinRoomRequest::VT_FLAGATTR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(CreateJoinRoomRequest::VT_ROOMBINATTRINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(CreateJoinRoomRequest::VT_ROOMBINATTRINTERNAL, None)}
   }
   #[inline]
   pub fn roomSearchableIntAttrExternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr>>>>(CreateJoinRoomRequest::VT_ROOMSEARCHABLEINTATTREXTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr>>>>(CreateJoinRoomRequest::VT_ROOMSEARCHABLEINTATTREXTERNAL, None)}
   }
   #[inline]
   pub fn roomSearchableBinAttrExternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(CreateJoinRoomRequest::VT_ROOMSEARCHABLEBINATTREXTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(CreateJoinRoomRequest::VT_ROOMSEARCHABLEBINATTREXTERNAL, None)}
   }
   #[inline]
   pub fn roomBinAttrExternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(CreateJoinRoomRequest::VT_ROOMBINATTREXTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(CreateJoinRoomRequest::VT_ROOMBINATTREXTERNAL, None)}
   }
   #[inline]
-  pub fn roomPassword(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(CreateJoinRoomRequest::VT_ROOMPASSWORD, None).map(|v| v.safe_slice())
+  pub fn roomPassword(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(CreateJoinRoomRequest::VT_ROOMPASSWORD, None)}
   }
   #[inline]
   pub fn groupConfig(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<GroupConfig<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<GroupConfig>>>>(CreateJoinRoomRequest::VT_GROUPCONFIG, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<GroupConfig>>>>(CreateJoinRoomRequest::VT_GROUPCONFIG, None)}
   }
   #[inline]
   pub fn passwordSlotMask(&self) -> u64 {
-    self._tab.get::<u64>(CreateJoinRoomRequest::VT_PASSWORDSLOTMASK, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(CreateJoinRoomRequest::VT_PASSWORDSLOTMASK, Some(0)).unwrap()}
   }
   #[inline]
   pub fn allowedUser(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>(CreateJoinRoomRequest::VT_ALLOWEDUSER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>(CreateJoinRoomRequest::VT_ALLOWEDUSER, None)}
   }
   #[inline]
   pub fn blockedUser(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>(CreateJoinRoomRequest::VT_BLOCKEDUSER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>(CreateJoinRoomRequest::VT_BLOCKEDUSER, None)}
   }
   #[inline]
-  pub fn joinRoomGroupLabel(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(CreateJoinRoomRequest::VT_JOINROOMGROUPLABEL, None).map(|v| v.safe_slice())
+  pub fn joinRoomGroupLabel(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(CreateJoinRoomRequest::VT_JOINROOMGROUPLABEL, None)}
   }
   #[inline]
   pub fn roomMemberBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(CreateJoinRoomRequest::VT_ROOMMEMBERBINATTRINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(CreateJoinRoomRequest::VT_ROOMMEMBERBINATTRINTERNAL, None)}
   }
   #[inline]
   pub fn teamId(&self) -> u8 {
-    self._tab.get::<u8>(CreateJoinRoomRequest::VT_TEAMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(CreateJoinRoomRequest::VT_TEAMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn sigOptParam(&self) -> Option<OptParam<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<OptParam>>(CreateJoinRoomRequest::VT_SIGOPTPARAM, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<OptParam>>(CreateJoinRoomRequest::VT_SIGOPTPARAM, None)}
   }
 }
 
@@ -2859,8 +3159,8 @@ pub struct JoinRoomRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for JoinRoomRequest<'a> {
   type Inner = JoinRoomRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -2873,7 +3173,7 @@ impl<'a> JoinRoomRequest<'a> {
   pub const VT_TEAMID: flatbuffers::VOffsetT = 14;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     JoinRoomRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -2894,27 +3194,45 @@ impl<'a> JoinRoomRequest<'a> {
 
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(JoinRoomRequest::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(JoinRoomRequest::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
-  pub fn roomPassword(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(JoinRoomRequest::VT_ROOMPASSWORD, None).map(|v| v.safe_slice())
+  pub fn roomPassword(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(JoinRoomRequest::VT_ROOMPASSWORD, None)}
   }
   #[inline]
-  pub fn joinRoomGroupLabel(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(JoinRoomRequest::VT_JOINROOMGROUPLABEL, None).map(|v| v.safe_slice())
+  pub fn joinRoomGroupLabel(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(JoinRoomRequest::VT_JOINROOMGROUPLABEL, None)}
   }
   #[inline]
   pub fn roomMemberBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(JoinRoomRequest::VT_ROOMMEMBERBINATTRINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(JoinRoomRequest::VT_ROOMMEMBERBINATTRINTERNAL, None)}
   }
   #[inline]
   pub fn optData(&self) -> Option<PresenceOptionData<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData>>(JoinRoomRequest::VT_OPTDATA, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData>>(JoinRoomRequest::VT_OPTDATA, None)}
   }
   #[inline]
   pub fn teamId(&self) -> u8 {
-    self._tab.get::<u8>(JoinRoomRequest::VT_TEAMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(JoinRoomRequest::VT_TEAMID, Some(0)).unwrap()}
   }
 }
 
@@ -3023,8 +3341,8 @@ pub struct LeaveRoomRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for LeaveRoomRequest<'a> {
   type Inner = LeaveRoomRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -3033,7 +3351,7 @@ impl<'a> LeaveRoomRequest<'a> {
   pub const VT_OPTDATA: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     LeaveRoomRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -3050,11 +3368,17 @@ impl<'a> LeaveRoomRequest<'a> {
 
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(LeaveRoomRequest::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(LeaveRoomRequest::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn optData(&self) -> Option<PresenceOptionData<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData>>(LeaveRoomRequest::VT_OPTDATA, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData>>(LeaveRoomRequest::VT_OPTDATA, None)}
   }
 }
 
@@ -3131,8 +3455,8 @@ pub struct GetRoomDataExternalListRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for GetRoomDataExternalListRequest<'a> {
   type Inner = GetRoomDataExternalListRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -3141,7 +3465,7 @@ impl<'a> GetRoomDataExternalListRequest<'a> {
   pub const VT_ATTRIDS: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GetRoomDataExternalListRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -3158,11 +3482,17 @@ impl<'a> GetRoomDataExternalListRequest<'a> {
 
   #[inline]
   pub fn roomIds(&self) -> Option<flatbuffers::Vector<'a, u64>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(GetRoomDataExternalListRequest::VT_ROOMIDS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(GetRoomDataExternalListRequest::VT_ROOMIDS, None)}
   }
   #[inline]
   pub fn attrIds(&self) -> Option<flatbuffers::Vector<'a, u16>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(GetRoomDataExternalListRequest::VT_ATTRIDS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(GetRoomDataExternalListRequest::VT_ATTRIDS, None)}
   }
 }
 
@@ -3239,8 +3569,8 @@ pub struct GetRoomDataExternalListResponse<'a> {
 impl<'a> flatbuffers::Follow<'a> for GetRoomDataExternalListResponse<'a> {
   type Inner = GetRoomDataExternalListResponse<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -3248,7 +3578,7 @@ impl<'a> GetRoomDataExternalListResponse<'a> {
   pub const VT_ROOMS: flatbuffers::VOffsetT = 4;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GetRoomDataExternalListResponse { _tab: table }
   }
   #[allow(unused_mut)]
@@ -3264,7 +3594,10 @@ impl<'a> GetRoomDataExternalListResponse<'a> {
 
   #[inline]
   pub fn rooms(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal>>>>(GetRoomDataExternalListResponse::VT_ROOMS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal>>>>(GetRoomDataExternalListResponse::VT_ROOMS, None)}
   }
 }
 
@@ -3333,8 +3666,8 @@ pub struct SetRoomDataExternalRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for SetRoomDataExternalRequest<'a> {
   type Inner = SetRoomDataExternalRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -3345,7 +3678,7 @@ impl<'a> SetRoomDataExternalRequest<'a> {
   pub const VT_ROOMBINATTREXTERNAL: flatbuffers::VOffsetT = 10;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     SetRoomDataExternalRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -3364,19 +3697,31 @@ impl<'a> SetRoomDataExternalRequest<'a> {
 
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(SetRoomDataExternalRequest::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SetRoomDataExternalRequest::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomSearchableIntAttrExternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr>>>>(SetRoomDataExternalRequest::VT_ROOMSEARCHABLEINTATTREXTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr>>>>(SetRoomDataExternalRequest::VT_ROOMSEARCHABLEINTATTREXTERNAL, None)}
   }
   #[inline]
   pub fn roomSearchableBinAttrExternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetRoomDataExternalRequest::VT_ROOMSEARCHABLEBINATTREXTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetRoomDataExternalRequest::VT_ROOMSEARCHABLEBINATTREXTERNAL, None)}
   }
   #[inline]
   pub fn roomBinAttrExternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetRoomDataExternalRequest::VT_ROOMBINATTREXTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetRoomDataExternalRequest::VT_ROOMBINATTREXTERNAL, None)}
   }
 }
 
@@ -3469,8 +3814,8 @@ pub struct SetRoomDataInternalRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for SetRoomDataInternalRequest<'a> {
   type Inner = SetRoomDataInternalRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -3484,7 +3829,7 @@ impl<'a> SetRoomDataInternalRequest<'a> {
   pub const VT_OWNERPRIVILEGERANK: flatbuffers::VOffsetT = 16;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     SetRoomDataInternalRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -3506,31 +3851,52 @@ impl<'a> SetRoomDataInternalRequest<'a> {
 
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(SetRoomDataInternalRequest::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SetRoomDataInternalRequest::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn flagFilter(&self) -> u32 {
-    self._tab.get::<u32>(SetRoomDataInternalRequest::VT_FLAGFILTER, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SetRoomDataInternalRequest::VT_FLAGFILTER, Some(0)).unwrap()}
   }
   #[inline]
   pub fn flagAttr(&self) -> u32 {
-    self._tab.get::<u32>(SetRoomDataInternalRequest::VT_FLAGATTR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(SetRoomDataInternalRequest::VT_FLAGATTR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetRoomDataInternalRequest::VT_ROOMBINATTRINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetRoomDataInternalRequest::VT_ROOMBINATTRINTERNAL, None)}
   }
   #[inline]
   pub fn passwordConfig(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroupPasswordConfig<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroupPasswordConfig>>>>(SetRoomDataInternalRequest::VT_PASSWORDCONFIG, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroupPasswordConfig>>>>(SetRoomDataInternalRequest::VT_PASSWORDCONFIG, None)}
   }
   #[inline]
   pub fn passwordSlotMask(&self) -> u64 {
-    self._tab.get::<u64>(SetRoomDataInternalRequest::VT_PASSWORDSLOTMASK, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SetRoomDataInternalRequest::VT_PASSWORDSLOTMASK, Some(0)).unwrap()}
   }
   #[inline]
   pub fn ownerPrivilegeRank(&self) -> Option<flatbuffers::Vector<'a, u16>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(SetRoomDataInternalRequest::VT_OWNERPRIVILEGERANK, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(SetRoomDataInternalRequest::VT_OWNERPRIVILEGERANK, None)}
   }
 }
 
@@ -3647,8 +4013,8 @@ pub struct SetRoomMemberDataInternalRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for SetRoomMemberDataInternalRequest<'a> {
   type Inner = SetRoomMemberDataInternalRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -3659,7 +4025,7 @@ impl<'a> SetRoomMemberDataInternalRequest<'a> {
   pub const VT_ROOMMEMBERBINATTRINTERNAL: flatbuffers::VOffsetT = 10;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     SetRoomMemberDataInternalRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -3678,19 +4044,31 @@ impl<'a> SetRoomMemberDataInternalRequest<'a> {
 
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(SetRoomMemberDataInternalRequest::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SetRoomMemberDataInternalRequest::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn memberId(&self) -> u16 {
-    self._tab.get::<u16>(SetRoomMemberDataInternalRequest::VT_MEMBERID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(SetRoomMemberDataInternalRequest::VT_MEMBERID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn teamId(&self) -> u8 {
-    self._tab.get::<u8>(SetRoomMemberDataInternalRequest::VT_TEAMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(SetRoomMemberDataInternalRequest::VT_TEAMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomMemberBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetRoomMemberDataInternalRequest::VT_ROOMMEMBERBINATTRINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetRoomMemberDataInternalRequest::VT_ROOMMEMBERBINATTRINTERNAL, None)}
   }
 }
 
@@ -3783,8 +4161,8 @@ pub struct GetRoomDataInternalRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for GetRoomDataInternalRequest<'a> {
   type Inner = GetRoomDataInternalRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -3793,7 +4171,7 @@ impl<'a> GetRoomDataInternalRequest<'a> {
   pub const VT_ATTRID: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GetRoomDataInternalRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -3810,11 +4188,17 @@ impl<'a> GetRoomDataInternalRequest<'a> {
 
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(GetRoomDataInternalRequest::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GetRoomDataInternalRequest::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn attrId(&self) -> Option<flatbuffers::Vector<'a, u16>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(GetRoomDataInternalRequest::VT_ATTRID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(GetRoomDataInternalRequest::VT_ATTRID, None)}
   }
 }
 
@@ -3891,8 +4275,8 @@ pub struct RoomMemberUpdateInfo<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomMemberUpdateInfo<'a> {
   type Inner = RoomMemberUpdateInfo<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -3902,7 +4286,7 @@ impl<'a> RoomMemberUpdateInfo<'a> {
   pub const VT_OPTDATA: flatbuffers::VOffsetT = 8;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomMemberUpdateInfo { _tab: table }
   }
   #[allow(unused_mut)]
@@ -3920,15 +4304,24 @@ impl<'a> RoomMemberUpdateInfo<'a> {
 
   #[inline]
   pub fn roomMemberDataInternal(&self) -> Option<RoomMemberDataInternal<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<RoomMemberDataInternal>>(RoomMemberUpdateInfo::VT_ROOMMEMBERDATAINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<RoomMemberDataInternal>>(RoomMemberUpdateInfo::VT_ROOMMEMBERDATAINTERNAL, None)}
   }
   #[inline]
   pub fn eventCause(&self) -> u8 {
-    self._tab.get::<u8>(RoomMemberUpdateInfo::VT_EVENTCAUSE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RoomMemberUpdateInfo::VT_EVENTCAUSE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn optData(&self) -> Option<PresenceOptionData<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData>>(RoomMemberUpdateInfo::VT_OPTDATA, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData>>(RoomMemberUpdateInfo::VT_OPTDATA, None)}
   }
 }
 
@@ -4013,8 +4406,8 @@ pub struct RoomUpdateInfo<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomUpdateInfo<'a> {
   type Inner = RoomUpdateInfo<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -4024,7 +4417,7 @@ impl<'a> RoomUpdateInfo<'a> {
   pub const VT_OPTDATA: flatbuffers::VOffsetT = 8;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomUpdateInfo { _tab: table }
   }
   #[allow(unused_mut)]
@@ -4042,15 +4435,24 @@ impl<'a> RoomUpdateInfo<'a> {
 
   #[inline]
   pub fn eventCause(&self) -> u8 {
-    self._tab.get::<u8>(RoomUpdateInfo::VT_EVENTCAUSE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RoomUpdateInfo::VT_EVENTCAUSE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn errorCode(&self) -> i32 {
-    self._tab.get::<i32>(RoomUpdateInfo::VT_ERRORCODE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(RoomUpdateInfo::VT_ERRORCODE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn optData(&self) -> Option<PresenceOptionData<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData>>(RoomUpdateInfo::VT_OPTDATA, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<PresenceOptionData>>(RoomUpdateInfo::VT_OPTDATA, None)}
   }
 }
 
@@ -4135,8 +4537,8 @@ pub struct RoomDataInternalUpdateInfo<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomDataInternalUpdateInfo<'a> {
   type Inner = RoomDataInternalUpdateInfo<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -4148,7 +4550,7 @@ impl<'a> RoomDataInternalUpdateInfo<'a> {
   pub const VT_NEWROOMBINATTRINTERNAL: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomDataInternalUpdateInfo { _tab: table }
   }
   #[allow(unused_mut)]
@@ -4168,23 +4570,38 @@ impl<'a> RoomDataInternalUpdateInfo<'a> {
 
   #[inline]
   pub fn newRoomDataInternal(&self) -> Option<RoomDataInternal<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<RoomDataInternal>>(RoomDataInternalUpdateInfo::VT_NEWROOMDATAINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<RoomDataInternal>>(RoomDataInternalUpdateInfo::VT_NEWROOMDATAINTERNAL, None)}
   }
   #[inline]
   pub fn prevFlagAttr(&self) -> u32 {
-    self._tab.get::<u32>(RoomDataInternalUpdateInfo::VT_PREVFLAGATTR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomDataInternalUpdateInfo::VT_PREVFLAGATTR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn prevRoomPasswordSlotMask(&self) -> u64 {
-    self._tab.get::<u64>(RoomDataInternalUpdateInfo::VT_PREVROOMPASSWORDSLOTMASK, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(RoomDataInternalUpdateInfo::VT_PREVROOMPASSWORDSLOTMASK, Some(0)).unwrap()}
   }
   #[inline]
-  pub fn newRoomGroup(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomDataInternalUpdateInfo::VT_NEWROOMGROUP, None).map(|v| v.safe_slice())
+  pub fn newRoomGroup(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomDataInternalUpdateInfo::VT_NEWROOMGROUP, None)}
   }
   #[inline]
   pub fn newRoomBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, u16>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomDataInternalUpdateInfo::VT_NEWROOMBINATTRINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomDataInternalUpdateInfo::VT_NEWROOMBINATTRINTERNAL, None)}
   }
 }
 
@@ -4285,8 +4702,8 @@ pub struct RoomMemberDataInternalUpdateInfo<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomMemberDataInternalUpdateInfo<'a> {
   type Inner = RoomMemberDataInternalUpdateInfo<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -4297,7 +4714,7 @@ impl<'a> RoomMemberDataInternalUpdateInfo<'a> {
   pub const VT_NEWROOMMEMBERBINATTRINTERNAL: flatbuffers::VOffsetT = 10;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomMemberDataInternalUpdateInfo { _tab: table }
   }
   #[allow(unused_mut)]
@@ -4316,19 +4733,31 @@ impl<'a> RoomMemberDataInternalUpdateInfo<'a> {
 
   #[inline]
   pub fn newRoomMemberDataInternal(&self) -> Option<RoomMemberDataInternal<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<RoomMemberDataInternal>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERDATAINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<RoomMemberDataInternal>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERDATAINTERNAL, None)}
   }
   #[inline]
   pub fn prevFlagAttr(&self) -> u32 {
-    self._tab.get::<u32>(RoomMemberDataInternalUpdateInfo::VT_PREVFLAGATTR, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RoomMemberDataInternalUpdateInfo::VT_PREVFLAGATTR, Some(0)).unwrap()}
   }
   #[inline]
   pub fn prevTeamId(&self) -> u8 {
-    self._tab.get::<u8>(RoomMemberDataInternalUpdateInfo::VT_PREVTEAMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RoomMemberDataInternalUpdateInfo::VT_PREVTEAMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn newRoomMemberBinAttrInternal(&self) -> Option<flatbuffers::Vector<'a, u16>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERBINATTRINTERNAL, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERBINATTRINTERNAL, None)}
   }
 }
 
@@ -4421,8 +4850,8 @@ pub struct GetPingInfoResponse<'a> {
 impl<'a> flatbuffers::Follow<'a> for GetPingInfoResponse<'a> {
   type Inner = GetPingInfoResponse<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -4433,7 +4862,7 @@ impl<'a> GetPingInfoResponse<'a> {
   pub const VT_RTT: flatbuffers::VOffsetT = 10;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GetPingInfoResponse { _tab: table }
   }
   #[allow(unused_mut)]
@@ -4452,19 +4881,31 @@ impl<'a> GetPingInfoResponse<'a> {
 
   #[inline]
   pub fn serverId(&self) -> u16 {
-    self._tab.get::<u16>(GetPingInfoResponse::VT_SERVERID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(GetPingInfoResponse::VT_SERVERID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn worldId(&self) -> u32 {
-    self._tab.get::<u32>(GetPingInfoResponse::VT_WORLDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetPingInfoResponse::VT_WORLDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(GetPingInfoResponse::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GetPingInfoResponse::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn rtt(&self) -> u32 {
-    self._tab.get::<u32>(GetPingInfoResponse::VT_RTT, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetPingInfoResponse::VT_RTT, Some(0)).unwrap()}
   }
 }
 
@@ -4557,8 +4998,8 @@ pub struct SendRoomMessageRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for SendRoomMessageRequest<'a> {
   type Inner = SendRoomMessageRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -4570,7 +5011,7 @@ impl<'a> SendRoomMessageRequest<'a> {
   pub const VT_OPTION: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     SendRoomMessageRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -4590,23 +5031,38 @@ impl<'a> SendRoomMessageRequest<'a> {
 
   #[inline]
   pub fn roomId(&self) -> u64 {
-    self._tab.get::<u64>(SendRoomMessageRequest::VT_ROOMID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(SendRoomMessageRequest::VT_ROOMID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn castType(&self) -> u8 {
-    self._tab.get::<u8>(SendRoomMessageRequest::VT_CASTTYPE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(SendRoomMessageRequest::VT_CASTTYPE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn dst(&self) -> Option<flatbuffers::Vector<'a, u16>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(SendRoomMessageRequest::VT_DST, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(SendRoomMessageRequest::VT_DST, None)}
   }
   #[inline]
-  pub fn msg(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(SendRoomMessageRequest::VT_MSG, None).map(|v| v.safe_slice())
+  pub fn msg(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(SendRoomMessageRequest::VT_MSG, None)}
   }
   #[inline]
   pub fn option(&self) -> u8 {
-    self._tab.get::<u8>(SendRoomMessageRequest::VT_OPTION, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(SendRoomMessageRequest::VT_OPTION, Some(0)).unwrap()}
   }
 }
 
@@ -4707,8 +5163,8 @@ pub struct RoomMessageInfo<'a> {
 impl<'a> flatbuffers::Follow<'a> for RoomMessageInfo<'a> {
   type Inner = RoomMessageInfo<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -4720,7 +5176,7 @@ impl<'a> RoomMessageInfo<'a> {
   pub const VT_MSG: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RoomMessageInfo { _tab: table }
   }
   #[allow(unused_mut)]
@@ -4740,23 +5196,38 @@ impl<'a> RoomMessageInfo<'a> {
 
   #[inline]
   pub fn filtered(&self) -> bool {
-    self._tab.get::<bool>(RoomMessageInfo::VT_FILTERED, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(RoomMessageInfo::VT_FILTERED, Some(false)).unwrap()}
   }
   #[inline]
   pub fn castType(&self) -> u8 {
-    self._tab.get::<u8>(RoomMessageInfo::VT_CASTTYPE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(RoomMessageInfo::VT_CASTTYPE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn dst(&self) -> Option<flatbuffers::Vector<'a, u16>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomMessageInfo::VT_DST, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomMessageInfo::VT_DST, None)}
   }
   #[inline]
   pub fn srcMember(&self) -> Option<UserInfo2<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2>>(RoomMessageInfo::VT_SRCMEMBER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2>>(RoomMessageInfo::VT_SRCMEMBER, None)}
   }
   #[inline]
-  pub fn msg(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomMessageInfo::VT_MSG, None).map(|v| v.safe_slice())
+  pub fn msg(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomMessageInfo::VT_MSG, None)}
   }
 }
 
@@ -4857,8 +5328,8 @@ pub struct MessageDetails<'a> {
 impl<'a> flatbuffers::Follow<'a> for MessageDetails<'a> {
   type Inner = MessageDetails<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -4873,7 +5344,7 @@ impl<'a> MessageDetails<'a> {
   pub const VT_DATA: flatbuffers::VOffsetT = 18;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     MessageDetails { _tab: table }
   }
   #[allow(unused_mut)]
@@ -4896,35 +5367,59 @@ impl<'a> MessageDetails<'a> {
 
   #[inline]
   pub fn communicationId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(MessageDetails::VT_COMMUNICATIONID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(MessageDetails::VT_COMMUNICATIONID, None)}
   }
   #[inline]
   pub fn msgId(&self) -> u64 {
-    self._tab.get::<u64>(MessageDetails::VT_MSGID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(MessageDetails::VT_MSGID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn mainType(&self) -> u16 {
-    self._tab.get::<u16>(MessageDetails::VT_MAINTYPE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(MessageDetails::VT_MAINTYPE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn subType(&self) -> u16 {
-    self._tab.get::<u16>(MessageDetails::VT_SUBTYPE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(MessageDetails::VT_SUBTYPE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn msgFeatures(&self) -> u32 {
-    self._tab.get::<u32>(MessageDetails::VT_MSGFEATURES, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MessageDetails::VT_MSGFEATURES, Some(0)).unwrap()}
   }
   #[inline]
   pub fn subject(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(MessageDetails::VT_SUBJECT, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(MessageDetails::VT_SUBJECT, None)}
   }
   #[inline]
   pub fn body(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(MessageDetails::VT_BODY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(MessageDetails::VT_BODY, None)}
   }
   #[inline]
-  pub fn data(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(MessageDetails::VT_DATA, None).map(|v| v.safe_slice())
+  pub fn data(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(MessageDetails::VT_DATA, None)}
   }
 }
 
@@ -5049,8 +5544,8 @@ pub struct SendMessageRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for SendMessageRequest<'a> {
   type Inner = SendMessageRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -5059,7 +5554,7 @@ impl<'a> SendMessageRequest<'a> {
   pub const VT_NPIDS: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     SendMessageRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -5075,18 +5570,27 @@ impl<'a> SendMessageRequest<'a> {
 
 
   #[inline]
-  pub fn message(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(SendMessageRequest::VT_MESSAGE, None).map(|v| v.safe_slice())
+  pub fn message(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(SendMessageRequest::VT_MESSAGE, None)}
   }
   pub fn message_nested_flatbuffer(&'a self) -> Option<MessageDetails<'a>> {
     self.message().map(|data| {
       use flatbuffers::Follow;
-      <flatbuffers::ForwardsUOffset<MessageDetails<'a>>>::follow(data, 0)
+      // Safety:
+      // Created from a valid Table for this object
+      // Which contains a valid flatbuffer in this slot
+      unsafe { <flatbuffers::ForwardsUOffset<MessageDetails<'a>>>::follow(data.bytes(), 0) }
     })
   }
   #[inline]
   pub fn npids(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>(SendMessageRequest::VT_NPIDS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>(SendMessageRequest::VT_NPIDS, None)}
   }
 }
 
@@ -5163,8 +5667,8 @@ pub struct BoardInfo<'a> {
 impl<'a> flatbuffers::Follow<'a> for BoardInfo<'a> {
   type Inner = BoardInfo<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -5176,7 +5680,7 @@ impl<'a> BoardInfo<'a> {
   pub const VT_UPLOADSIZELIMIT: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     BoardInfo { _tab: table }
   }
   #[allow(unused_mut)]
@@ -5196,23 +5700,38 @@ impl<'a> BoardInfo<'a> {
 
   #[inline]
   pub fn rankLimit(&self) -> u32 {
-    self._tab.get::<u32>(BoardInfo::VT_RANKLIMIT, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BoardInfo::VT_RANKLIMIT, Some(0)).unwrap()}
   }
   #[inline]
   pub fn updateMode(&self) -> u32 {
-    self._tab.get::<u32>(BoardInfo::VT_UPDATEMODE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BoardInfo::VT_UPDATEMODE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn sortMode(&self) -> u32 {
-    self._tab.get::<u32>(BoardInfo::VT_SORTMODE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BoardInfo::VT_SORTMODE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn uploadNumLimit(&self) -> u32 {
-    self._tab.get::<u32>(BoardInfo::VT_UPLOADNUMLIMIT, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BoardInfo::VT_UPLOADNUMLIMIT, Some(0)).unwrap()}
   }
   #[inline]
   pub fn uploadSizeLimit(&self) -> u32 {
-    self._tab.get::<u32>(BoardInfo::VT_UPLOADSIZELIMIT, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(BoardInfo::VT_UPLOADSIZELIMIT, Some(0)).unwrap()}
   }
 }
 
@@ -5313,8 +5832,8 @@ pub struct RecordScoreRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for RecordScoreRequest<'a> {
   type Inner = RecordScoreRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -5326,7 +5845,7 @@ impl<'a> RecordScoreRequest<'a> {
   pub const VT_DATA: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RecordScoreRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -5346,23 +5865,38 @@ impl<'a> RecordScoreRequest<'a> {
 
   #[inline]
   pub fn boardId(&self) -> u32 {
-    self._tab.get::<u32>(RecordScoreRequest::VT_BOARDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RecordScoreRequest::VT_BOARDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn pcId(&self) -> i32 {
-    self._tab.get::<i32>(RecordScoreRequest::VT_PCID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(RecordScoreRequest::VT_PCID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn score(&self) -> i64 {
-    self._tab.get::<i64>(RecordScoreRequest::VT_SCORE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RecordScoreRequest::VT_SCORE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn comment(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(RecordScoreRequest::VT_COMMENT, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(RecordScoreRequest::VT_COMMENT, None)}
   }
   #[inline]
-  pub fn data(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RecordScoreRequest::VT_DATA, None).map(|v| v.safe_slice())
+  pub fn data(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RecordScoreRequest::VT_DATA, None)}
   }
 }
 
@@ -5463,8 +5997,8 @@ pub struct GetScoreRangeRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for GetScoreRangeRequest<'a> {
   type Inner = GetScoreRangeRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -5476,7 +6010,7 @@ impl<'a> GetScoreRangeRequest<'a> {
   pub const VT_WITHGAMEINFO: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GetScoreRangeRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -5496,23 +6030,38 @@ impl<'a> GetScoreRangeRequest<'a> {
 
   #[inline]
   pub fn boardId(&self) -> u32 {
-    self._tab.get::<u32>(GetScoreRangeRequest::VT_BOARDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetScoreRangeRequest::VT_BOARDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn startRank(&self) -> u32 {
-    self._tab.get::<u32>(GetScoreRangeRequest::VT_STARTRANK, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetScoreRangeRequest::VT_STARTRANK, Some(0)).unwrap()}
   }
   #[inline]
   pub fn numRanks(&self) -> u32 {
-    self._tab.get::<u32>(GetScoreRangeRequest::VT_NUMRANKS, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetScoreRangeRequest::VT_NUMRANKS, Some(0)).unwrap()}
   }
   #[inline]
   pub fn withComment(&self) -> bool {
-    self._tab.get::<bool>(GetScoreRangeRequest::VT_WITHCOMMENT, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GetScoreRangeRequest::VT_WITHCOMMENT, Some(false)).unwrap()}
   }
   #[inline]
   pub fn withGameInfo(&self) -> bool {
-    self._tab.get::<bool>(GetScoreRangeRequest::VT_WITHGAMEINFO, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GetScoreRangeRequest::VT_WITHGAMEINFO, Some(false)).unwrap()}
   }
 }
 
@@ -5613,8 +6162,8 @@ pub struct ScoreNpIdPcId<'a> {
 impl<'a> flatbuffers::Follow<'a> for ScoreNpIdPcId<'a> {
   type Inner = ScoreNpIdPcId<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -5623,7 +6172,7 @@ impl<'a> ScoreNpIdPcId<'a> {
   pub const VT_PCID: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     ScoreNpIdPcId { _tab: table }
   }
   #[allow(unused_mut)]
@@ -5640,11 +6189,17 @@ impl<'a> ScoreNpIdPcId<'a> {
 
   #[inline]
   pub fn npid(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ScoreNpIdPcId::VT_NPID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ScoreNpIdPcId::VT_NPID, None)}
   }
   #[inline]
   pub fn pcId(&self) -> i32 {
-    self._tab.get::<i32>(ScoreNpIdPcId::VT_PCID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(ScoreNpIdPcId::VT_PCID, Some(0)).unwrap()}
   }
 }
 
@@ -5721,8 +6276,8 @@ pub struct GetScoreNpIdRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for GetScoreNpIdRequest<'a> {
   type Inner = GetScoreNpIdRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -5733,7 +6288,7 @@ impl<'a> GetScoreNpIdRequest<'a> {
   pub const VT_WITHGAMEINFO: flatbuffers::VOffsetT = 10;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GetScoreNpIdRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -5752,19 +6307,31 @@ impl<'a> GetScoreNpIdRequest<'a> {
 
   #[inline]
   pub fn boardId(&self) -> u32 {
-    self._tab.get::<u32>(GetScoreNpIdRequest::VT_BOARDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetScoreNpIdRequest::VT_BOARDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn npids(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ScoreNpIdPcId<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ScoreNpIdPcId>>>>(GetScoreNpIdRequest::VT_NPIDS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ScoreNpIdPcId>>>>(GetScoreNpIdRequest::VT_NPIDS, None)}
   }
   #[inline]
   pub fn withComment(&self) -> bool {
-    self._tab.get::<bool>(GetScoreNpIdRequest::VT_WITHCOMMENT, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GetScoreNpIdRequest::VT_WITHCOMMENT, Some(false)).unwrap()}
   }
   #[inline]
   pub fn withGameInfo(&self) -> bool {
-    self._tab.get::<bool>(GetScoreNpIdRequest::VT_WITHGAMEINFO, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GetScoreNpIdRequest::VT_WITHGAMEINFO, Some(false)).unwrap()}
   }
 }
 
@@ -5857,8 +6424,8 @@ pub struct GetScoreFriendsRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for GetScoreFriendsRequest<'a> {
   type Inner = GetScoreFriendsRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -5870,7 +6437,7 @@ impl<'a> GetScoreFriendsRequest<'a> {
   pub const VT_WITHGAMEINFO: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GetScoreFriendsRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -5890,23 +6457,38 @@ impl<'a> GetScoreFriendsRequest<'a> {
 
   #[inline]
   pub fn boardId(&self) -> u32 {
-    self._tab.get::<u32>(GetScoreFriendsRequest::VT_BOARDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetScoreFriendsRequest::VT_BOARDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn include_self(&self) -> bool {
-    self._tab.get::<bool>(GetScoreFriendsRequest::VT_INCLUDE_SELF, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GetScoreFriendsRequest::VT_INCLUDE_SELF, Some(false)).unwrap()}
   }
   #[inline]
   pub fn max(&self) -> u32 {
-    self._tab.get::<u32>(GetScoreFriendsRequest::VT_MAX, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetScoreFriendsRequest::VT_MAX, Some(0)).unwrap()}
   }
   #[inline]
   pub fn withComment(&self) -> bool {
-    self._tab.get::<bool>(GetScoreFriendsRequest::VT_WITHCOMMENT, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GetScoreFriendsRequest::VT_WITHCOMMENT, Some(false)).unwrap()}
   }
   #[inline]
   pub fn withGameInfo(&self) -> bool {
-    self._tab.get::<bool>(GetScoreFriendsRequest::VT_WITHGAMEINFO, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GetScoreFriendsRequest::VT_WITHGAMEINFO, Some(false)).unwrap()}
   }
 }
 
@@ -6007,8 +6589,8 @@ pub struct ScoreRankData<'a> {
 impl<'a> flatbuffers::Follow<'a> for ScoreRankData<'a> {
   type Inner = ScoreRankData<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -6022,7 +6604,7 @@ impl<'a> ScoreRankData<'a> {
   pub const VT_RECORDDATE: flatbuffers::VOffsetT = 16;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     ScoreRankData { _tab: table }
   }
   #[allow(unused_mut)]
@@ -6044,31 +6626,52 @@ impl<'a> ScoreRankData<'a> {
 
   #[inline]
   pub fn npId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ScoreRankData::VT_NPID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ScoreRankData::VT_NPID, None)}
   }
   #[inline]
   pub fn onlineName(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ScoreRankData::VT_ONLINENAME, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(ScoreRankData::VT_ONLINENAME, None)}
   }
   #[inline]
   pub fn pcId(&self) -> i32 {
-    self._tab.get::<i32>(ScoreRankData::VT_PCID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(ScoreRankData::VT_PCID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn rank(&self) -> u32 {
-    self._tab.get::<u32>(ScoreRankData::VT_RANK, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(ScoreRankData::VT_RANK, Some(0)).unwrap()}
   }
   #[inline]
   pub fn score(&self) -> i64 {
-    self._tab.get::<i64>(ScoreRankData::VT_SCORE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(ScoreRankData::VT_SCORE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn hasGameData(&self) -> bool {
-    self._tab.get::<bool>(ScoreRankData::VT_HASGAMEDATA, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(ScoreRankData::VT_HASGAMEDATA, Some(false)).unwrap()}
   }
   #[inline]
   pub fn recordDate(&self) -> u64 {
-    self._tab.get::<u64>(ScoreRankData::VT_RECORDDATE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(ScoreRankData::VT_RECORDDATE, Some(0)).unwrap()}
   }
 }
 
@@ -6185,8 +6788,8 @@ pub struct ScoreInfo<'a> {
 impl<'a> flatbuffers::Follow<'a> for ScoreInfo<'a> {
   type Inner = ScoreInfo<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -6194,7 +6797,7 @@ impl<'a> ScoreInfo<'a> {
   pub const VT_DATA: flatbuffers::VOffsetT = 4;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     ScoreInfo { _tab: table }
   }
   #[allow(unused_mut)]
@@ -6209,8 +6812,11 @@ impl<'a> ScoreInfo<'a> {
 
 
   #[inline]
-  pub fn data(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(ScoreInfo::VT_DATA, None).map(|v| v.safe_slice())
+  pub fn data(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(ScoreInfo::VT_DATA, None)}
   }
 }
 
@@ -6279,8 +6885,8 @@ pub struct GetScoreResponse<'a> {
 impl<'a> flatbuffers::Follow<'a> for GetScoreResponse<'a> {
   type Inner = GetScoreResponse<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -6292,7 +6898,7 @@ impl<'a> GetScoreResponse<'a> {
   pub const VT_TOTALRECORD: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GetScoreResponse { _tab: table }
   }
   #[allow(unused_mut)]
@@ -6312,23 +6918,38 @@ impl<'a> GetScoreResponse<'a> {
 
   #[inline]
   pub fn rankArray(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ScoreRankData<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ScoreRankData>>>>(GetScoreResponse::VT_RANKARRAY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ScoreRankData>>>>(GetScoreResponse::VT_RANKARRAY, None)}
   }
   #[inline]
   pub fn commentArray(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>(GetScoreResponse::VT_COMMENTARRAY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<&'a str>>>>(GetScoreResponse::VT_COMMENTARRAY, None)}
   }
   #[inline]
   pub fn infoArray(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ScoreInfo<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ScoreInfo>>>>(GetScoreResponse::VT_INFOARRAY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<ScoreInfo>>>>(GetScoreResponse::VT_INFOARRAY, None)}
   }
   #[inline]
   pub fn lastSortDate(&self) -> u64 {
-    self._tab.get::<u64>(GetScoreResponse::VT_LASTSORTDATE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GetScoreResponse::VT_LASTSORTDATE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn totalRecord(&self) -> u32 {
-    self._tab.get::<u32>(GetScoreResponse::VT_TOTALRECORD, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetScoreResponse::VT_TOTALRECORD, Some(0)).unwrap()}
   }
 }
 
@@ -6429,8 +7050,8 @@ pub struct RecordScoreGameDataRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for RecordScoreGameDataRequest<'a> {
   type Inner = RecordScoreGameDataRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -6440,7 +7061,7 @@ impl<'a> RecordScoreGameDataRequest<'a> {
   pub const VT_SCORE: flatbuffers::VOffsetT = 8;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     RecordScoreGameDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -6458,15 +7079,24 @@ impl<'a> RecordScoreGameDataRequest<'a> {
 
   #[inline]
   pub fn boardId(&self) -> u32 {
-    self._tab.get::<u32>(RecordScoreGameDataRequest::VT_BOARDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(RecordScoreGameDataRequest::VT_BOARDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn pcId(&self) -> i32 {
-    self._tab.get::<i32>(RecordScoreGameDataRequest::VT_PCID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(RecordScoreGameDataRequest::VT_PCID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn score(&self) -> i64 {
-    self._tab.get::<i64>(RecordScoreGameDataRequest::VT_SCORE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(RecordScoreGameDataRequest::VT_SCORE, Some(0)).unwrap()}
   }
 }
 
@@ -6551,8 +7181,8 @@ pub struct GetScoreGameDataRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for GetScoreGameDataRequest<'a> {
   type Inner = GetScoreGameDataRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -6562,7 +7192,7 @@ impl<'a> GetScoreGameDataRequest<'a> {
   pub const VT_PCID: flatbuffers::VOffsetT = 8;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     GetScoreGameDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -6580,15 +7210,24 @@ impl<'a> GetScoreGameDataRequest<'a> {
 
   #[inline]
   pub fn boardId(&self) -> u32 {
-    self._tab.get::<u32>(GetScoreGameDataRequest::VT_BOARDID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetScoreGameDataRequest::VT_BOARDID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn npId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(GetScoreGameDataRequest::VT_NPID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(GetScoreGameDataRequest::VT_NPID, None)}
   }
   #[inline]
   pub fn pcId(&self) -> i32 {
-    self._tab.get::<i32>(GetScoreGameDataRequest::VT_PCID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(GetScoreGameDataRequest::VT_PCID, Some(0)).unwrap()}
   }
 }
 
@@ -6673,8 +7312,8 @@ pub struct TusUser<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusUser<'a> {
   type Inner = TusUser<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -6683,7 +7322,7 @@ impl<'a> TusUser<'a> {
   pub const VT_NPID: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusUser { _tab: table }
   }
   #[allow(unused_mut)]
@@ -6700,11 +7339,17 @@ impl<'a> TusUser<'a> {
 
   #[inline]
   pub fn vuser(&self) -> bool {
-    self._tab.get::<bool>(TusUser::VT_VUSER, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TusUser::VT_VUSER, Some(false)).unwrap()}
   }
   #[inline]
   pub fn npid(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusUser::VT_NPID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusUser::VT_NPID, None)}
   }
 }
 
@@ -6781,8 +7426,8 @@ pub struct TusVariable<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusVariable<'a> {
   type Inner = TusVariable<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -6795,7 +7440,7 @@ impl<'a> TusVariable<'a> {
   pub const VT_OLDVARIABLE: flatbuffers::VOffsetT = 14;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusVariable { _tab: table }
   }
   #[allow(unused_mut)]
@@ -6816,27 +7461,45 @@ impl<'a> TusVariable<'a> {
 
   #[inline]
   pub fn ownerId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusVariable::VT_OWNERID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusVariable::VT_OWNERID, None)}
   }
   #[inline]
   pub fn hasData(&self) -> bool {
-    self._tab.get::<bool>(TusVariable::VT_HASDATA, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TusVariable::VT_HASDATA, Some(false)).unwrap()}
   }
   #[inline]
   pub fn lastChangedDate(&self) -> u64 {
-    self._tab.get::<u64>(TusVariable::VT_LASTCHANGEDDATE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TusVariable::VT_LASTCHANGEDDATE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn lastChangedAuthorId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusVariable::VT_LASTCHANGEDAUTHORID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusVariable::VT_LASTCHANGEDAUTHORID, None)}
   }
   #[inline]
   pub fn variable(&self) -> i64 {
-    self._tab.get::<i64>(TusVariable::VT_VARIABLE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TusVariable::VT_VARIABLE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn oldVariable(&self) -> i64 {
-    self._tab.get::<i64>(TusVariable::VT_OLDVARIABLE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TusVariable::VT_OLDVARIABLE, Some(0)).unwrap()}
   }
 }
 
@@ -6945,8 +7608,8 @@ pub struct TusVarResponse<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusVarResponse<'a> {
   type Inner = TusVarResponse<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -6954,7 +7617,7 @@ impl<'a> TusVarResponse<'a> {
   pub const VT_VARS: flatbuffers::VOffsetT = 4;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusVarResponse { _tab: table }
   }
   #[allow(unused_mut)]
@@ -6970,7 +7633,10 @@ impl<'a> TusVarResponse<'a> {
 
   #[inline]
   pub fn vars(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusVariable<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusVariable>>>>(TusVarResponse::VT_VARS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusVariable>>>>(TusVarResponse::VT_VARS, None)}
   }
 }
 
@@ -7039,8 +7705,8 @@ pub struct TusSetMultiSlotVariableRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusSetMultiSlotVariableRequest<'a> {
   type Inner = TusSetMultiSlotVariableRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -7050,7 +7716,7 @@ impl<'a> TusSetMultiSlotVariableRequest<'a> {
   pub const VT_VARIABLEARRAY: flatbuffers::VOffsetT = 8;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusSetMultiSlotVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -7068,15 +7734,24 @@ impl<'a> TusSetMultiSlotVariableRequest<'a> {
 
   #[inline]
   pub fn user(&self) -> Option<TusUser<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusSetMultiSlotVariableRequest::VT_USER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusSetMultiSlotVariableRequest::VT_USER, None)}
   }
   #[inline]
   pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusSetMultiSlotVariableRequest::VT_SLOTIDARRAY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusSetMultiSlotVariableRequest::VT_SLOTIDARRAY, None)}
   }
   #[inline]
   pub fn variableArray(&self) -> Option<flatbuffers::Vector<'a, i64>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i64>>>(TusSetMultiSlotVariableRequest::VT_VARIABLEARRAY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i64>>>(TusSetMultiSlotVariableRequest::VT_VARIABLEARRAY, None)}
   }
 }
 
@@ -7161,8 +7836,8 @@ pub struct TusGetMultiSlotVariableRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusGetMultiSlotVariableRequest<'a> {
   type Inner = TusGetMultiSlotVariableRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -7171,7 +7846,7 @@ impl<'a> TusGetMultiSlotVariableRequest<'a> {
   pub const VT_SLOTIDARRAY: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusGetMultiSlotVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -7188,11 +7863,17 @@ impl<'a> TusGetMultiSlotVariableRequest<'a> {
 
   #[inline]
   pub fn user(&self) -> Option<TusUser<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusGetMultiSlotVariableRequest::VT_USER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusGetMultiSlotVariableRequest::VT_USER, None)}
   }
   #[inline]
   pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusGetMultiSlotVariableRequest::VT_SLOTIDARRAY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusGetMultiSlotVariableRequest::VT_SLOTIDARRAY, None)}
   }
 }
 
@@ -7269,8 +7950,8 @@ pub struct TusGetMultiUserVariableRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusGetMultiUserVariableRequest<'a> {
   type Inner = TusGetMultiUserVariableRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -7279,7 +7960,7 @@ impl<'a> TusGetMultiUserVariableRequest<'a> {
   pub const VT_SLOTID: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusGetMultiUserVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -7296,11 +7977,17 @@ impl<'a> TusGetMultiUserVariableRequest<'a> {
 
   #[inline]
   pub fn users(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser>>>>(TusGetMultiUserVariableRequest::VT_USERS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser>>>>(TusGetMultiUserVariableRequest::VT_USERS, None)}
   }
   #[inline]
   pub fn slotId(&self) -> i32 {
-    self._tab.get::<i32>(TusGetMultiUserVariableRequest::VT_SLOTID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusGetMultiUserVariableRequest::VT_SLOTID, Some(0)).unwrap()}
   }
 }
 
@@ -7377,8 +8064,8 @@ pub struct TusGetFriendsVariableRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusGetFriendsVariableRequest<'a> {
   type Inner = TusGetFriendsVariableRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -7389,7 +8076,7 @@ impl<'a> TusGetFriendsVariableRequest<'a> {
   pub const VT_ARRAYNUM: flatbuffers::VOffsetT = 10;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusGetFriendsVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -7408,19 +8095,31 @@ impl<'a> TusGetFriendsVariableRequest<'a> {
 
   #[inline]
   pub fn slotId(&self) -> i32 {
-    self._tab.get::<i32>(TusGetFriendsVariableRequest::VT_SLOTID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusGetFriendsVariableRequest::VT_SLOTID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn includeSelf(&self) -> bool {
-    self._tab.get::<bool>(TusGetFriendsVariableRequest::VT_INCLUDESELF, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TusGetFriendsVariableRequest::VT_INCLUDESELF, Some(false)).unwrap()}
   }
   #[inline]
   pub fn sortType(&self) -> i32 {
-    self._tab.get::<i32>(TusGetFriendsVariableRequest::VT_SORTTYPE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusGetFriendsVariableRequest::VT_SORTTYPE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn arrayNum(&self) -> u32 {
-    self._tab.get::<u32>(TusGetFriendsVariableRequest::VT_ARRAYNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(TusGetFriendsVariableRequest::VT_ARRAYNUM, Some(0)).unwrap()}
   }
 }
 
@@ -7513,8 +8212,8 @@ pub struct TusAddAndGetVariableRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusAddAndGetVariableRequest<'a> {
   type Inner = TusAddAndGetVariableRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -7526,7 +8225,7 @@ impl<'a> TusAddAndGetVariableRequest<'a> {
   pub const VT_ISLASTCHANGEDAUTHORID: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusAddAndGetVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -7546,23 +8245,38 @@ impl<'a> TusAddAndGetVariableRequest<'a> {
 
   #[inline]
   pub fn user(&self) -> Option<TusUser<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusAddAndGetVariableRequest::VT_USER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusAddAndGetVariableRequest::VT_USER, None)}
   }
   #[inline]
   pub fn slotId(&self) -> i32 {
-    self._tab.get::<i32>(TusAddAndGetVariableRequest::VT_SLOTID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusAddAndGetVariableRequest::VT_SLOTID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn inVariable(&self) -> i64 {
-    self._tab.get::<i64>(TusAddAndGetVariableRequest::VT_INVARIABLE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TusAddAndGetVariableRequest::VT_INVARIABLE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn isLastChangedDate(&self) -> Option<flatbuffers::Vector<'a, u64>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(TusAddAndGetVariableRequest::VT_ISLASTCHANGEDDATE, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(TusAddAndGetVariableRequest::VT_ISLASTCHANGEDDATE, None)}
   }
   #[inline]
   pub fn isLastChangedAuthorId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusAddAndGetVariableRequest::VT_ISLASTCHANGEDAUTHORID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusAddAndGetVariableRequest::VT_ISLASTCHANGEDAUTHORID, None)}
   }
 }
 
@@ -7663,8 +8377,8 @@ pub struct TusTryAndSetVariableRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusTryAndSetVariableRequest<'a> {
   type Inner = TusTryAndSetVariableRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -7678,7 +8392,7 @@ impl<'a> TusTryAndSetVariableRequest<'a> {
   pub const VT_COMPAREVALUE: flatbuffers::VOffsetT = 16;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusTryAndSetVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -7700,31 +8414,52 @@ impl<'a> TusTryAndSetVariableRequest<'a> {
 
   #[inline]
   pub fn user(&self) -> Option<TusUser<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusTryAndSetVariableRequest::VT_USER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusTryAndSetVariableRequest::VT_USER, None)}
   }
   #[inline]
   pub fn slotId(&self) -> i32 {
-    self._tab.get::<i32>(TusTryAndSetVariableRequest::VT_SLOTID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusTryAndSetVariableRequest::VT_SLOTID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn opeType(&self) -> i32 {
-    self._tab.get::<i32>(TusTryAndSetVariableRequest::VT_OPETYPE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusTryAndSetVariableRequest::VT_OPETYPE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn variable(&self) -> i64 {
-    self._tab.get::<i64>(TusTryAndSetVariableRequest::VT_VARIABLE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i64>(TusTryAndSetVariableRequest::VT_VARIABLE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn isLastChangedDate(&self) -> Option<flatbuffers::Vector<'a, u64>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(TusTryAndSetVariableRequest::VT_ISLASTCHANGEDDATE, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(TusTryAndSetVariableRequest::VT_ISLASTCHANGEDDATE, None)}
   }
   #[inline]
   pub fn isLastChangedAuthorId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusTryAndSetVariableRequest::VT_ISLASTCHANGEDAUTHORID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusTryAndSetVariableRequest::VT_ISLASTCHANGEDAUTHORID, None)}
   }
   #[inline]
   pub fn compareValue(&self) -> Option<flatbuffers::Vector<'a, i64>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i64>>>(TusTryAndSetVariableRequest::VT_COMPAREVALUE, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i64>>>(TusTryAndSetVariableRequest::VT_COMPAREVALUE, None)}
   }
 }
 
@@ -7841,8 +8576,8 @@ pub struct TusDeleteMultiSlotVariableRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusDeleteMultiSlotVariableRequest<'a> {
   type Inner = TusDeleteMultiSlotVariableRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -7851,7 +8586,7 @@ impl<'a> TusDeleteMultiSlotVariableRequest<'a> {
   pub const VT_SLOTIDARRAY: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusDeleteMultiSlotVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -7868,11 +8603,17 @@ impl<'a> TusDeleteMultiSlotVariableRequest<'a> {
 
   #[inline]
   pub fn user(&self) -> Option<TusUser<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusDeleteMultiSlotVariableRequest::VT_USER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusDeleteMultiSlotVariableRequest::VT_USER, None)}
   }
   #[inline]
   pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusDeleteMultiSlotVariableRequest::VT_SLOTIDARRAY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusDeleteMultiSlotVariableRequest::VT_SLOTIDARRAY, None)}
   }
 }
 
@@ -7949,8 +8690,8 @@ pub struct TusSetDataRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusSetDataRequest<'a> {
   type Inner = TusSetDataRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -7963,7 +8704,7 @@ impl<'a> TusSetDataRequest<'a> {
   pub const VT_ISLASTCHANGEDAUTHORID: flatbuffers::VOffsetT = 14;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusSetDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -7984,27 +8725,45 @@ impl<'a> TusSetDataRequest<'a> {
 
   #[inline]
   pub fn user(&self) -> Option<TusUser<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusSetDataRequest::VT_USER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusSetDataRequest::VT_USER, None)}
   }
   #[inline]
   pub fn slotId(&self) -> i32 {
-    self._tab.get::<i32>(TusSetDataRequest::VT_SLOTID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusSetDataRequest::VT_SLOTID, Some(0)).unwrap()}
   }
   #[inline]
-  pub fn data(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusSetDataRequest::VT_DATA, None).map(|v| v.safe_slice())
+  pub fn data(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusSetDataRequest::VT_DATA, None)}
   }
   #[inline]
-  pub fn info(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusSetDataRequest::VT_INFO, None).map(|v| v.safe_slice())
+  pub fn info(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusSetDataRequest::VT_INFO, None)}
   }
   #[inline]
   pub fn isLastChangedDate(&self) -> Option<flatbuffers::Vector<'a, u64>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(TusSetDataRequest::VT_ISLASTCHANGEDDATE, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(TusSetDataRequest::VT_ISLASTCHANGEDDATE, None)}
   }
   #[inline]
   pub fn isLastChangedAuthorId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusSetDataRequest::VT_ISLASTCHANGEDAUTHORID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusSetDataRequest::VT_ISLASTCHANGEDAUTHORID, None)}
   }
 }
 
@@ -8113,8 +8872,8 @@ pub struct TusDataStatus<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusDataStatus<'a> {
   type Inner = TusDataStatus<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -8126,7 +8885,7 @@ impl<'a> TusDataStatus<'a> {
   pub const VT_INFO: flatbuffers::VOffsetT = 12;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusDataStatus { _tab: table }
   }
   #[allow(unused_mut)]
@@ -8146,23 +8905,38 @@ impl<'a> TusDataStatus<'a> {
 
   #[inline]
   pub fn ownerId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusDataStatus::VT_OWNERID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusDataStatus::VT_OWNERID, None)}
   }
   #[inline]
   pub fn hasData(&self) -> bool {
-    self._tab.get::<bool>(TusDataStatus::VT_HASDATA, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TusDataStatus::VT_HASDATA, Some(false)).unwrap()}
   }
   #[inline]
   pub fn lastChangedDate(&self) -> u64 {
-    self._tab.get::<u64>(TusDataStatus::VT_LASTCHANGEDDATE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(TusDataStatus::VT_LASTCHANGEDDATE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn lastChangedAuthorId(&self) -> Option<&'a str> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusDataStatus::VT_LASTCHANGEDAUTHORID, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(TusDataStatus::VT_LASTCHANGEDAUTHORID, None)}
   }
   #[inline]
-  pub fn info(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusDataStatus::VT_INFO, None).map(|v| v.safe_slice())
+  pub fn info(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusDataStatus::VT_INFO, None)}
   }
 }
 
@@ -8263,8 +9037,8 @@ pub struct TusData<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusData<'a> {
   type Inner = TusData<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -8273,7 +9047,7 @@ impl<'a> TusData<'a> {
   pub const VT_DATA: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusData { _tab: table }
   }
   #[allow(unused_mut)]
@@ -8290,11 +9064,17 @@ impl<'a> TusData<'a> {
 
   #[inline]
   pub fn status(&self) -> Option<TusDataStatus<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusDataStatus>>(TusData::VT_STATUS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusDataStatus>>(TusData::VT_STATUS, None)}
   }
   #[inline]
-  pub fn data(&self) -> Option<&'a [u8]> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusData::VT_DATA, None).map(|v| v.safe_slice())
+  pub fn data(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(TusData::VT_DATA, None)}
   }
 }
 
@@ -8371,8 +9151,8 @@ pub struct TusDataStatusResponse<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusDataStatusResponse<'a> {
   type Inner = TusDataStatusResponse<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -8380,7 +9160,7 @@ impl<'a> TusDataStatusResponse<'a> {
   pub const VT_STATUS: flatbuffers::VOffsetT = 4;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusDataStatusResponse { _tab: table }
   }
   #[allow(unused_mut)]
@@ -8396,7 +9176,10 @@ impl<'a> TusDataStatusResponse<'a> {
 
   #[inline]
   pub fn status(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusDataStatus<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusDataStatus>>>>(TusDataStatusResponse::VT_STATUS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusDataStatus>>>>(TusDataStatusResponse::VT_STATUS, None)}
   }
 }
 
@@ -8465,8 +9248,8 @@ pub struct TusGetDataRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusGetDataRequest<'a> {
   type Inner = TusGetDataRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -8475,7 +9258,7 @@ impl<'a> TusGetDataRequest<'a> {
   pub const VT_SLOTID: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusGetDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -8492,11 +9275,17 @@ impl<'a> TusGetDataRequest<'a> {
 
   #[inline]
   pub fn user(&self) -> Option<TusUser<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusGetDataRequest::VT_USER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusGetDataRequest::VT_USER, None)}
   }
   #[inline]
   pub fn slotId(&self) -> i32 {
-    self._tab.get::<i32>(TusGetDataRequest::VT_SLOTID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusGetDataRequest::VT_SLOTID, Some(0)).unwrap()}
   }
 }
 
@@ -8573,8 +9362,8 @@ pub struct TusGetMultiSlotDataStatusRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusGetMultiSlotDataStatusRequest<'a> {
   type Inner = TusGetMultiSlotDataStatusRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -8583,7 +9372,7 @@ impl<'a> TusGetMultiSlotDataStatusRequest<'a> {
   pub const VT_SLOTIDARRAY: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusGetMultiSlotDataStatusRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -8600,11 +9389,17 @@ impl<'a> TusGetMultiSlotDataStatusRequest<'a> {
 
   #[inline]
   pub fn user(&self) -> Option<TusUser<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusGetMultiSlotDataStatusRequest::VT_USER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusGetMultiSlotDataStatusRequest::VT_USER, None)}
   }
   #[inline]
   pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusGetMultiSlotDataStatusRequest::VT_SLOTIDARRAY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusGetMultiSlotDataStatusRequest::VT_SLOTIDARRAY, None)}
   }
 }
 
@@ -8681,8 +9476,8 @@ pub struct TusGetMultiUserDataStatusRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusGetMultiUserDataStatusRequest<'a> {
   type Inner = TusGetMultiUserDataStatusRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -8691,7 +9486,7 @@ impl<'a> TusGetMultiUserDataStatusRequest<'a> {
   pub const VT_SLOTID: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusGetMultiUserDataStatusRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -8708,11 +9503,17 @@ impl<'a> TusGetMultiUserDataStatusRequest<'a> {
 
   #[inline]
   pub fn users(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser<'a>>>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser>>>>(TusGetMultiUserDataStatusRequest::VT_USERS, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<TusUser>>>>(TusGetMultiUserDataStatusRequest::VT_USERS, None)}
   }
   #[inline]
   pub fn slotId(&self) -> i32 {
-    self._tab.get::<i32>(TusGetMultiUserDataStatusRequest::VT_SLOTID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusGetMultiUserDataStatusRequest::VT_SLOTID, Some(0)).unwrap()}
   }
 }
 
@@ -8789,8 +9590,8 @@ pub struct TusGetFriendsDataStatusRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusGetFriendsDataStatusRequest<'a> {
   type Inner = TusGetFriendsDataStatusRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -8801,7 +9602,7 @@ impl<'a> TusGetFriendsDataStatusRequest<'a> {
   pub const VT_ARRAYNUM: flatbuffers::VOffsetT = 10;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusGetFriendsDataStatusRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -8820,19 +9621,31 @@ impl<'a> TusGetFriendsDataStatusRequest<'a> {
 
   #[inline]
   pub fn slotId(&self) -> i32 {
-    self._tab.get::<i32>(TusGetFriendsDataStatusRequest::VT_SLOTID, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusGetFriendsDataStatusRequest::VT_SLOTID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn includeSelf(&self) -> bool {
-    self._tab.get::<bool>(TusGetFriendsDataStatusRequest::VT_INCLUDESELF, Some(false)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(TusGetFriendsDataStatusRequest::VT_INCLUDESELF, Some(false)).unwrap()}
   }
   #[inline]
   pub fn sortType(&self) -> i32 {
-    self._tab.get::<i32>(TusGetFriendsDataStatusRequest::VT_SORTTYPE, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<i32>(TusGetFriendsDataStatusRequest::VT_SORTTYPE, Some(0)).unwrap()}
   }
   #[inline]
   pub fn arrayNum(&self) -> u32 {
-    self._tab.get::<u32>(TusGetFriendsDataStatusRequest::VT_ARRAYNUM, Some(0)).unwrap()
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(TusGetFriendsDataStatusRequest::VT_ARRAYNUM, Some(0)).unwrap()}
   }
 }
 
@@ -8925,8 +9738,8 @@ pub struct TusDeleteMultiSlotDataRequest<'a> {
 impl<'a> flatbuffers::Follow<'a> for TusDeleteMultiSlotDataRequest<'a> {
   type Inner = TusDeleteMultiSlotDataRequest<'a>;
   #[inline]
-  fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table { buf, loc } }
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
@@ -8935,7 +9748,7 @@ impl<'a> TusDeleteMultiSlotDataRequest<'a> {
   pub const VT_SLOTIDARRAY: flatbuffers::VOffsetT = 6;
 
   #[inline]
-  pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     TusDeleteMultiSlotDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
@@ -8952,11 +9765,17 @@ impl<'a> TusDeleteMultiSlotDataRequest<'a> {
 
   #[inline]
   pub fn user(&self) -> Option<TusUser<'a>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusDeleteMultiSlotDataRequest::VT_USER, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<TusUser>>(TusDeleteMultiSlotDataRequest::VT_USER, None)}
   }
   #[inline]
   pub fn slotIdArray(&self) -> Option<flatbuffers::Vector<'a, i32>> {
-    self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusDeleteMultiSlotDataRequest::VT_SLOTIDARRAY, None)
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, i32>>>(TusDeleteMultiSlotDataRequest::VT_SLOTIDARRAY, None)}
   }
 }
 
@@ -9020,6 +9839,154 @@ impl core::fmt::Debug for TusDeleteMultiSlotDataRequest<'_> {
     let mut ds = f.debug_struct("TusDeleteMultiSlotDataRequest");
       ds.field("user", &self.user());
       ds.field("slotIdArray", &self.slotIdArray());
+      ds.finish()
+  }
+}
+pub enum SetPresenceRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SetPresenceRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SetPresenceRequest<'a> {
+  type Inner = SetPresenceRequest<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> SetPresenceRequest<'a> {
+  pub const VT_TITLE: flatbuffers::VOffsetT = 4;
+  pub const VT_STATUS: flatbuffers::VOffsetT = 6;
+  pub const VT_COMMENT: flatbuffers::VOffsetT = 8;
+  pub const VT_DATA: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    SetPresenceRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args SetPresenceRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<SetPresenceRequest<'bldr>> {
+    let mut builder = SetPresenceRequestBuilder::new(_fbb);
+    if let Some(x) = args.data { builder.add_data(x); }
+    if let Some(x) = args.comment { builder.add_comment(x); }
+    if let Some(x) = args.status { builder.add_status(x); }
+    if let Some(x) = args.title { builder.add_title(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn title(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(SetPresenceRequest::VT_TITLE, None)}
+  }
+  #[inline]
+  pub fn status(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(SetPresenceRequest::VT_STATUS, None)}
+  }
+  #[inline]
+  pub fn comment(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(SetPresenceRequest::VT_COMMENT, None)}
+  }
+  #[inline]
+  pub fn data(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(SetPresenceRequest::VT_DATA, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for SetPresenceRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("title", Self::VT_TITLE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("status", Self::VT_STATUS, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("comment", Self::VT_COMMENT, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("data", Self::VT_DATA, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SetPresenceRequestArgs<'a> {
+    pub title: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub status: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub comment: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub data: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+}
+impl<'a> Default for SetPresenceRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SetPresenceRequestArgs {
+      title: None,
+      status: None,
+      comment: None,
+      data: None,
+    }
+  }
+}
+
+pub struct SetPresenceRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> SetPresenceRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_title(&mut self, title: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetPresenceRequest::VT_TITLE, title);
+  }
+  #[inline]
+  pub fn add_status(&mut self, status: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetPresenceRequest::VT_STATUS, status);
+  }
+  #[inline]
+  pub fn add_comment(&mut self, comment: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetPresenceRequest::VT_COMMENT, comment);
+  }
+  #[inline]
+  pub fn add_data(&mut self, data: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetPresenceRequest::VT_DATA, data);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SetPresenceRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    SetPresenceRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SetPresenceRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for SetPresenceRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("SetPresenceRequest");
+      ds.field("title", &self.title());
+      ds.field("status", &self.status());
+      ds.field("comment", &self.comment());
+      ds.field("data", &self.data());
       ds.finish()
   }
 }

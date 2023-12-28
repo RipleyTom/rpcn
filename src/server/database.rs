@@ -528,10 +528,13 @@ impl Database {
 	}
 
 	pub fn get_username_and_online_name_from_user_ids(&self, user_list: &HashSet<i64>) -> Result<Vec<(i64, String, String)>, DbError> {
-		let stmt_string = format!("SELECT user_id, username, online_name FROM account WHERE user_id IN ({})", generate_string_from_user_list(&user_list.iter().map(|id| *id).collect::<Vec<i64>>()));
+		let stmt_string = format!(
+			"SELECT user_id, username, online_name FROM account WHERE user_id IN ({})",
+			generate_string_from_user_list(&user_list.iter().copied().collect::<Vec<i64>>())
+		);
 		let mut stmt = self.conn.prepare(&stmt_string).map_err(|_| DbError::Internal)?;
 
-		let rows = stmt.query_map([], |r| Ok(( r.get_unwrap(0), r.get_unwrap(1), r.get_unwrap(2) ))).map_err(|_| DbError::Internal)?;
+		let rows = stmt.query_map([], |r| Ok((r.get_unwrap(0), r.get_unwrap(1), r.get_unwrap(2)))).map_err(|_| DbError::Internal)?;
 
 		let mut vec_user_infos = Vec::new();
 		for row in rows {
