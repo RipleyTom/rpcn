@@ -199,7 +199,10 @@ impl Database {
 					variable: r.get_unwrap(2),
 				})
 			})
-			.map_err(|_| DbError::Internal)
+			.map_err(|e| {
+				error!("Unexpected error in tus_add_and_get_user_variable: {}", e);
+				DbError::Internal
+			})
 	}
 
 	pub fn tus_add_and_get_vuser_variable(
@@ -233,7 +236,10 @@ impl Database {
 					variable: r.get_unwrap(2),
 				})
 			})
-			.map_err(|_| DbError::Internal)
+			.map_err(|e| {
+				error!("Unexpected error in tus_add_and_get_vuser_variable: {}", e);
+				DbError::Internal
+			})
 	}
 
 	fn prepare_try_and_set_cond(compare_op: TusOpeType, compare_timestamp: Option<u64>, compare_author: Option<i64>) -> String {
@@ -290,7 +296,10 @@ impl Database {
 					variable: r.get_unwrap(2),
 				})
 			})
-			.map_err(|_| DbError::Internal)
+			.map_err(|e| {
+				error!("Unexpected error in tus_try_and_set_user_variable: {}", e);
+				DbError::Internal
+			})
 	}
 
 	pub fn tus_try_and_set_vuser_variable(
@@ -324,7 +333,10 @@ impl Database {
 					variable: r.get_unwrap(2),
 				})
 			})
-			.map_err(|_| DbError::Internal)
+			.map_err(|e| {
+				error!("Unexpected error in tus_try_and_set_vuser_variable: {}", e);
+				DbError::Internal
+			})
 	}
 
 	pub fn tus_delete_user_variable_with_slotlist(&self, com_id: &ComId, user: i64, slot_list: &[i32]) -> Result<(), DbError> {
@@ -408,14 +420,17 @@ impl Database {
 		);
 
 		self.conn
-			.query_row(&full_query, rusqlite::params![user, com_id, slot, data_id, info, timestamp, author_id], |r| {
+			.query_row(&full_query, rusqlite::params![user, com_id, slot, data_id, info.unwrap_or_default(), timestamp, author_id], |r| {
 				Ok(DbTusDataStatus {
 					timestamp: r.get_unwrap(0),
 					author_id: r.get_unwrap(1),
 					data_id: r.get_unwrap(2),
 				})
 			})
-			.map_err(|_| DbError::Internal)
+			.map_err(|e| {
+				error!("Unexpected error in tus_set_user_data: {}", e);
+				DbError::Internal
+			})
 	}
 
 	pub fn tus_set_vuser_data(
@@ -449,14 +464,17 @@ impl Database {
 		);
 
 		self.conn
-			.query_row(&full_query, rusqlite::params![vuser, com_id, slot, data_id, info, timestamp, author_id], |r| {
+			.query_row(&full_query, rusqlite::params![vuser, com_id, slot, data_id, info.unwrap_or_default(), timestamp, author_id], |r| {
 				Ok(DbTusDataStatus {
 					timestamp: r.get_unwrap(0),
 					author_id: r.get_unwrap(1),
 					data_id: r.get_unwrap(2),
 				})
 			})
-			.map_err(|_| DbError::Internal)
+			.map_err(|e| {
+				error!("Unexpected error in tus_set_vuser_data: {}", e);
+				DbError::Internal
+			})
 	}
 
 	pub fn tus_get_user_data(&self, com_id: &ComId, user: i64, slot: i32) -> Result<(DbTusDataStatus, Vec<u8>), DbError> {
@@ -477,7 +495,10 @@ impl Database {
 			)
 			.map_err(|e| match e {
 				rusqlite::Error::QueryReturnedNoRows => DbError::Empty,
-				_ => DbError::Internal,
+				e => {
+					error!("Unexpected error in tus_get_user_data: {}", e);
+					DbError::Internal
+				}
 			})
 	}
 
@@ -499,7 +520,10 @@ impl Database {
 			)
 			.map_err(|e| match e {
 				rusqlite::Error::QueryReturnedNoRows => DbError::Empty,
-				_ => DbError::Internal,
+				e => {
+					error!("Unexpected error in tus_get_vuser_data: {}", e);
+					DbError::Internal
+				}
 			})
 	}
 
