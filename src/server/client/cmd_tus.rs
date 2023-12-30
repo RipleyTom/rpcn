@@ -418,7 +418,7 @@ impl Client {
 
 		let var = if user.vuser() {
 			db.tus_add_and_get_vuser_variable(&com_id, npid, slot, to_add, author_id, timestamp, compare_timestamp, compare_author).map_err(|e| {
-				error!("Error tus_add_and_get_user_variable: {}", e);
+				error!("Error tus_add_and_get_vuser_variable: {}", e);
 				ErrorType::DbFail
 			})?
 		} else {
