@@ -226,7 +226,7 @@ impl Database {
 			let _ = write!(cond_string, "{} author == {}", if cond_string.is_empty() { "WHERE" } else { "AND" }, compare_author);
 		}
 
-		let full_query = format!("INSERT INTO tus_var_vuser( vuser, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( owner_id, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value", cond_string);
+		let full_query = format!("INSERT INTO tus_var_vuser( vuser, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( vuser, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value", cond_string);
 
 		self.conn
 			.query_row(&full_query, rusqlite::params![vuser, com_id, slot, value, timestamp, author_id], |r| {
