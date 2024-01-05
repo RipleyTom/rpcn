@@ -50,7 +50,7 @@ impl Client {
 	}
 
 	fn send_email_template(&self, email_addr: &str, email_username: &str, subject: &str, body: String) -> Result<(), String> {
-		let message_id = format!("{}.{}@rpcs3.net", Client::get_timestamp_nanos(), EMAIL_ID_DISPENSER.fetch_add(1, Ordering::SeqCst));
+		let message_id = format!("<{}.{}@rpcs3.net>", Client::get_timestamp_nanos(), EMAIL_ID_DISPENSER.fetch_add(1, Ordering::SeqCst));
 
 		let email_to_send = Message::builder()
 			.to(Mailbox::new(
