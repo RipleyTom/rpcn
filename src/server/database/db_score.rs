@@ -34,50 +34,17 @@ impl Default for DbBoardInfo {
 
 impl Database {
 	pub fn score_get_all_data_ids(&self) -> Result<HashSet<u64>, DbError> {
-		let mut stmt = self.conn.prepare("SELECT communication_id, board_id FROM score_table").map_err(|_| DbError::Internal)?;
-		let rows = stmt
-			.query_map([], |r| {
-				let com_id: String = r.get_unwrap(0);
-				let board_id: u32 = r.get_unwrap(1);
-				Ok(format!("{}_{}", com_id, board_id))
-			})
+		let mut stmt = self.conn.prepare("SELECT data_id FROM score WHERE data_id IS NOT NULL").map_err(|_| DbError::Internal)?;
+		let data_ids: HashSet<u64> = stmt
+			.query_map([], |r| Ok(r.get_unwrap(0)))
+			.map_err(|_| DbError::Internal)?
+			.collect::<Result<HashSet<u64>, _>>()
 			.map_err(|_| DbError::Internal)?;
-
-		let tables_list: Vec<String> = rows.map(|v| v.unwrap()).collect();
-		let mut hs_data_ids = HashSet::new();
-
-		for table in tables_list {
-			let stmt_string = format!("SELECT data_id FROM {} WHERE data_id IS NOT NULL", table);
-			let mut stmt = self.conn.prepare(&stmt_string).map_err(|_| DbError::Internal)?;
-			let rows = stmt.query_map([], |r| Ok(r.get_unwrap(0))).map_err(|_| DbError::Internal)?;
-
-			for row in rows {
-				let to_insert = row.unwrap();
-				if !hs_data_ids.insert(to_insert) {
-					println!("Duplicate score data_id found: {}!", to_insert);
-					return Err(DbError::Internal);
-				}
-			}
-		}
-
-		Ok(hs_data_ids)
-	}
-
-	pub fn get_scoreboard_name(com_id: &ComId, board_id: u32) -> String {
-		// Note that this generates a safe sql table name as ComId is checked in input handling to only contain uppercase+digits
-		format!("{}_{}", com_id_to_string(com_id), board_id)
+		Ok(data_ids)
 	}
 
 	fn create_score_board(&self, com_id: &ComId, board_id: u32) -> Result<(), DbError> {
-		let table_name = Database::get_scoreboard_name(com_id, board_id);
-		self.conn.execute(&format!("CREATE TABLE IF NOT EXISTS {} ( user_id INTEGER NOT NULL, character_id INTEGER NOT NULL, score BIGINT NOT NULL, comment TEXT, game_info BLOB, data_id UNSIGNED BIGINT, timestamp UNSIGNED BIGINT NOT NULL, PRIMARY KEY(user_id, character_id), FOREIGN KEY(user_id) REFERENCES account(user_id) )", table_name),
-			[],).map_err(|e| {
-				error!("Error creating table in create_score_board: {}", e);
-				DbError::Internal
-			})?;
-
 		let com_id_str = com_id_to_string(com_id);
-
 		let default_boardinfo: DbBoardInfo = Default::default();
 
 		if let Err(e) = self.conn.execute(
@@ -104,7 +71,7 @@ impl Database {
 		Ok(())
 	}
 
-	pub fn get_score_tables(&self) -> Result<HashMap<String, DbBoardInfo>, DbError> {
+	pub fn get_score_tables(&self) -> Result<HashMap<(String, u32), DbBoardInfo>, DbError> {
 		let mut stmt = self
 			.conn
 			.prepare("SELECT communication_id, board_id, rank_limit, update_mode, sort_mode, upload_num_limit, upload_size_limit FROM score_table")
@@ -116,7 +83,7 @@ impl Database {
 			let com_id: String = r.get_unwrap(0);
 			let board_id: u32 = r.get_unwrap(1);
 			Ok((
-				format!("{}_{}", com_id, board_id),
+				(com_id, board_id),
 				DbBoardInfo {
 					rank_limit: r.get_unwrap(2),
 					update_mode: r.get_unwrap(3),
@@ -132,7 +99,7 @@ impl Database {
 		match rows {
 			Err(rusqlite::Error::QueryReturnedNoRows) => {}
 			Err(e) => {
-				println!("Err: Failed to query scores: {}", e);
+				println!("Err: Failed to query score tables: {}", e);
 				return Err(DbError::Internal);
 			}
 			Ok(rows) => {
@@ -146,22 +113,16 @@ impl Database {
 		Ok(tables_map)
 	}
 
-	pub fn get_scores_from_table(&self, table_name: &str, table_info: &DbBoardInfo) -> Result<Vec<DbScoreInfo>, DbError> {
+	pub fn get_scores_from_table(&self, com_id: &str, board_id: u32, table_info: &DbBoardInfo) -> Result<Vec<DbScoreInfo>, DbError> {
 		let statement_str = if table_info.sort_mode == 0 {
-			format!(
-				"SELECT user_id, character_id, score, comment, game_info, data_id, timestamp FROM {} ORDER BY score DESC, timestamp ASC, user_id ASC LIMIT ?1",
-				table_name
-			)
+			"SELECT user_id, character_id, score, comment, game_info, data_id, timestamp FROM score WHERE communication_id = ?1 AND board_id = ?2 ORDER BY score DESC, timestamp ASC, user_id ASC LIMIT ?3"
 		} else {
-			format!(
-				"SELECT user_id, character_id, score, comment, game_info, data_id, timestamp FROM {} ORDER BY score ASC, timestamp ASC, user_id ASC LIMIT ?1",
-				table_name
-			)
+			"SELECT user_id, character_id, score, comment, game_info, data_id, timestamp FROM score WHERE communication_id = ?1 AND board_id = ?2 ORDER BY score ASC, timestamp ASC, user_id ASC LIMIT ?3"
 		};
 
-		let mut stmt = self.conn.prepare(&statement_str).map_err(|_| DbError::Internal)?;
+		let mut stmt = self.conn.prepare(statement_str).map_err(|_| DbError::Internal)?;
 		let rows = stmt
-			.query_map(rusqlite::params![table_info.rank_limit], |r| {
+			.query_map(rusqlite::params![com_id, board_id, table_info.rank_limit], |r| {
 				Ok(DbScoreInfo {
 					user_id: r.get_unwrap(0),
 					character_id: r.get_unwrap(1),
@@ -218,21 +179,23 @@ impl Database {
 
 	pub fn record_score(&self, com_id: &ComId, board_id: u32, score_infos: &DbScoreInfo, create_missing: bool) -> Result<DbBoardInfo, DbError> {
 		let board_infos = self.get_board_infos(com_id, board_id, create_missing)?;
-		let table_name = Database::get_scoreboard_name(com_id, board_id);
+		let com_id_str = com_id_to_string(com_id);
 
-		let query_str: String = if board_infos.update_mode == 0 {
+		let query_str = if board_infos.update_mode == 0 {
 			if board_infos.sort_mode == 0 {
-				format!("INSERT INTO {} ( user_id, character_id, score, comment, game_info, data_id, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, NULL, ?6 ) ON CONFLICT ( user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, data_id = NULL, timestamp = excluded.timestamp WHERE excluded.score >= score", table_name)
+				"INSERT INTO score ( communication_id, board_id, user_id, character_id, score, comment, game_info, data_id, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, ?8 ) ON CONFLICT ( communication_id, board_id, user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, data_id = NULL, timestamp = excluded.timestamp WHERE excluded.score >= score"
 			} else {
-				format!("INSERT INTO {} ( user_id, character_id, score, comment, game_info, data_id, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, NULL, ?6 ) ON CONFLICT ( user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, data_id = NULL, timestamp = excluded.timestamp WHERE excluded.score <= score", table_name)
+				"INSERT INTO score ( communication_id, board_id, user_id, character_id, score, comment, game_info, data_id, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, ?8 ) ON CONFLICT ( communication_id, board_id, user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, data_id = NULL, timestamp = excluded.timestamp WHERE excluded.score <= score"
 			}
 		} else {
-			format!("INSERT INTO {} ( user_id, character_id, score, comment, game_info, data_id, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, NULL, ?6 ) ON CONFLICT ( user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, data_id = NULL, timestamp = excluded.timestamp", table_name)
+			"INSERT INTO score ( communication_id, board_id, user_id, character_id, score, comment, game_info, data_id, timestamp ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, ?8 ) ON CONFLICT ( communication_id, board_id, user_id, character_id ) DO UPDATE SET score = excluded.score, comment = excluded.comment, game_info = excluded.game_info, data_id = NULL, timestamp = excluded.timestamp"
 		};
 
 		let res = self.conn.execute(
-			&query_str,
+			query_str,
 			rusqlite::params![
+				com_id_str,
+				board_id,
 				score_infos.user_id,
 				score_infos.character_id,
 				score_infos.score,
@@ -258,11 +221,11 @@ impl Database {
 	}
 
 	pub fn set_score_data(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32, score: i64, data_id: u64) -> Result<(), DbError> {
-		let table_name = Database::get_scoreboard_name(com_id, board_id);
-
-		let query = format!("UPDATE {} SET data_id = ?1 WHERE user_id = ?2 AND character_id = ?3 AND score = ?4", &table_name);
-
-		let res = self.conn.execute(&query, rusqlite::params![data_id, user_id, character_id, score]);
+		let com_id_str = com_id_to_string(com_id);
+		let res = self.conn.execute(
+			"UPDATE score SET data_id = ?1 WHERE communication_id = ?2 AND board_id = ?3 AND user_id = ?4 AND character_id = ?5 AND score = ?6",
+			rusqlite::params![data_id, com_id_str, board_id, user_id, character_id, score],
+		);
 
 		match res {
 			Ok(n) => {

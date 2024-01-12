@@ -23,6 +23,7 @@ impl Client {
 		reply.extend(resp);
 		Ok(ErrorType::NoError)
 	}
+
 	pub async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let (com_id, join_req) = self.get_com_and_fb::<JoinRoomRequest>(data)?;
 
@@ -77,6 +78,7 @@ impl Client {
 
 		Ok(ErrorType::NoError)
 	}
+
 	pub async fn leave_room(&self, room_manager: &Arc<RwLock<RoomManager>>, com_id: &ComId, room_id: u64, opt_data: Option<&PresenceOptionData<'_>>, event_cause: EventCause) -> ErrorType {
 		let (destroyed, users, user_data);
 		{
@@ -209,6 +211,22 @@ impl Client {
 			Err(e) => Ok(e),
 		}
 	}
+
+	pub async fn req_get_roommemberdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
+		let (com_id, getdata_req) = self.get_com_and_fb::<GetRoomMemberDataInternalRequest>(data)?;
+
+		let resp = self.shared.room_manager.read().get_roommemberdata_internal(&com_id, &getdata_req);
+
+		if let Err(e) = resp {
+			return Ok(e);
+		}
+		let resp = resp.unwrap();
+
+		reply.extend(&(resp.len() as u32).to_le_bytes());
+		reply.extend(resp);
+		Ok(ErrorType::NoError)
+	}
+
 	pub async fn req_set_roommemberdata_internal(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomMemberDataInternalRequest>(data)?;
 
@@ -229,6 +247,7 @@ impl Client {
 			Err(e) => Ok(e),
 		}
 	}
+
 	pub fn req_ping_room_owner(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
 		let room_id = data.get::<u64>();
@@ -262,6 +281,7 @@ impl Client {
 
 		Ok(ErrorType::NoError)
 	}
+
 	pub async fn req_send_room_message(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let (com_id, msg_req) = self.get_com_and_fb::<SendRoomMessageRequest>(data)?;
 

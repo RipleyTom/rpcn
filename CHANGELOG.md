@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2024-01-14
+
+### Added
+
+- Implemented SetUserInfo
+- Implemented GetRoomMemberBinAttr
+- Added proper public/private slot values
+- Added a cleanup mechanism for accounts that have never been logged on and are older than a month
+
+### Fixed
+
+- Added FOREIGN_KEY constraints to TUS tables to ensure sanity
+- Added a mechanism to ensure cleanup is done properly before letting the user back in the server
+
+### Misc
+
+- Updated dependencies
+- Migrated all score tables into one unified table
+- Added indexes for faster lookup to the SQL tables
+
+
 ## [0.9.2] - 2024-01-09
 
 ### Fixed

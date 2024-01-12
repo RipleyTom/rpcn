@@ -4003,6 +4003,137 @@ impl core::fmt::Debug for SetRoomDataInternalRequest<'_> {
       ds.finish()
   }
 }
+pub enum GetRoomMemberDataInternalRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetRoomMemberDataInternalRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for GetRoomMemberDataInternalRequest<'a> {
+  type Inner = GetRoomMemberDataInternalRequest<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> GetRoomMemberDataInternalRequest<'a> {
+  pub const VT_ROOMID: flatbuffers::VOffsetT = 4;
+  pub const VT_MEMBERID: flatbuffers::VOffsetT = 6;
+  pub const VT_ATTRID: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    GetRoomMemberDataInternalRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args GetRoomMemberDataInternalRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<GetRoomMemberDataInternalRequest<'bldr>> {
+    let mut builder = GetRoomMemberDataInternalRequestBuilder::new(_fbb);
+    builder.add_roomId(args.roomId);
+    if let Some(x) = args.attrId { builder.add_attrId(x); }
+    builder.add_memberId(args.memberId);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn roomId(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(GetRoomMemberDataInternalRequest::VT_ROOMID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn memberId(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(GetRoomMemberDataInternalRequest::VT_MEMBERID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn attrId(&self) -> Option<flatbuffers::Vector<'a, u16>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(GetRoomMemberDataInternalRequest::VT_ATTRID, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for GetRoomMemberDataInternalRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u64>("roomId", Self::VT_ROOMID, false)?
+     .visit_field::<u16>("memberId", Self::VT_MEMBERID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>("attrId", Self::VT_ATTRID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetRoomMemberDataInternalRequestArgs<'a> {
+    pub roomId: u64,
+    pub memberId: u16,
+    pub attrId: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
+}
+impl<'a> Default for GetRoomMemberDataInternalRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GetRoomMemberDataInternalRequestArgs {
+      roomId: 0,
+      memberId: 0,
+      attrId: None,
+    }
+  }
+}
+
+pub struct GetRoomMemberDataInternalRequestBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> GetRoomMemberDataInternalRequestBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_roomId(&mut self, roomId: u64) {
+    self.fbb_.push_slot::<u64>(GetRoomMemberDataInternalRequest::VT_ROOMID, roomId, 0);
+  }
+  #[inline]
+  pub fn add_memberId(&mut self, memberId: u16) {
+    self.fbb_.push_slot::<u16>(GetRoomMemberDataInternalRequest::VT_MEMBERID, memberId, 0);
+  }
+  #[inline]
+  pub fn add_attrId(&mut self, attrId: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u16>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomMemberDataInternalRequest::VT_ATTRID, attrId);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetRoomMemberDataInternalRequestBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    GetRoomMemberDataInternalRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<GetRoomMemberDataInternalRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for GetRoomMemberDataInternalRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("GetRoomMemberDataInternalRequest");
+      ds.field("roomId", &self.roomId());
+      ds.field("memberId", &self.memberId());
+      ds.field("attrId", &self.attrId());
+      ds.finish()
+  }
+}
 pub enum SetRoomMemberDataInternalRequestOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -4148,6 +4279,120 @@ impl core::fmt::Debug for SetRoomMemberDataInternalRequest<'_> {
       ds.field("memberId", &self.memberId());
       ds.field("teamId", &self.teamId());
       ds.field("roomMemberBinAttrInternal", &self.roomMemberBinAttrInternal());
+      ds.finish()
+  }
+}
+pub enum SetUserInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SetUserInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SetUserInfo<'a> {
+  type Inner = SetUserInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> SetUserInfo<'a> {
+  pub const VT_SERVERID: flatbuffers::VOffsetT = 4;
+  pub const VT_USERBINATTR: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    SetUserInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+    args: &'args SetUserInfoArgs<'args>
+  ) -> flatbuffers::WIPOffset<SetUserInfo<'bldr>> {
+    let mut builder = SetUserInfoBuilder::new(_fbb);
+    if let Some(x) = args.userBinAttr { builder.add_userBinAttr(x); }
+    builder.add_serverId(args.serverId);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn serverId(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(SetUserInfo::VT_SERVERID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn userBinAttr(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr>>>>(SetUserInfo::VT_USERBINATTR, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for SetUserInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u16>("serverId", Self::VT_SERVERID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<BinAttr>>>>("userBinAttr", Self::VT_USERBINATTR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SetUserInfoArgs<'a> {
+    pub serverId: u16,
+    pub userBinAttr: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>>>,
+}
+impl<'a> Default for SetUserInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SetUserInfoArgs {
+      serverId: 0,
+      userBinAttr: None,
+    }
+  }
+}
+
+pub struct SetUserInfoBuilder<'a: 'b, 'b> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> SetUserInfoBuilder<'a, 'b> {
+  #[inline]
+  pub fn add_serverId(&mut self, serverId: u16) {
+    self.fbb_.push_slot::<u16>(SetUserInfo::VT_SERVERID, serverId, 0);
+  }
+  #[inline]
+  pub fn add_userBinAttr(&mut self, userBinAttr: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<BinAttr<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetUserInfo::VT_USERBINATTR, userBinAttr);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SetUserInfoBuilder<'a, 'b> {
+    let start = _fbb.start_table();
+    SetUserInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SetUserInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for SetUserInfo<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("SetUserInfo");
+      ds.field("serverId", &self.serverId());
+      ds.field("userBinAttr", &self.userBinAttr());
       ds.finish()
   }
 }

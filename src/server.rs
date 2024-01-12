@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{self, BufReader};
 use std::net::ToSocketAddrs;
@@ -34,7 +34,7 @@ use crate::Config;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 21;
+const PROTOCOL_VERSION: u32 = 22;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
@@ -43,6 +43,7 @@ pub struct Server {
 	client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
 	score_cache: Arc<ScoresCache>,
 	game_tracker: Arc<GameTracker>,
+	cleanup_duty: Arc<RwLock<HashSet<i64>>>,
 }
 
 impl Server {
@@ -53,12 +54,15 @@ impl Server {
 		let score_cache = Server::initialize_score(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
 		Server::initialize_tus_data_handler()?;
 
+		Server::cleanup_database(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
+
 		Server::clean_score_data(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
 		Server::clean_tus_data(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
 
 		let room_manager = Arc::new(RwLock::new(RoomManager::new()));
 		let client_infos = Arc::new(RwLock::new(HashMap::new()));
 		let game_tracker = Arc::new(GameTracker::new());
+		let cleanup_duty = Arc::new(RwLock::new(HashSet::new()));
 
 		Ok(Server {
 			config,
@@ -67,6 +71,7 @@ impl Server {
 			client_infos,
 			score_cache,
 			game_tracker,
+			cleanup_duty,
 		})
 	}
 
@@ -163,7 +168,7 @@ impl Server {
 						let acceptor = acceptor.clone();
 						let config = self.config.clone();
 						let db_pool = self.db_pool.clone();
-						let shared = SharedData::new(self.room_manager.clone(), self.client_infos.clone(), self.score_cache.clone(), self.game_tracker.clone());
+						let shared = SharedData::new(self.room_manager.clone(), self.client_infos.clone(), self.score_cache.clone(), self.game_tracker.clone(), self.cleanup_duty.clone());
 						let servinfo_vec = servinfo_vec.clone();
 						let term_watch = term_watch.clone();
 						let fut_client = async move {

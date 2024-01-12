@@ -43,7 +43,6 @@ const SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID: u16 = 0x57;
 const SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_2_ID: u16 = 0x58;
 
 const SCE_NP_MATCHING2_ROOMMEMBER_BIN_ATTR_INTERNAL_1_ID: u16 = 0x59;
-const SCE_NP_MATCHING2_USER_BIN_ATTR_1_ID: u16 = 0x5F;
 
 #[repr(u32)]
 enum SceNpMatching2FlagAttr {
@@ -677,16 +676,37 @@ impl Room {
 			Some(builder.create_vector(&vec_binattrexternal))
 		};
 
+		let mut max_private_slots = 0;
+		let mut open_public_slots = 0;
+		let mut open_private_slots = 0;
+
+		if self.room_password.is_some() {
+			for i in 0..self.max_slot as usize {
+				if (self.password_slot_mask & (1 << (63 - i))) != 0 {
+					max_private_slots += 1;
+					if !self.slots[i] {
+						open_private_slots += 1;
+					}
+				} else if !self.slots[i] {
+					open_public_slots += 1;
+				}
+			}
+		} else {
+			open_public_slots = self.max_slot;
+		}
+
+		let max_public_slots = self.max_slot - max_private_slots;
+
 		let mut rbuild = RoomDataExternalBuilder::new(builder);
 		rbuild.add_serverId(self.server_id);
 		rbuild.add_worldId(self.world_id);
-		rbuild.add_publicSlotNum(self.max_slot);
-		rbuild.add_privateSlotNum(0); // Mystery: TODO?
+		rbuild.add_publicSlotNum(max_public_slots);
+		rbuild.add_privateSlotNum(max_private_slots);
 		rbuild.add_lobbyId(self.lobby_id);
 		rbuild.add_roomId(self.room_id);
-		rbuild.add_openPublicSlotNum(self.max_slot - (self.users.len() as u16));
+		rbuild.add_openPublicSlotNum(open_public_slots);
 		rbuild.add_maxSlot(self.max_slot);
-		rbuild.add_openPrivateSlotNum(0); // Mystery: TODO?
+		rbuild.add_openPrivateSlotNum(open_private_slots);
 		rbuild.add_curMemberNum(self.users.len() as u16);
 		rbuild.add_passwordSlotMask(self.password_slot_mask);
 		if let Some(owner_info) = final_owner_info {
@@ -1310,6 +1330,19 @@ impl RoomManager {
 		to_notif.remove(&user_id);
 
 		Ok((to_notif, builder.finished_data().to_vec()))
+	}
+
+	pub fn get_roommemberdata_internal(&self, com_id: &ComId, req: &GetRoomMemberDataInternalRequest) -> Result<Vec<u8>, ErrorType> {
+		if !self.room_exists(com_id, req.roomId()) {
+			return Err(ErrorType::NotFound);
+		}
+
+		let room = self.get_room(com_id, req.roomId());
+		let user = room.users.get(&req.memberId()).ok_or(ErrorType::NotFound)?;
+		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+		let resp = user.to_RoomMemberDataInternal(&mut builder, room);
+		builder.finish(resp, None);
+		Ok(builder.finished_data().to_vec())
 	}
 
 	pub fn set_roommemberdata_internal(&mut self, com_id: &ComId, req: &SetRoomMemberDataInternalRequest, user_id: i64) -> Result<(HashSet<i64>, Vec<u8>), ErrorType> {

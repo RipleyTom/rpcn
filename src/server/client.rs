@@ -5,6 +5,7 @@ mod cmd_misc;
 mod cmd_room;
 mod cmd_score;
 mod cmd_server;
+mod cmd_session;
 pub mod cmd_tus;
 
 mod ticket;
@@ -27,6 +28,7 @@ use tokio::time::timeout;
 use tokio_rustls::server::TlsStream;
 use tracing::{error, info, info_span, trace, warn, Instrument};
 
+use crate::server::client::cmd_session::ClientSharedSessionInfo;
 use crate::server::client::notifications::NotificationType;
 use crate::server::client::ticket::Ticket;
 use crate::server::database::Database;
@@ -126,6 +128,7 @@ impl ClientSharedFriendInfo {
 pub struct ClientSharedInfo {
 	pub signaling_info: RwLock<ClientSharedSignalingInfo>,
 	pub friend_info: RwLock<ClientSharedFriendInfo>,
+	pub session_info: RwLock<ClientSharedSessionInfo>,
 	pub channel: mpsc::Sender<Vec<u8>>,
 }
 
@@ -134,6 +137,7 @@ impl ClientSharedInfo {
 		ClientSharedInfo {
 			signaling_info: RwLock::new(ClientSharedSignalingInfo::new()),
 			friend_info: RwLock::new(ClientSharedFriendInfo::new(friends)),
+			session_info: RwLock::new(ClientSharedSessionInfo::new()),
 			channel,
 		}
 	}
@@ -160,6 +164,7 @@ pub struct SharedData {
 	client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
 	score_cache: Arc<ScoresCache>,
 	game_tracker: Arc<GameTracker>,
+	cleanup_duty: Arc<RwLock<HashSet<i64>>>,
 }
 
 #[derive(Clone)]
@@ -206,7 +211,9 @@ enum CommandType {
 	SetRoomDataExternal,
 	GetRoomDataInternal,
 	SetRoomDataInternal,
+	GetRoomMemberDataInternal,
 	SetRoomMemberDataInternal,
+	SetUserInfo,
 	PingRoomOwner,
 	SendRoomMessage,
 	RequestSignalingInfos,
@@ -295,12 +302,19 @@ pub fn com_id_to_string(com_id: &ComId) -> String {
 }
 
 impl SharedData {
-	pub fn new(room_manager: Arc<RwLock<RoomManager>>, client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>, score_cache: Arc<ScoresCache>, game_tracker: Arc<GameTracker>) -> SharedData {
+	pub fn new(
+		room_manager: Arc<RwLock<RoomManager>>,
+		client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
+		score_cache: Arc<ScoresCache>,
+		game_tracker: Arc<GameTracker>,
+		cleanup_duty: Arc<RwLock<HashSet<i64>>>,
+	) -> SharedData {
 		SharedData {
 			room_manager,
 			client_infos,
 			score_cache,
 			game_tracker,
+			cleanup_duty,
 		}
 	}
 }
@@ -309,6 +323,7 @@ impl Drop for Client {
 	fn drop(&mut self) {
 		// This code is here instead of at the end of process in case of thread panic to ensure user is properly 'cleaned out' of the system
 		if self.authentified {
+			self.shared.cleanup_duty.write().insert(self.client_info.user_id);
 			let mut self_clone = self.clone();
 			task::spawn(async move {
 				// leave all rooms user is still in
@@ -348,6 +363,7 @@ impl Drop for Client {
 
 				// Needed to make sure this is not called recursively!
 				self_clone.authentified = false;
+				self_clone.shared.cleanup_duty.write().remove(&self_clone.client_info.user_id);
 			});
 		}
 	}
@@ -596,7 +612,9 @@ impl Client {
 			CommandType::SetRoomDataExternal => self.req_set_roomdata_external(data),
 			CommandType::GetRoomDataInternal => self.req_get_roomdata_internal(data, reply),
 			CommandType::SetRoomDataInternal => self.req_set_roomdata_internal(data).await,
+			CommandType::GetRoomMemberDataInternal => self.req_get_roommemberdata_internal(data, reply).await,
 			CommandType::SetRoomMemberDataInternal => self.req_set_roommemberdata_internal(data).await,
+			CommandType::SetUserInfo => self.req_set_userinfo(data).await,
 			CommandType::PingRoomOwner => self.req_ping_room_owner(data, reply),
 			CommandType::SendRoomMessage => self.req_send_room_message(data).await,
 			CommandType::RequestSignalingInfos => self.req_signaling_infos(data, reply),
