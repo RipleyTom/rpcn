@@ -100,7 +100,7 @@ struct MigrationData {
 
 static DATABASE_PATH: &str = "db/rpcn.db";
 
-static DATABASE_MIGRATIONS: [MigrationData; 2] = [
+static DATABASE_MIGRATIONS: [MigrationData; 5] = [
 	MigrationData {
 		version: 1,
 		text: "Initial setup",
@@ -110,6 +110,21 @@ static DATABASE_MIGRATIONS: [MigrationData; 2] = [
 		version: 2,
 		text: "Adding tables for TUS",
 		function: add_tus_tables,
+	},
+	MigrationData {
+		version: 3,
+		text: "Unifying score tables",
+		function: unify_score_tables,
+	},
+	MigrationData {
+		version: 4,
+		text: "Adding FOREIGN_KEY constraints to tus tables",
+		function: add_foreign_key_to_tus_tables,
+	},
+	MigrationData {
+		version: 5,
+		text: "Adding indexes to tables",
+		function: add_indexes,
 	},
 ];
 
@@ -176,6 +191,89 @@ fn add_tus_tables(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionMan
 		[],
 	)
 	.map_err(|e| format!("Failed to create tus_data_vuser table: {}", e))?;
+
+	Ok(())
+}
+
+fn unify_score_tables(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	conn.execute(
+		"CREATE TABLE IF NOT EXISTS score ( communication_id TEXT NOT NULL, board_id UNSIGNED INTEGER NOT NULL, user_id INTEGER NOT NULL, character_id INTEGER NOT NULL, score BIGINT NOT NULL, comment TEXT, game_info BLOB, data_id UNSIGNED BIGINT UNIQUE, timestamp UNSIGNED BIGINT NOT NULL, PRIMARY KEY(communication_id, board_id, user_id, character_id), FOREIGN KEY(user_id) REFERENCES account(user_id) )",
+		[],
+	)
+	.map_err(|e| format!("Failed to create score table : {}", e))?;
+
+	let mut stmt_tables = conn
+		.prepare("SELECT communication_id, board_id FROM score_table")
+		.map_err(|e| format!("Failed to prepare statement to query existing score tables: {}", e))?;
+
+	let score_tables: Vec<(String, u32)> = stmt_tables
+		.query_map([], |row| Ok((row.get_unwrap(0), row.get_unwrap(1))))
+		.map_err(|e| format!("Failed to query score tables: {}", e))?
+		.collect::<Result<Vec<(String, u32)>, _>>()
+		.map_err(|e| format!("Some of the score tables queries failed: {}", e))?;
+
+	for (com_id, board_id) in &score_tables {
+		let table_name = format!("{}_{}", com_id, board_id);
+		let transfer_query = format!("INSERT INTO score ( communication_id, board_id, user_id, character_id, score, comment, game_info, data_id, timestamp ) SELECT '{}', {}, user_id, character_id, score, comment, game_info, data_id, timestamp FROM {}", com_id, board_id, table_name);
+		conn.execute(&transfer_query, []).map_err(|e| format!("Failed to transfer scores from table: {}", e))?;
+		let delete_query = format!("DROP TABLE {}", table_name);
+		conn.execute(&delete_query, []).map_err(|e| format!("Failed to delete table: {}", e))?;
+	}
+
+	if !score_tables.is_empty() {
+		println!("Transferred {} table(s)", score_tables.len());
+	}
+
+	Ok(())
+}
+
+fn alter_table(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>, table_name: &str, creation_query: &str) -> Result<(), String> {
+	let alter_query = format!("ALTER TABLE {} RENAME TO _old_{}", table_name, table_name);
+	conn.execute(&alter_query, []).map_err(|e| format!("Failed to rename {}: {}", table_name, e))?;
+	conn.execute(creation_query, []).map_err(|e| format!("Failed to create new {} table: {}", table_name, e))?;
+	let insert_query = format!("INSERT INTO {} SELECT * from _old_{}", table_name, table_name);
+	conn.execute(&insert_query, []).map_err(|e| format!("Failed to copy {} data to new table: {}", table_name, e))?;
+	let drop_query = format!("DROP TABLE _old_{}", table_name);
+	conn.execute(&drop_query, []).map_err(|e| format!("Failed to drop old {} table: {}", table_name, e))?;
+	Ok(())
+}
+
+fn add_foreign_key_to_tus_tables(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	alter_table(conn, "tus_var", 
+		"CREATE TABLE IF NOT EXISTS tus_var ( owner_id UNSIGNED BIGINT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, var_value BIGINT NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (owner_id, communication_id, slot_id), FOREIGN KEY(owner_id) REFERENCES account(user_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )")?;
+	alter_table(conn, "tus_data",
+		"CREATE TABLE IF NOT EXISTS tus_data ( owner_id UNSIGNED BIGINT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, data_id UNSIGNED BIGINT NOT NULL, data_info BLOB NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (owner_id, communication_id, slot_id), FOREIGN KEY(owner_id) REFERENCES account(user_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )")?;
+	alter_table(conn, "tus_var_vuser",
+		"CREATE TABLE IF NOT EXISTS tus_var_vuser ( vuser TEXT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, var_value BIGINT NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (vuser, communication_id, slot_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )")?;
+	alter_table(conn, "tus_data_vuser",
+		"CREATE TABLE IF NOT EXISTS tus_data_vuser ( vuser TEXT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, data_id UNSIGNED BIGINT NOT NULL, data_info BLOB NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (vuser, communication_id, slot_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )")?;
+
+	Ok(())
+}
+
+fn add_indexes(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	conn.execute("CREATE INDEX friendship_user1 ON friendship(user_id_1)", [])
+		.map_err(|e| format!("Error creating friendship_user1 index: {}", e))?;
+	conn.execute("CREATE INDEX friendship_user2 ON friendship(user_id_2)", [])
+		.map_err(|e| format!("Error creating friendship_user2 index: {}", e))?;
+
+	conn.execute("CREATE INDEX score_user_id ON score(user_id)", [])
+		.map_err(|e| format!("Error creating score_user_id index: {}", e))?;
+
+	conn.execute("CREATE INDEX tus_var_owner_id ON tus_var(owner_id)", [])
+		.map_err(|e| format!("Error creating tus_var_owner_id index: {}", e))?;
+	conn.execute("CREATE INDEX tus_var_author_id ON tus_var(author_id)", [])
+		.map_err(|e| format!("Error creating tus_var_author_id index: {}", e))?;
+
+	conn.execute("CREATE INDEX tus_data_owner_id ON tus_data(owner_id)", [])
+		.map_err(|e| format!("Error creating tus_data_owner_id index: {}", e))?;
+	conn.execute("CREATE INDEX tus_data_author_id ON tus_data(author_id)", [])
+		.map_err(|e| format!("Error creating tus_data_author_id index: {}", e))?;
+
+	conn.execute("CREATE INDEX tus_var_vuser_author_id ON tus_var_vuser(author_id)", [])
+		.map_err(|e| format!("Error creating tus_var_vuser_author_id index: {}", e))?;
+	conn.execute("CREATE INDEX tus_data_vuser_author_id ON tus_var_vuser(author_id)", [])
+		.map_err(|e| format!("Error creating tus_data_vuser_author_id index: {}", e))?;
 
 	Ok(())
 }
@@ -294,6 +392,39 @@ impl Server {
 		}
 
 		Ok(pool)
+	}
+
+	pub fn cleanup_database(conn: r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+		// Delete accounts older than 30 days old that have never logged in
+		let timestamp = Client::get_timestamp_seconds().checked_sub(60 * 60 * 24 * 30).ok_or("Overflow when calculing timestamp")?;
+		let mut stmt = conn
+			.prepare("SELECT user_id FROM account_timestamp WHERE creation < ?1 AND last_login IS NULL")
+			.map_err(|e| format!("Failed to prepare statement to query stale accounts: {}", e))?;
+		let stale_user_ids: Vec<i64> = stmt
+			.query_map(rusqlite::params![timestamp], |row| Ok(row.get_unwrap(0)))
+			.map_err(|e| format!("Failed to query stale accounts: {}", e))?
+			.collect::<Result<Vec<i64>, _>>()
+			.map_err(|e| format!("Some of the stale accounts queries failed: {}", e))?;
+
+		if stale_user_ids.is_empty() {
+			println!("No stale accounts found");
+			return Ok(());
+		}
+
+		let user_id_string = generate_string_from_user_list(&stale_user_ids);
+		let friendship_query = format!("DELETE FROM friendship WHERE user_id_1 IN ({}) OR user_id_2 IN ({})", user_id_string, user_id_string);
+		let account_timestamp_query = format!("DELETE FROM account_timestamp WHERE user_id IN ({})", user_id_string);
+		let account_query = format!("DELETE FROM account WHERE user_id IN ({})", user_id_string);
+
+		conn.execute(&account_timestamp_query, [])
+			.map_err(|e| format!("Failure to delete from account_timestamp during stale accounts cleanup: {}", e))?;
+		conn.execute(&friendship_query, [])
+			.map_err(|e| format!("Failure to delete from friendship during stale accounts cleanup: {}", e))?;
+		conn.execute(&account_query, [])
+			.map_err(|e| format!("Failure to delete from account during stale accounts cleanup: {}", e))?;
+
+		println!("Cleaned up {} stale account(s)", stale_user_ids.len());
+		Ok(())
 	}
 }
 

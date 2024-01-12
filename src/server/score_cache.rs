@@ -11,6 +11,8 @@ use crate::server::Server;
 use parking_lot::RwLock;
 use tracing::warn;
 
+use super::client::com_id_to_string;
+
 struct ScoreUserCache {
 	npid: String,
 	online_name: String,
@@ -24,7 +26,7 @@ struct ScoreTableCache {
 }
 
 pub struct ScoresCache {
-	tables: RwLock<HashMap<String, Arc<RwLock<ScoreTableCache>>>>,
+	tables: RwLock<HashMap<TableDescription, Arc<RwLock<ScoreTableCache>>>>,
 	users: RwLock<HashMap<i64, ScoreUserCache>>,
 }
 
@@ -47,6 +49,18 @@ pub struct GetScoreResultCache {
 	pub total_records: u32,
 }
 
+#[derive(Hash, PartialEq, Eq)]
+pub struct TableDescription {
+	com_id: String,
+	board_id: u32,
+}
+
+impl TableDescription {
+	pub fn new(com_id: String, board_id: u32) -> TableDescription {
+		TableDescription { com_id, board_id }
+	}
+}
+
 impl Server {
 	pub fn initialize_score(conn: r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<Arc<ScoresCache>, String> {
 		Server::initialize_score_data_handler()?;
@@ -61,10 +75,10 @@ impl Server {
 
 		{
 			let mut cache_data = cache.tables.write();
-			for (table_name, table_info) in tables {
+			for ((com_id, board_id), table_info) in tables {
 				let sorted_scores = db
-					.get_scores_from_table(&table_name, &table_info)
-					.map_err(|_| format!("Failed to read scores for table {}", table_name))?;
+					.get_scores_from_table(&com_id, board_id, &table_info)
+					.map_err(|_| format!("Failed to read scores for table {}:{}", com_id, board_id))?;
 				let mut npid_lookup = HashMap::new();
 
 				for (index, score) in sorted_scores.iter().enumerate() {
@@ -74,7 +88,7 @@ impl Server {
 				}
 
 				cache_data.insert(
-					table_name.clone(),
+					TableDescription::new(com_id, board_id),
 					Arc::new(RwLock::new(ScoreTableCache {
 						sorted_scores,
 						npid_lookup,
@@ -205,17 +219,18 @@ impl ScoresCache {
 		}
 	}
 
-	fn get_table(&self, table_name: &String, db_info: &DbBoardInfo) -> Arc<RwLock<ScoreTableCache>> {
+	fn get_table(&self, com_id: &ComId, board_id: u32, db_info: &DbBoardInfo) -> Arc<RwLock<ScoreTableCache>> {
+		let table_desc = TableDescription::new(com_id_to_string(com_id), board_id);
 		{
 			let tables = self.tables.read();
-			if tables.contains_key(table_name) {
-				return tables[table_name].clone();
+			if let Some(table) = tables.get(&table_desc) {
+				return table.clone();
 			}
 		}
 
 		self.tables
 			.write()
-			.entry(table_name.clone())
+			.entry(table_desc)
 			.or_insert_with(|| Arc::new(RwLock::new(ScoreTableCache::from_db(db_info))))
 			.clone()
 	}
@@ -235,8 +250,7 @@ impl ScoresCache {
 	}
 
 	pub fn insert_score(&self, db_info: &DbBoardInfo, com_id: &ComId, board_id: u32, score: &DbScoreInfo, npid: &str, online_name: &str) -> u32 {
-		let table_name = Database::get_scoreboard_name(com_id, board_id);
-		let table = self.get_table(&table_name, db_info);
+		let table = self.get_table(com_id, board_id, db_info);
 		let mut table = table.write();
 
 		// First check if the user_id/char_id is already in the cache
@@ -287,8 +301,7 @@ impl ScoresCache {
 		let mut vec_comments = if with_comment { Some(Vec::new()) } else { None };
 		let mut vec_gameinfos = if with_gameinfo { Some(Vec::new()) } else { None };
 
-		let table_name = Database::get_scoreboard_name(com_id, board_id);
-		let table = self.get_table(&table_name, &Default::default());
+		let table = self.get_table(com_id, board_id, &Default::default());
 		let table = table.read();
 		let users = self.users.read();
 
@@ -327,8 +340,7 @@ impl ScoresCache {
 		let mut vec_comments = if with_comment { Some(Vec::new()) } else { None };
 		let mut vec_gameinfos = if with_gameinfo { Some(Vec::new()) } else { None };
 
-		let table_name = Database::get_scoreboard_name(com_id, board_id);
-		let table = self.get_table(&table_name, &Default::default());
+		let table = self.get_table(com_id, board_id, &Default::default());
 		let table = table.read();
 		let users = self.users.read();
 
@@ -373,8 +385,7 @@ impl ScoresCache {
 	}
 
 	pub fn contains_score_with_no_data(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32, score: i64) -> Result<(), ErrorType> {
-		let table_name = Database::get_scoreboard_name(com_id, board_id);
-		let table = self.get_table(&table_name, &DbBoardInfo::default());
+		let table = self.get_table(com_id, board_id, &DbBoardInfo::default());
 
 		{
 			let table = table.read();
@@ -401,8 +412,7 @@ impl ScoresCache {
 	}
 
 	pub fn set_game_data(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32, data_id: u64) -> Result<(), ErrorType> {
-		let table_name = Database::get_scoreboard_name(com_id, board_id);
-		let table = self.get_table(&table_name, &DbBoardInfo::default());
+		let table = self.get_table(com_id, board_id, &DbBoardInfo::default());
 
 		{
 			// Existence needs to be checked again as another score might have pushed this one out
@@ -423,8 +433,7 @@ impl ScoresCache {
 	}
 
 	pub fn get_game_data_id(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32) -> Result<u64, ErrorType> {
-		let table_name = Database::get_scoreboard_name(com_id, board_id);
-		let table = self.get_table(&table_name, &DbBoardInfo::default());
+		let table = self.get_table(com_id, board_id, &DbBoardInfo::default());
 
 		{
 			let table = table.read();

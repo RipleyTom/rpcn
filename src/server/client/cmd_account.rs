@@ -96,6 +96,13 @@ impl Client {
 
 			match db.check_user(&login, &password, &token, self.config.read().is_email_validated()) {
 				Ok(user_data) => {
+					{
+						let cleanup_duty = self.shared.cleanup_duty.read();
+						if cleanup_duty.contains(&user_data.user_id) {
+							return Err(ErrorType::LoginAlreadyLoggedIn);
+						}
+					}
+
 					let mut client_infos = self.shared.client_infos.write();
 
 					if client_infos.contains_key(&user_data.user_id) {
