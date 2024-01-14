@@ -1216,7 +1216,7 @@ impl RoomManager {
 				let room_binattr_external_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
 
 				if room_binattr_external_from_fb.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_1_ID && room_binattr_external_from_fb.id != SCE_NP_MATCHING2_ROOM_BIN_ATTR_EXTERNAL_2_ID {
-					error!("Invalid Room BinAttr External ID in CreateRoom: {}", room_binattr_external_from_fb.id);
+					error!("Invalid Room BinAttr External ID in SetRoomDataExternal: {}", room_binattr_external_from_fb.id);
 					continue;
 				}
 
@@ -1229,7 +1229,7 @@ impl RoomManager {
 				let room_binattr_search_from_fb = RoomBinAttr::from_flatbuffer(&vec.get(i));
 
 				if room_binattr_search_from_fb.id != SCE_NP_MATCHING2_ROOM_SEARCHABLE_BIN_ATTR_EXTERNAL_1_ID {
-					error!("Invalid Room BinAttr Search ID in CreateRoom: {}", room_binattr_search_from_fb.id);
+					error!("Invalid Room BinAttr Search ID in SetRoomDataExternal: {}", room_binattr_search_from_fb.id);
 					continue;
 				}
 				room.search_bin_attr = room_binattr_search_from_fb;
@@ -1239,7 +1239,7 @@ impl RoomManager {
 			for i in 0..vec.len() {
 				let room_intattr_from_fb = RoomIntAttr::from_flatbuffer(&vec.get(i));
 				if room_intattr_from_fb.id < SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_1_ID || room_intattr_from_fb.id > SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_8_ID {
-					error!("Invalid Room IntAttr ID in CreateRoom: {}", room_intattr_from_fb.id);
+					error!("Invalid Room IntAttr ID in SetRoomDataExternal: {}", room_intattr_from_fb.id);
 					continue;
 				}
 

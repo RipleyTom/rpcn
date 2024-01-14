@@ -231,8 +231,7 @@ impl Client {
 		builder.finish(tus_var_response, None);
 		let finished_data = builder.finished_data().to_vec();
 
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
@@ -322,8 +321,7 @@ impl Client {
 		builder.finish(tus_var_response, None);
 		let finished_data = builder.finished_data().to_vec();
 
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
@@ -376,8 +374,7 @@ impl Client {
 		builder.finish(tus_var_response, None);
 		let finished_data = builder.finished_data().to_vec();
 
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
@@ -461,8 +458,7 @@ impl Client {
 
 		builder.finish(tus_var, None);
 		let finished_data = builder.finished_data().to_vec();
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
@@ -564,8 +560,7 @@ impl Client {
 
 		builder.finish(tus_var, None);
 		let finished_data = builder.finished_data().to_vec();
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
@@ -803,8 +798,7 @@ impl Client {
 
 		builder.finish(final_tus_data, None);
 		let finished_data = builder.finished_data().to_vec();
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 		Ok(ErrorType::NoError)
 	}
 
@@ -881,8 +875,7 @@ impl Client {
 
 		builder.finish(resp, None);
 		let finished_data = builder.finished_data().to_vec();
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 		Ok(ErrorType::NoError)
 	}
 
@@ -961,8 +954,7 @@ impl Client {
 
 		builder.finish(resp, None);
 		let finished_data = builder.finished_data().to_vec();
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 		Ok(ErrorType::NoError)
 	}
 
@@ -1016,8 +1008,7 @@ impl Client {
 		builder.finish(tus_var_response, None);
 		let finished_data = builder.finished_data().to_vec();
 
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}

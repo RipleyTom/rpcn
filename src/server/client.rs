@@ -671,6 +671,12 @@ impl Client {
 		})
 	}
 
+	pub fn add_data_packet(reply: &mut Vec<u8>, data: &Vec<u8>)
+	{
+		reply.extend(&(data.len() as u32).to_le_bytes());
+		reply.extend(data);
+	}
+
 	fn get_com_id_with_redir(&mut self, data: &mut StreamExtractor) -> ComId {
 		let com_id = data.get_com_id();
 		let final_com_id = self.config.read().get_server_redirection(com_id);
@@ -868,8 +874,8 @@ impl Client {
 		}
 		let ticket_blob = ticket.generate_blob();
 
-		reply.extend(&(ticket_blob.len() as u32).to_le_bytes());
-		reply.extend(ticket_blob);
+		Client::add_data_packet(reply, &ticket_blob);
+
 
 		Ok(ErrorType::NoError)
 	}

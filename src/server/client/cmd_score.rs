@@ -121,9 +121,7 @@ impl Client {
 		);
 		builder.finish(board_info, None);
 		let finished_data = builder.finished_data().to_vec();
-
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
@@ -228,9 +226,7 @@ impl Client {
 			return Ok(e);
 		}
 		let data = data.unwrap();
-
-		reply.extend(data.len().to_le_bytes());
-		reply.extend(&data);
+		Client::add_data_packet(reply, &data);
 
 		Ok(ErrorType::NoError)
 	}
@@ -247,9 +243,7 @@ impl Client {
 			score_req.withGameInfo(),
 		);
 		let finished_data = getscore_result.serialize();
-
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
@@ -299,9 +293,7 @@ impl Client {
 			.score_cache
 			.get_score_ids(&com_id, score_req.boardId(), &id_vec, score_req.withComment(), score_req.withGameInfo());
 		let finished_data = getscore_result.serialize();
-
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}

@@ -19,8 +19,7 @@ impl Client {
 			})?;
 
 		let resp = self.shared.room_manager.write().create_room(&com_id, &create_req, &self.client_info, server_id);
-		reply.extend(&(resp.len() as u32).to_le_bytes());
-		reply.extend(resp);
+		Client::add_data_packet(reply, &resp);
 		Ok(ErrorType::NoError)
 	}
 
@@ -56,8 +55,7 @@ impl Client {
 
 			let (member_id_ta, resp) = resp.unwrap();
 			member_id = member_id_ta;
-			reply.extend(&(resp.len() as u32).to_le_bytes());
-			reply.extend(resp);
+			Client::add_data_packet(reply, &resp);
 
 			user_ids = users.iter().map(|x| *x.1).collect();
 
@@ -67,8 +65,7 @@ impl Client {
 			let up_info = room_manager
 				.get_room(&com_id, room_id)
 				.get_room_member_update_info(member_id, EventCause::None, Some(&join_req.optData().unwrap()));
-			n_msg.extend(&(up_info.len() as u32).to_le_bytes());
-			n_msg.extend(up_info);
+			Client::add_data_packet(&mut n_msg, &up_info);
 			notif = Client::create_notification(NotificationType::UserJoinedRoom, &n_msg);
 		}
 		self.send_notification(&notif, &user_ids).await;
@@ -122,8 +119,7 @@ impl Client {
 
 			let mut n_msg: Vec<u8> = Vec::new();
 			n_msg.extend(&room_id.to_le_bytes());
-			n_msg.extend(&(room_update_data.len() as u32).to_le_bytes());
-			n_msg.extend(&room_update_data);
+			Client::add_data_packet(&mut n_msg, &room_update_data);
 
 			let notif = Client::create_notification(NotificationType::RoomDestroyed, &n_msg);
 			self.send_notification(&notif, &users).await;
@@ -131,8 +127,7 @@ impl Client {
 			// Notify other room users that someone left the room
 			let mut n_msg: Vec<u8> = Vec::new();
 			n_msg.extend(&room_id.to_le_bytes());
-			n_msg.extend(&(user_data.len() as u32).to_le_bytes());
-			n_msg.extend(&user_data);
+			Client::add_data_packet(&mut n_msg, &user_data);
 
 			let notif = Client::create_notification(NotificationType::UserLeftRoom, &n_msg);
 			self.send_notification(&notif, &users).await;
@@ -154,8 +149,7 @@ impl Client {
 		let (com_id, search_req) = self.get_com_and_fb::<SearchRoomRequest>(data)?;
 
 		let resp = self.shared.room_manager.read().search_room(&com_id, &search_req);
-		reply.extend(&(resp.len() as u32).to_le_bytes());
-		reply.extend(resp);
+		Client::add_data_packet(reply, &resp);
 		Ok(ErrorType::NoError)
 	}
 	pub fn req_get_roomdata_external_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
@@ -163,8 +157,7 @@ impl Client {
 
 		let resp = self.shared.room_manager.read().get_roomdata_external_list(&com_id, &getdata_req);
 
-		reply.extend(&(resp.len() as u32).to_le_bytes());
-		reply.extend(resp);
+		Client::add_data_packet(reply, &resp);
 
 		Ok(ErrorType::NoError)
 	}
@@ -186,8 +179,7 @@ impl Client {
 			reply.push(e);
 		} else {
 			let resp = resp.unwrap();
-			reply.extend(&(resp.len() as u32).to_le_bytes());
-			reply.extend(resp);
+			Client::add_data_packet(reply, &resp);
 		}
 		Ok(ErrorType::NoError)
 	}
@@ -201,8 +193,7 @@ impl Client {
 			Ok((users, notif_data)) => {
 				let mut n_msg: Vec<u8> = Vec::new();
 				n_msg.extend(&room_id.to_le_bytes());
-				n_msg.extend(&(notif_data.len() as u32).to_le_bytes());
-				n_msg.extend(notif_data);
+				Client::add_data_packet(&mut n_msg, &notif_data);
 				let notif = Client::create_notification(NotificationType::UpdatedRoomDataInternal, &n_msg);
 				self.send_notification(&notif, &users).await;
 				self.self_notification(&notif);
@@ -222,8 +213,7 @@ impl Client {
 		}
 		let resp = resp.unwrap();
 
-		reply.extend(&(resp.len() as u32).to_le_bytes());
-		reply.extend(resp);
+		Client::add_data_packet(reply, &resp);
 		Ok(ErrorType::NoError)
 	}
 
@@ -237,8 +227,7 @@ impl Client {
 			Ok((users, notif_data)) => {
 				let mut n_msg: Vec<u8> = Vec::new();
 				n_msg.extend(&room_id.to_le_bytes());
-				n_msg.extend(&(notif_data.len() as u32).to_le_bytes());
-				n_msg.extend(notif_data);
+				Client::add_data_packet(&mut n_msg, &notif_data);
 				let notif = Client::create_notification(NotificationType::UpdatedRoomMemberDataInternal, &n_msg);
 				self.send_notification(&notif, &users).await;
 				self.self_notification(&notif);
@@ -275,9 +264,7 @@ impl Client {
 
 		builder.finish(resp, None);
 		let finished_data = builder.finished_data().to_vec();
-
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
+		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
@@ -360,8 +347,7 @@ impl Client {
 			let mut n_msg: Vec<u8> = Vec::new();
 			n_msg.extend(&room_id.to_le_bytes());
 			n_msg.extend(&member_id.to_le_bytes());
-			n_msg.extend(&(finished_data.len() as u32).to_le_bytes());
-			n_msg.extend(finished_data);
+			Client::add_data_packet(&mut n_msg, &finished_data);
 			notif = Client::create_notification(NotificationType::RoomMessageReceived, &n_msg);
 		}
 
