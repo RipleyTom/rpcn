@@ -165,7 +165,7 @@ impl Client {
 	pub fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomDataExternalRequest>(data)?;
 
-		if let Err(e) = self.shared.room_manager.write().set_roomdata_external(&com_id, &setdata_req) {
+		if let Err(e) = self.shared.room_manager.write().set_roomdata_external(&com_id, &setdata_req, self.client_info.user_id) {
 			Ok(e)
 		} else {
 			Ok(ErrorType::NoError)
@@ -190,7 +190,7 @@ impl Client {
 		let res = self.shared.room_manager.write().set_roomdata_internal(&com_id, &setdata_req, self.client_info.user_id);
 
 		match res {
-			Ok((users, notif_data)) => {
+			Ok(Some((users, notif_data))) => {
 				let mut n_msg: Vec<u8> = Vec::new();
 				n_msg.extend(&room_id.to_le_bytes());
 				Client::add_data_packet(&mut n_msg, &notif_data);
@@ -199,6 +199,7 @@ impl Client {
 				self.self_notification(&notif);
 				Ok(ErrorType::NoError)
 			}
+			Ok(None) => Ok(ErrorType::NoError),
 			Err(e) => Ok(e),
 		}
 	}

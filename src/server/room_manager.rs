@@ -1205,11 +1205,19 @@ impl RoomManager {
 		builder.finished_data().to_vec()
 	}
 
-	pub fn set_roomdata_external(&mut self, com_id: &ComId, req: &SetRoomDataExternalRequest) -> Result<(), ErrorType> {
+	pub fn set_roomdata_external(&mut self, com_id: &ComId, req: &SetRoomDataExternalRequest, user_id: i64) -> Result<(), ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
 			return Err(ErrorType::NotFound);
 		}
 		let room = self.get_mut_room(com_id, req.roomId());
+
+		let member_id = room.get_member_id(user_id)?;
+		let is_room_owner = room.get_owner() == member_id;
+
+		if !is_room_owner {
+			// Should this return an error?
+			return Ok(());
+		}
 
 		if let Some(vec) = req.roomBinAttrExternal() {
 			for i in 0..vec.len() {
@@ -1265,17 +1273,48 @@ impl RoomManager {
 
 		Ok(builder.finished_data().to_vec())
 	}
-	pub fn set_roomdata_internal(&mut self, com_id: &ComId, req: &SetRoomDataInternalRequest, user_id: i64) -> Result<(HashSet<i64>, Vec<u8>), ErrorType> {
+	pub fn set_roomdata_internal(&mut self, com_id: &ComId, req: &SetRoomDataInternalRequest, user_id: i64) -> Result<Option<(HashSet<i64>, Vec<u8>)>, ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
 			return Err(ErrorType::NotFound);
 		}
 		let room = self.get_mut_room(com_id, req.roomId());
 		let member_id = room.get_member_id(user_id)?;
 
+		let is_room_owner = room.get_owner() == member_id;
+		let mut has_changed = false;
+
+		let old_password_slot_mask = room.password_slot_mask;
 		let old_flag_attr = room.flag_attr;
-		let flag_filter = req.flagFilter();
-		let flag_attr = req.flagAttr();
-		room.flag_attr = (flag_attr & flag_filter) | (room.flag_attr & !flag_filter);
+
+		if is_room_owner {
+			let flag_filter = req.flagFilter();
+			let flag_attr = req.flagAttr();
+			let new_room_flag_attr = (flag_attr & flag_filter) | (room.flag_attr & !flag_filter);
+
+			if new_room_flag_attr != room.flag_attr {
+				room.flag_attr = new_room_flag_attr;
+				has_changed = true;
+			}
+
+			// Group stuff TODO
+
+			if old_password_slot_mask != req.passwordSlotMask() {
+				room.password_slot_mask = req.passwordSlotMask();
+				has_changed = true;
+			}
+
+			if let Some(vec) = req.ownerPrivilegeRank() {
+				let mut succession_list: VecDeque<u16> = VecDeque::new();
+				for i in 0..vec.len() {
+					succession_list.push_back(vec.get(i));
+				}
+
+				if succession_list != room.owner_succession {
+					room.owner_succession = succession_list;
+					has_changed = true;
+				}
+			}
+		}
 
 		let new_binattr;
 		if let Some(vec) = req.roomBinAttrInternal() {
@@ -1292,44 +1331,36 @@ impl RoomManager {
 				vec_new_binattr.push(id);
 			}
 			new_binattr = Some(vec_new_binattr);
+			has_changed = true;
 		} else {
 			new_binattr = None;
 		}
 
-		// Group stuff TODO
+		if has_changed {
+			// Build the notification buffer
+			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+			let room_data_internal = room.to_RoomDataInternal(&mut builder);
+			let fb_new_binattr = new_binattr.map(|vec_new_binattr| builder.create_vector(&vec_new_binattr));
 
-		let old_password_slot_mask = room.password_slot_mask;
-		room.password_slot_mask = req.passwordSlotMask();
+			let resp = RoomDataInternalUpdateInfo::create(
+				&mut builder,
+				&RoomDataInternalUpdateInfoArgs {
+					newRoomDataInternal: Some(room_data_internal),
+					prevFlagAttr: old_flag_attr,
+					prevRoomPasswordSlotMask: old_password_slot_mask,
+					newRoomGroup: None, // TODO
+					newRoomBinAttrInternal: fb_new_binattr,
+				},
+			);
+			builder.finish(resp, None);
 
-		if let Some(vec) = req.ownerPrivilegeRank() {
-			let mut succession_list: VecDeque<u16> = VecDeque::new();
-			for i in 0..vec.len() {
-				succession_list.push_back(vec.get(i));
-			}
-			room.owner_succession = succession_list;
+			let mut to_notif = room.get_room_user_ids();
+			to_notif.remove(&user_id);
+
+			return Ok(Some((to_notif, builder.finished_data().to_vec())));
 		}
 
-		// Build the notification buffer
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let room_data_internal = room.to_RoomDataInternal(&mut builder);
-		let fb_new_binattr = new_binattr.map(|vec_new_binattr| builder.create_vector(&vec_new_binattr));
-
-		let resp = RoomDataInternalUpdateInfo::create(
-			&mut builder,
-			&RoomDataInternalUpdateInfoArgs {
-				newRoomDataInternal: Some(room_data_internal),
-				prevFlagAttr: old_flag_attr,
-				prevRoomPasswordSlotMask: old_password_slot_mask,
-				newRoomGroup: None, // TODO
-				newRoomBinAttrInternal: fb_new_binattr,
-			},
-		);
-		builder.finish(resp, None);
-
-		let mut to_notif = room.get_room_user_ids();
-		to_notif.remove(&user_id);
-
-		Ok((to_notif, builder.finished_data().to_vec()))
+		Ok(None)
 	}
 
 	pub fn get_roommemberdata_internal(&self, com_id: &ComId, req: &GetRoomMemberDataInternalRequest) -> Result<Vec<u8>, ErrorType> {
