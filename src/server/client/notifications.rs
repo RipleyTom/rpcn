@@ -16,6 +16,7 @@ pub enum NotificationType {
 	RoomMessageReceived,
 	MessageReceived,
 	FriendPresenceChanged,
+	SignalingInfo,
 }
 
 impl Client {
