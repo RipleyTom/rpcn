@@ -211,7 +211,7 @@ impl Client {
 			return Err(ErrorType::InvalidInput);
 		}
 
-		if online_name.len() < 3 || online_name.len() > 16 || !online_name.chars().all(|x| x.is_alphabetic() || x.is_ascii_digit() || x == '-' || x == '_') {
+		if online_name.len() < 3 || online_name.len() > 16 || !online_name.chars().all(|x| x.is_ascii_alphabetic() || x.is_ascii_digit() || x == '-' || x == '_') {
 			warn!("Error validating Online Name");
 			return Err(ErrorType::InvalidInput);
 		}

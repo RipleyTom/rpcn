@@ -618,7 +618,7 @@ impl Client {
 			CommandType::SetUserInfo => self.req_set_userinfo(data).await,
 			CommandType::PingRoomOwner => self.req_ping_room_owner(data, reply),
 			CommandType::SendRoomMessage => self.req_send_room_message(data).await,
-			CommandType::RequestSignalingInfos => self.req_signaling_infos(data, reply),
+			CommandType::RequestSignalingInfos => self.req_signaling_infos(data, reply).await,
 			CommandType::RequestTicket => self.req_ticket(data, reply),
 			CommandType::SendMessage => self.send_message(data).await,
 			CommandType::GetBoardInfos => self.get_board_infos(data, reply).await,
@@ -672,8 +672,7 @@ impl Client {
 		})
 	}
 
-	pub fn add_data_packet(reply: &mut Vec<u8>, data: &Vec<u8>)
-	{
+	pub fn add_data_packet(reply: &mut Vec<u8>, data: &Vec<u8>) {
 		reply.extend(&(data.len() as u32).to_le_bytes());
 		reply.extend(data);
 	}
@@ -810,130 +809,6 @@ impl Client {
 		// Notify other members of connections needing to be established
 		self.send_notification(&s_notif_extern, &user_ids_extern).await;
 		self.send_notification(&s_notif_local, &user_ids_local).await;
-	}
-
-	// Misc (might get split in another file later)
-
-	fn req_signaling_infos(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let npid = data.get_string(false);
-		if data.error() || npid.len() > 16 {
-			warn!("Error while extracting data from RequestSignalingInfos command");
-			return Err(ErrorType::Malformed);
-		}
-
-		let user_id = Database::new(self.get_database_connection()?).get_user_id(&npid);
-		if user_id.is_err() {
-			return Ok(ErrorType::NotFound);
-		}
-
-		let user_id = user_id.unwrap();
-		let client_infos = self.shared.client_infos.read();
-		let caller_ip = client_infos.get(&self.client_info.user_id).unwrap().signaling_info.read().addr_p2p;
-		if let Some(client_info) = client_infos.get(&user_id) {
-			let client_si = client_info.signaling_info.read();
-			if caller_ip == client_si.addr_p2p {
-				reply.extend(&client_si.local_addr_p2p);
-				reply.extend(&3658u16.to_le_bytes());
-				info!("Requesting signaling infos for {} => (local) {:?}:{}", &npid, &client_si.local_addr_p2p, 3658);
-			} else {
-				reply.extend(&client_si.addr_p2p);
-				reply.extend(&((client_si.port_p2p).to_le_bytes()));
-				info!("Requesting signaling infos for {} => (extern) {:?}:{}", &npid, &client_si.addr_p2p, client_si.port_p2p);
-			}
-			Ok(ErrorType::NoError)
-		} else {
-			Ok(ErrorType::NotFound)
-		}
-	}
-	fn req_ticket(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let service_id = data.get_string(false);
-		let cookie = data.get_rawdata();
-
-		if data.error() {
-			warn!("Error while extracting data from RequestTicket command");
-			return Err(ErrorType::Malformed);
-		}
-
-		info!("Requested a ticket for <{}>", service_id);
-
-		if let Some(ref mut cur_service_id) = self.current_game.1 {
-			if *cur_service_id != service_id {
-				self.shared.game_tracker.decrease_count_ticket(cur_service_id);
-				*cur_service_id = service_id.clone();
-				self.shared.game_tracker.increase_count_ticket(&service_id);
-			}
-		} else {
-			self.current_game.1 = Some(service_id.clone());
-			self.shared.game_tracker.increase_count_ticket(&service_id);
-		}
-
-		let ticket;
-		{
-			let config = self.config.read();
-			let sign_info = config.get_ticket_signing_info();
-			ticket = Ticket::new(self.client_info.user_id as u64, &self.client_info.npid, &service_id, cookie, sign_info);
-		}
-		let ticket_blob = ticket.generate_blob();
-
-		Client::add_data_packet(reply, &ticket_blob);
-
-
-		Ok(ErrorType::NoError)
-	}
-	async fn send_message(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let sendmessage_req = data.get_flatbuffer::<SendMessageRequest>();
-		if data.error() || sendmessage_req.is_err() {
-			warn!("Error while extracting data from SendMessage command");
-			return Err(ErrorType::Malformed);
-		}
-		let sendmessage_req = sendmessage_req.unwrap();
-
-		let message = Client::validate_and_unwrap(sendmessage_req.message())?;
-		let npids = Client::validate_and_unwrap(sendmessage_req.npids())?;
-
-		// Get all the IDs
-		let mut ids = HashSet::new();
-		{
-			let db = Database::new(self.get_database_connection()?);
-			for npid in &npids {
-				match db.get_user_id(npid) {
-					Ok(id) => {
-						ids.insert(id);
-					}
-					Err(_) => {
-						warn!("Requested to send a message to invalid npid: {}", npid);
-						return Ok(ErrorType::InvalidInput);
-					}
-				}
-			}
-		}
-
-		// Can't message self
-		if ids.is_empty() || ids.contains(&self.client_info.user_id) {
-			warn!("Requested to send a message to empty set or self!");
-			return Ok(ErrorType::InvalidInput);
-		}
-
-		// Ensure all recipients are friends(TODO: might not be necessary for all messages?)
-		{
-			let client_infos = self.shared.client_infos.read();
-			let client_fi = client_infos.get(&self.client_info.user_id).unwrap().friend_info.read();
-			if !client_fi.friends.keys().copied().collect::<HashSet<i64>>().is_superset(&ids) {
-				warn!("Requested to send a message to a non-friend!");
-				return Ok(ErrorType::InvalidInput);
-			}
-		}
-
-		// Finally send the notifications
-		let mut n_msg: Vec<u8> = Vec::new();
-		n_msg.extend(self.client_info.npid.as_bytes());
-		n_msg.push(0);
-		n_msg.extend(&(message.len() as u32).to_le_bytes());
-		n_msg.extend(message);
-		let notif = Client::create_notification(NotificationType::MessageReceived, &n_msg);
-		self.send_notification(&notif, &ids).await;
-
-		Ok(ErrorType::NoError)
 	}
 
 	//Helper for avoiding potentially pointless queries to database
