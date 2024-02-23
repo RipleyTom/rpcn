@@ -59,7 +59,7 @@ impl Config {
 		let config_data: HashMap<&str, &str> = buf_file
 			.lines()
 			.filter_map(|l| {
-				if l.is_empty() || l.chars().nth(0).unwrap() == '#' {
+				if l.trim().is_empty() || l.trim().chars().nth(0).unwrap() == '#' {
 					return None;
 				}
 
@@ -204,7 +204,7 @@ impl Config {
 			self.server_redirs = buf_file
 				.lines()
 				.filter_map(|line| {
-					let parsed: Vec<&[u8]> = line.trim().split("=>").map(|x| x.as_bytes()).collect();
+					let parsed: Vec<&[u8]> = line.trim().split("=>").map(|x| x.trim()).map(|x| x.as_bytes()).collect();
 					if line.is_empty() || line.chars().nth(0).unwrap() == '#' || parsed.len() != 2 || parsed[0].len() != 9 || parsed[1].len() != 9 {
 						None
 					} else {

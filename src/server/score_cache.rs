@@ -63,12 +63,14 @@ impl TableDescription {
 
 impl Server {
 	pub fn initialize_score(conn: r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<Arc<ScoresCache>, String> {
+		let db = Database::new(conn);
+
+		Server::setup_config_scoreboards(&db)?;
 		Server::initialize_score_data_handler()?;
 
 		let cache = Arc::new(ScoresCache::new());
 
 		// Populate cache from database
-		let db = Database::new(conn);
 		let tables = db.get_score_tables().map_err(|_| "Failed to read database scores for the cache")?;
 
 		let mut users_list: HashSet<i64> = HashSet::new();

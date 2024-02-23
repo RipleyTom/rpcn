@@ -346,11 +346,11 @@ impl Server {
 				let config_servers: Vec<(String, u16, u32, Vec<u64>)> = buf_file
 					.lines()
 					.filter_map(|l| {
-						if l.trim().is_empty() || l.chars().nth(0).unwrap() == '#' {
+						if l.trim().is_empty() || l.trim().chars().nth(0).unwrap() == '#' {
 							return None;
 						}
 
-						let servers_infos: Vec<&str> = l.trim().split('|').collect();
+						let servers_infos: Vec<&str> = l.trim().split('|').map(|v| v.trim()).collect();
 						if servers_infos.len() != 4 || servers_infos[0].len() != 9 {
 							println!("servers.cfg: line({}) was considered invalid and was skipped", l);
 							return None;
