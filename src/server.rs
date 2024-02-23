@@ -34,7 +34,7 @@ use crate::Config;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 23;
+const PROTOCOL_VERSION: u32 = 24;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,

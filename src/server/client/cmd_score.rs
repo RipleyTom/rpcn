@@ -1,11 +1,13 @@
 // Score Commands
 
+use std::fs::File;
+use std::io::Read;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use tokio::fs;
 
 use crate::server::client::*;
-use crate::server::database::db_score::DbScoreInfo;
+use crate::server::database::db_score::{DbBoardInfo, DbScoreInfo};
 use crate::server::database::DbError;
 use crate::server::Server;
 
@@ -14,6 +16,98 @@ const SCORE_FILE_EXTENSION: &str = "sdt";
 static SCORE_DATA_ID_DISPENSER: AtomicU64 = AtomicU64::new(1);
 
 impl Server {
+	pub fn setup_config_scoreboards(db: &Database) -> Result<(), String> {
+		let file = File::open("scoreboards.cfg");
+
+		if let Err(e) = file {
+			return Err(format!("Unexpected error opening scoreboards.cfg: {}", e));
+		}
+		let mut file = file.unwrap();
+
+		let mut buf_file = String::new();
+		file.read_to_string(&mut buf_file).map_err(|e| format!("Failed to read scoreboards.cfg: {}", e))?;
+
+		struct ScoreboardConfig {
+			communication_id: String,
+			tables: Vec<u32>,
+			rank_limit: u32,
+			update_mode: u32,
+			sort_mode: u32,
+			upload_num_limit: u32,
+			upload_size_limit: u32,
+		}
+
+		let config_scoreboards: Vec<ScoreboardConfig> = buf_file
+			.lines()
+			.filter_map(|l| {
+				if l.trim().is_empty() || l.trim().chars().nth(0).unwrap() == '#' {
+					return None;
+				}
+
+				let board_infos: Vec<&str> = l.trim().split('|').map(|x| x.trim()).collect();
+				if board_infos.len() != 7 {
+					println!("scoreboards.cfg: line({}) is invalid", l);
+					return None;
+				}
+
+				let communication_id = board_infos[0].to_owned();
+				let tables: Result<Vec<u32>, _> = board_infos[1].split(',').map(|x| x.trim()).map(|x| x.parse::<u32>()).collect();
+
+				if tables.is_err() || tables.as_ref().unwrap().is_empty() {
+					println!("scoreboards.cfg: line({}) contains invalid table ids", l);
+					return None;
+				}
+
+				let rank_limit = board_infos[2].parse::<u32>();
+				let update_mode = match board_infos[3] {
+					"NORMAL_UPDATE" => Some(0u32),
+					"FORCE_UPDATE" => Some(1u32),
+					_ => None,
+				};
+				let sort_mode = match board_infos[4] {
+					"DESCENDING_ORDER" => Some(0u32),
+					"ASCENDING_ORDER" => Some(1u32),
+					_ => None,
+				};
+				let upload_num_limit = board_infos[5].parse::<u32>();
+				let upload_size_limit = board_infos[6].parse::<u32>();
+
+				if rank_limit.is_err() || update_mode.is_none() || sort_mode.is_none() || upload_num_limit.is_err() || upload_size_limit.is_err() {
+					println!("scoreboards.cfg: line({}) contains invalid data", l);
+					return None;
+				}
+
+				Some(ScoreboardConfig {
+					communication_id,
+					tables: tables.unwrap(),
+					rank_limit: rank_limit.unwrap(),
+					update_mode: update_mode.unwrap(),
+					sort_mode: sort_mode.unwrap(),
+					upload_num_limit: upload_num_limit.unwrap(),
+					upload_size_limit: upload_size_limit.unwrap(),
+				})
+			})
+			.collect();
+
+		for config in &config_scoreboards {
+			let db_infos = DbBoardInfo {
+				rank_limit: config.rank_limit,
+				update_mode: config.update_mode,
+				sort_mode: config.sort_mode,
+				upload_num_limit: config.upload_num_limit,
+				upload_size_limit: config.upload_size_limit,
+			};
+
+			for table in &config.tables {
+				if db.create_or_set_score_board_details(&config.communication_id, *table, &db_infos).is_err() {
+					return Err("scoreboards.cfg: error setting up table".to_string());
+				}
+			}
+		}
+
+		Ok(())
+	}
+
 	pub fn initialize_score_data_handler() -> Result<(), String> {
 		let max = Server::create_data_directory(SCORE_DATA_DIRECTORY, SCORE_FILE_EXTENSION)?;
 		SCORE_DATA_ID_DISPENSER.store(max, Ordering::SeqCst);

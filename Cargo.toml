@@ -1,6 +1,6 @@
 [package]
 name = "rpcn"
-version = "1.1.0"
+version = "1.2.0"
 authors = ["RipleyTom <RipleyTom@users.noreply.github.com>"]
 edition = "2021"
 

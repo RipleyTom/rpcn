@@ -55,7 +55,7 @@ impl Client {
 		n_msg.push(0);
 		let friend_n = Client::create_notification(NotificationType::SignalingInfo, &n_msg);
 		self.send_single_notification(&friend_n, user_id).await;
-		return Ok(ErrorType::NoError);
+		Ok(ErrorType::NoError)
 	}
 
 	pub fn req_ticket(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {

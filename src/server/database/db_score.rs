@@ -71,6 +71,28 @@ impl Database {
 		Ok(())
 	}
 
+	pub fn create_or_set_score_board_details(&self, com_id: &str, board_id: u32, board_infos: &DbBoardInfo) -> Result<(), DbError> {
+		let res = self.conn.execute(
+			"INSERT INTO score_table ( communication_id, board_id, rank_limit, update_mode, sort_mode, upload_num_limit, upload_size_limit ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7 ) ON CONFLICT( communication_id, board_id ) DO UPDATE SET rank_limit = excluded.rank_limit, update_mode = excluded.update_mode, sort_mode = excluded.sort_mode, upload_num_limit = excluded.upload_num_limit, upload_size_limit = excluded.upload_size_limit",
+			rusqlite::params![
+				com_id,
+				board_id,
+				board_infos.rank_limit,
+				board_infos.update_mode,
+				board_infos.sort_mode,
+				board_infos.upload_num_limit,
+				board_infos.upload_size_limit,
+			],
+		);
+
+		if let Err(e) = res {
+			println!("Unexpected error setting score table details: {}", e);
+			return Err(DbError::Internal);
+		}
+
+		Ok(())
+	}
+
 	pub fn get_score_tables(&self) -> Result<HashMap<(String, u32), DbBoardInfo>, DbError> {
 		let mut stmt = self
 			.conn
