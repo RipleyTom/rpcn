@@ -191,18 +191,36 @@ impl Database {
 
 		let full_query = format!("INSERT INTO tus_var( owner_id, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( owner_id, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value", cond_string);
 
-		self.conn
-			.query_row(&full_query, rusqlite::params![user, com_id, slot, value, timestamp, author_id], |r| {
-				Ok(DbTusVarInfo {
-					timestamp: r.get_unwrap(0),
-					author_id: r.get_unwrap(1),
-					variable: r.get_unwrap(2),
-				})
+		match self.conn.query_row(&full_query, rusqlite::params![user, com_id, slot, value, timestamp, author_id], |r| {
+			Ok(DbTusVarInfo {
+				timestamp: r.get_unwrap(0),
+				author_id: r.get_unwrap(1),
+				variable: r.get_unwrap(2),
 			})
-			.map_err(|e| {
+		}) {
+			Ok(res) => Ok(res),
+			Err(rusqlite::Error::QueryReturnedNoRows) => self
+				.conn
+				.query_row(
+					"SELECT timestamp, author_id, var_value FROM tus_var WHERE owner_id = ?1 AND communication_id = ?2 AND slot_id = ?3",
+					rusqlite::params![user, com_id, slot],
+					|r| {
+						Ok(DbTusVarInfo {
+							timestamp: r.get_unwrap(0),
+							author_id: r.get_unwrap(1),
+							variable: r.get_unwrap(2),
+						})
+					},
+				)
+				.map_err(|e| {
+					error!("Unexpected error in tus_add_and_get_user_variable SELECT: {}", e);
+					DbError::Internal
+				}),
+			Err(e) => {
 				error!("Unexpected error in tus_add_and_get_user_variable: {}", e);
-				DbError::Internal
-			})
+				Err(DbError::Internal)
+			}
+		}
 	}
 
 	pub fn tus_add_and_get_vuser_variable(
@@ -228,18 +246,36 @@ impl Database {
 
 		let full_query = format!("INSERT INTO tus_var_vuser( vuser, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( vuser, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value", cond_string);
 
-		self.conn
-			.query_row(&full_query, rusqlite::params![vuser, com_id, slot, value, timestamp, author_id], |r| {
-				Ok(DbTusVarInfo {
-					timestamp: r.get_unwrap(0),
-					author_id: r.get_unwrap(1),
-					variable: r.get_unwrap(2),
-				})
+		match self.conn.query_row(&full_query, rusqlite::params![vuser, com_id, slot, value, timestamp, author_id], |r| {
+			Ok(DbTusVarInfo {
+				timestamp: r.get_unwrap(0),
+				author_id: r.get_unwrap(1),
+				variable: r.get_unwrap(2),
 			})
-			.map_err(|e| {
+		}) {
+			Ok(res) => Ok(res),
+			Err(rusqlite::Error::QueryReturnedNoRows) => self
+				.conn
+				.query_row(
+					"SELECT timestamp, author_id, var_value FROM tus_var_vuser WHERE vuser = ?1 AND communication_id = ?2 AND slot_id = ?3",
+					rusqlite::params![vuser, com_id, slot],
+					|r| {
+						Ok(DbTusVarInfo {
+							timestamp: r.get_unwrap(0),
+							author_id: r.get_unwrap(1),
+							variable: r.get_unwrap(2),
+						})
+					},
+				)
+				.map_err(|e| {
+					error!("Unexpected error in tus_add_and_get_vuser_variable SELECT: {}", e);
+					DbError::Internal
+				}),
+			Err(e) => {
 				error!("Unexpected error in tus_add_and_get_vuser_variable: {}", e);
-				DbError::Internal
-			})
+				Err(DbError::Internal)
+			}
+		}
 	}
 
 	fn prepare_try_and_set_cond(compare_op: TusOpeType, compare_timestamp: Option<u64>, compare_author: Option<i64>) -> String {
@@ -288,18 +324,38 @@ impl Database {
 			conditional
 		);
 
-		self.conn
+		match self
+			.conn
 			.query_row(&full_query, rusqlite::params![user, com_id, slot, value_to_set, timestamp, author_id, compare_value], |r| {
 				Ok(DbTusVarInfo {
 					timestamp: r.get_unwrap(0),
 					author_id: r.get_unwrap(1),
 					variable: r.get_unwrap(2),
 				})
-			})
-			.map_err(|e| {
+			}) {
+			Ok(res) => Ok(res),
+			Err(rusqlite::Error::QueryReturnedNoRows) => self
+				.conn
+				.query_row(
+					"SELECT timestamp, author_id, var_value FROM tus_var WHERE owner_id = ?1 AND communication_id = ?2 AND slot_id = ?3",
+					rusqlite::params![user, com_id, slot],
+					|r| {
+						Ok(DbTusVarInfo {
+							timestamp: r.get_unwrap(0),
+							author_id: r.get_unwrap(1),
+							variable: r.get_unwrap(2),
+						})
+					},
+				)
+				.map_err(|e| {
+					error!("Unexpected error in tus_try_and_set_user_variable SELECT: {}", e);
+					DbError::Internal
+				}),
+			Err(e) => {
 				error!("Unexpected error in tus_try_and_set_user_variable: {}", e);
-				DbError::Internal
-			})
+				Err(DbError::Internal)
+			}
+		}
 	}
 
 	pub fn tus_try_and_set_vuser_variable(
@@ -325,22 +381,45 @@ impl Database {
 			conditional
 		);
 
-		self.conn
+		match self
+			.conn
 			.query_row(&full_query, rusqlite::params![vuser, com_id, slot, value_to_set, timestamp, author_id, compare_value], |r| {
 				Ok(DbTusVarInfo {
 					timestamp: r.get_unwrap(0),
 					author_id: r.get_unwrap(1),
 					variable: r.get_unwrap(2),
 				})
-			})
-			.map_err(|e| {
+			}) {
+			Ok(res) => Ok(res),
+			Err(rusqlite::Error::QueryReturnedNoRows) => self
+				.conn
+				.query_row(
+					"SELECT timestamp, author_id, var_value FROM tus_var_vuser WHERE vuser = ?1 AND communication_id = ?2 AND slot_id = ?3",
+					rusqlite::params![vuser, com_id, slot],
+					|r| {
+						Ok(DbTusVarInfo {
+							timestamp: r.get_unwrap(0),
+							author_id: r.get_unwrap(1),
+							variable: r.get_unwrap(2),
+						})
+					},
+				)
+				.map_err(|e| {
+					error!("Unexpected error in tus_try_and_set_vuser_variable SELECT: {}", e);
+					DbError::Internal
+				}),
+			Err(e) => {
 				error!("Unexpected error in tus_try_and_set_vuser_variable: {}", e);
-				DbError::Internal
-			})
+				Err(DbError::Internal)
+			}
+		}
 	}
 
 	pub fn tus_delete_user_variable_with_slotlist(&self, com_id: &ComId, user: i64, slot_list: &[i32]) -> Result<(), DbError> {
-		let stmt = format!("DELETE FROM tus_var WHERE com_id = ?1 AND owner_id = ?2 AND slot IN ({})", generate_string_from_slot_list(slot_list));
+		let stmt = format!(
+			"DELETE FROM tus_var WHERE communication_id = ?1 AND owner_id = ?2 AND slot_id IN ({})",
+			generate_string_from_slot_list(slot_list)
+		);
 
 		self.conn.execute(&stmt, rusqlite::params![com_id, user]).map_err(|e| {
 			error!("Unexpected error deleting variable in tus_delete_user_variable_with_slotlist: {}", e);
@@ -351,7 +430,10 @@ impl Database {
 	}
 
 	pub fn tus_delete_vuser_variable_with_slotlist(&self, com_id: &ComId, vuser: &str, slot_list: &[i32]) -> Result<(), DbError> {
-		let stmt = format!("DELETE FROM tus_var_vuser WHERE com_id = ?1 AND vuser = ?2 AND slot IN ({})", generate_string_from_slot_list(slot_list));
+		let stmt = format!(
+			"DELETE FROM tus_var_vuser WHERE communication_id = ?1 AND vuser = ?2 AND slot_id IN ({})",
+			generate_string_from_slot_list(slot_list)
+		);
 
 		self.conn.execute(&stmt, rusqlite::params![com_id, vuser]).map_err(|e| {
 			error!("Unexpected error deleting variable in tus_delete_vuser_variable_with_slotlist: {}", e);
@@ -363,7 +445,7 @@ impl Database {
 
 	pub fn tus_get_user_data_timestamp_and_author(&self, com_id: &ComId, user: i64, slot: i32) -> Result<Option<(u64, i64)>, DbError> {
 		let res = self.conn.query_row(
-			"SELECT timestamp, author_id WHERE com_id = ?1 AND owner_id = ?2 AND slot = ?3",
+			"SELECT timestamp, author_id FROM tus_data WHERE communication_id = ?1 AND owner_id = ?2 AND slot_id = ?3",
 			rusqlite::params![com_id, user, slot],
 			|r| Ok((r.get_unwrap(0), r.get_unwrap(1))),
 		);
@@ -377,7 +459,7 @@ impl Database {
 
 	pub fn tus_get_vuser_data_timestamp_and_author(&self, com_id: &ComId, vuser: &str, slot: i32) -> Result<Option<(u64, i64)>, DbError> {
 		let res = self.conn.query_row(
-			"SELECT timestamp, author_id WHERE com_id = ?1 AND vuser = ?2 AND slot = ?3",
+			"SELECT timestamp, author_id FROM tus_data_vuser WHERE communication_id = ?1 AND vuser = ?2 AND slot_id = ?3",
 			rusqlite::params![com_id, vuser, slot],
 			|r| Ok((r.get_unwrap(0), r.get_unwrap(1))),
 		);
@@ -400,7 +482,7 @@ impl Database {
 		timestamp: u64,
 		compare_timestamp: Option<u64>,
 		compare_author: Option<i64>,
-	) -> Result<DbTusDataStatus, DbError> {
+	) -> Result<(), DbError> {
 		let mut cond_string = String::new();
 
 		if let Some(compare_timestamp) = compare_timestamp {
@@ -415,21 +497,18 @@ impl Database {
 			"INSERT INTO tus_data( owner_id, communication_id, slot_id, data_id, data_info, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7 ) \
 			 ON CONFLICT ( owner_id, communication_id, slot_id ) DO \
 			 UPDATE SET data_id = excluded.data_id, data_info = excluded.data_info, timestamp = excluded.timestamp, author_id = excluded.author_id \
-			 {} RETURNING timestamp, author_id, data_id",
+			 {} RETURNING TRUE",
 			cond_string
 		);
 
 		self.conn
-			.query_row(&full_query, rusqlite::params![user, com_id, slot, data_id, info.unwrap_or_default(), timestamp, author_id], |r| {
-				Ok(DbTusDataStatus {
-					timestamp: r.get_unwrap(0),
-					author_id: r.get_unwrap(1),
-					data_id: r.get_unwrap(2),
-				})
-			})
-			.map_err(|e| {
-				error!("Unexpected error in tus_set_user_data: {}", e);
-				DbError::Internal
+			.query_row(&full_query, rusqlite::params![user, com_id, slot, data_id, info.unwrap_or_default(), timestamp, author_id], |_| Ok(()))
+			.map_err(|e| match e {
+				rusqlite::Error::QueryReturnedNoRows => DbError::Empty,
+				_ => {
+					error!("Unexpected error in tus_set_user_data: {}", e);
+					DbError::Internal
+				}
 			})
 	}
 
@@ -444,7 +523,7 @@ impl Database {
 		timestamp: u64,
 		compare_timestamp: Option<u64>,
 		compare_author: Option<i64>,
-	) -> Result<DbTusDataStatus, DbError> {
+	) -> Result<(), DbError> {
 		let mut cond_string = String::new();
 
 		if let Some(compare_timestamp) = compare_timestamp {
@@ -459,21 +538,18 @@ impl Database {
 			"INSERT INTO tus_data_vuser( vuser, communication_id, slot_id, data_id, data_info, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7 ) \
 			 ON CONFLICT ( vuser, communication_id, slot_id ) DO \
 			 UPDATE SET data_id = excluded.data_id, data_info = excluded.data_info, timestamp = excluded.timestamp, author_id = excluded.author_id \
-			 {} RETURNING timestamp, author_id, data_id",
+			 {} RETURNING TRUE",
 			cond_string
 		);
 
 		self.conn
-			.query_row(&full_query, rusqlite::params![vuser, com_id, slot, data_id, info.unwrap_or_default(), timestamp, author_id], |r| {
-				Ok(DbTusDataStatus {
-					timestamp: r.get_unwrap(0),
-					author_id: r.get_unwrap(1),
-					data_id: r.get_unwrap(2),
-				})
-			})
-			.map_err(|e| {
-				error!("Unexpected error in tus_set_vuser_data: {}", e);
-				DbError::Internal
+			.query_row(&full_query, rusqlite::params![vuser, com_id, slot, data_id, info.unwrap_or_default(), timestamp, author_id], |_| Ok(()))
+			.map_err(|e| match e {
+				rusqlite::Error::QueryReturnedNoRows => DbError::Empty,
+				_ => {
+					error!("Unexpected error in tus_set_vuser_data: {}", e);
+					DbError::Internal
+				}
 			})
 	}
 
@@ -572,7 +648,10 @@ impl Database {
 	}
 
 	pub fn tus_delete_user_data_with_slotlist(&self, com_id: &ComId, user: i64, slot_list: &[i32]) -> Result<(), DbError> {
-		let stmt = format!("DELETE FROM tus_data WHERE com_id = ?1 AND owner_id = ?2 AND slot IN ({})", generate_string_from_slot_list(slot_list));
+		let stmt = format!(
+			"DELETE FROM tus_data WHERE com_id = ?1 AND owner_id = ?2 AND slot_id IN ({})",
+			generate_string_from_slot_list(slot_list)
+		);
 
 		self.conn.execute(&stmt, rusqlite::params![com_id, user]).map_err(|e| {
 			error!("Unexpected error deleting variable in tus_delete_user_data_with_slotlist: {}", e);
@@ -584,7 +663,7 @@ impl Database {
 
 	pub fn tus_delete_vuser_data_with_slotlist(&self, com_id: &ComId, vuser: &str, slot_list: &[i32]) -> Result<(), DbError> {
 		let stmt = format!(
-			"DELETE FROM tus_data_vuser WHERE com_id = ?1 AND vuser = ?2 AND slot IN ({})",
+			"DELETE FROM tus_data_vuser WHERE com_id = ?1 AND vuser = ?2 AND slot_id IN ({})",
 			generate_string_from_slot_list(slot_list)
 		);
 
