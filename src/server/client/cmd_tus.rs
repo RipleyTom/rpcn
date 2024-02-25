@@ -683,13 +683,10 @@ impl Client {
 				compare_author_id,
 			);
 			match res {
-				Ok(tus_data) => {
-					if tus_data.author_id != self.client_info.user_id || tus_data.data_id != data_id || tus_data.timestamp != new_timestamp {
-						Client::delete_tus_data(data_id).await;
-						Ok(ErrorType::CondFail)
-					} else {
-						Ok(ErrorType::NoError)
-					}
+				Ok(()) => Ok(ErrorType::NoError),
+				Err(DbError::Empty) => {
+					Client::delete_tus_data(data_id).await;
+					Ok(ErrorType::CondFail)
 				}
 				Err(_) => Err(ErrorType::DbFail),
 			}
@@ -712,13 +709,10 @@ impl Client {
 
 			let res = db.tus_set_user_data(&com_id, user_id, slot, data_id, &info.map(|v| v.bytes()), user_id, new_timestamp, compare_timestamp, compare_author_id);
 			match res {
-				Ok(tus_data) => {
-					if tus_data.author_id != user_id || tus_data.data_id != data_id || tus_data.timestamp != new_timestamp {
-						Client::delete_tus_data(data_id).await;
-						Ok(ErrorType::CondFail)
-					} else {
-						Ok(ErrorType::NoError)
-					}
+				Ok(()) => Ok(ErrorType::NoError),
+				Err(DbError::Empty) => {
+					Client::delete_tus_data(data_id).await;
+					Ok(ErrorType::CondFail)
 				}
 				Err(_) => Err(ErrorType::DbFail),
 			}
