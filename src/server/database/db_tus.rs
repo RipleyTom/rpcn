@@ -168,6 +168,20 @@ impl Database {
 		Ok(vec_var_infos)
 	}
 
+	fn prepare_cond_string(compare_timestamp: Option<u64>, compare_author: Option<i64>) -> String {
+		let mut cond_string = String::new();
+
+		if let Some(compare_timestamp) = compare_timestamp {
+			let _ = write!(cond_string, "WHERE timestamp <= {}", compare_timestamp);
+		}
+
+		if let Some(compare_author) = compare_author {
+			let _ = write!(cond_string, "{} author_id == {}", if cond_string.is_empty() { "WHERE" } else { " AND" }, compare_author);
+		}
+
+		cond_string
+	}
+
 	pub fn tus_add_and_get_user_variable(
 		&self,
 		com_id: &ComId,
@@ -179,16 +193,7 @@ impl Database {
 		compare_timestamp: Option<u64>,
 		compare_author: Option<i64>,
 	) -> Result<DbTusVarInfo, DbError> {
-		let mut cond_string = String::new();
-
-		if let Some(compare_timestamp) = compare_timestamp {
-			let _ = write!(cond_string, "WHERE timestamp <= {}", compare_timestamp);
-		}
-
-		if let Some(compare_author) = compare_author {
-			let _ = write!(cond_string, "{} author == {}", if cond_string.is_empty() { "WHERE" } else { " AND" }, compare_author);
-		}
-
+		let cond_string = Database::prepare_cond_string(compare_timestamp, compare_author);
 		let full_query = format!("INSERT INTO tus_var( owner_id, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( owner_id, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value", cond_string);
 
 		match self.conn.query_row(&full_query, rusqlite::params![user, com_id, slot, value, timestamp, author_id], |r| {
@@ -234,16 +239,7 @@ impl Database {
 		compare_timestamp: Option<u64>,
 		compare_author: Option<i64>,
 	) -> Result<DbTusVarInfo, DbError> {
-		let mut cond_string = String::new();
-
-		if let Some(compare_timestamp) = compare_timestamp {
-			let _ = write!(cond_string, "WHERE timestamp <= {}", compare_timestamp);
-		}
-
-		if let Some(compare_author) = compare_author {
-			let _ = write!(cond_string, "{} author == {}", if cond_string.is_empty() { "WHERE" } else { " AND" }, compare_author);
-		}
-
+		let cond_string = Database::prepare_cond_string(compare_timestamp, compare_author);
 		let full_query = format!("INSERT INTO tus_var_vuser( vuser, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( vuser, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value", cond_string);
 
 		match self.conn.query_row(&full_query, rusqlite::params![vuser, com_id, slot, value, timestamp, author_id], |r| {
@@ -278,7 +274,7 @@ impl Database {
 		}
 	}
 
-	fn prepare_try_and_set_cond(compare_op: TusOpeType, compare_timestamp: Option<u64>, compare_author: Option<i64>) -> String {
+	fn prepare_try_and_set_cond_string(compare_op: TusOpeType, compare_timestamp: Option<u64>, compare_author: Option<i64>) -> String {
 		let op = match compare_op {
 			TusOpeType::SCE_NP_TUS_OPETYPE_EQUAL => "==",
 			TusOpeType::SCE_NP_TUS_OPETYPE_NOT_EQUAL => "!=",
@@ -314,7 +310,7 @@ impl Database {
 		compare_timestamp: Option<u64>,
 		compare_author: Option<i64>,
 	) -> Result<DbTusVarInfo, DbError> {
-		let conditional = Database::prepare_try_and_set_cond(compare_op, compare_timestamp, compare_author);
+		let conditional = Database::prepare_try_and_set_cond_string(compare_op, compare_timestamp, compare_author);
 
 		let full_query = format!(
 			"INSERT INTO tus_var( owner_id, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) \
@@ -371,7 +367,7 @@ impl Database {
 		compare_timestamp: Option<u64>,
 		compare_author: Option<i64>,
 	) -> Result<DbTusVarInfo, DbError> {
-		let conditional = Database::prepare_try_and_set_cond(compare_op, compare_timestamp, compare_author);
+		let conditional = Database::prepare_try_and_set_cond_string(compare_op, compare_timestamp, compare_author);
 
 		let full_query = format!(
 			"INSERT INTO tus_var_vuser( vuser, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) \
@@ -483,16 +479,7 @@ impl Database {
 		compare_timestamp: Option<u64>,
 		compare_author: Option<i64>,
 	) -> Result<(), DbError> {
-		let mut cond_string = String::new();
-
-		if let Some(compare_timestamp) = compare_timestamp {
-			let _ = write!(cond_string, "WHERE timestamp <= {}", compare_timestamp);
-		}
-
-		if let Some(compare_author) = compare_author {
-			let _ = write!(cond_string, "{} author == {}", if cond_string.is_empty() { "WHERE" } else { " AND" }, compare_author);
-		}
-
+		let cond_string = Database::prepare_cond_string(compare_timestamp, compare_author);
 		let full_query = format!(
 			"INSERT INTO tus_data( owner_id, communication_id, slot_id, data_id, data_info, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7 ) \
 			 ON CONFLICT ( owner_id, communication_id, slot_id ) DO \
@@ -524,16 +511,7 @@ impl Database {
 		compare_timestamp: Option<u64>,
 		compare_author: Option<i64>,
 	) -> Result<(), DbError> {
-		let mut cond_string = String::new();
-
-		if let Some(compare_timestamp) = compare_timestamp {
-			let _ = write!(cond_string, "WHERE timestamp <= {}", compare_timestamp);
-		}
-
-		if let Some(compare_author) = compare_author {
-			let _ = write!(cond_string, "{} author == {}", if cond_string.is_empty() { "WHERE" } else { " AND" }, compare_author);
-		}
-
+		let cond_string = Database::prepare_cond_string(compare_timestamp, compare_author);
 		let full_query = format!(
 			"INSERT INTO tus_data_vuser( vuser, communication_id, slot_id, data_id, data_info, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7 ) \
 			 ON CONFLICT ( vuser, communication_id, slot_id ) DO \
