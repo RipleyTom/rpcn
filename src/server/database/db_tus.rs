@@ -627,7 +627,7 @@ impl Database {
 
 	pub fn tus_delete_user_data_with_slotlist(&self, com_id: &ComId, user: i64, slot_list: &[i32]) -> Result<(), DbError> {
 		let stmt = format!(
-			"DELETE FROM tus_data WHERE com_id = ?1 AND owner_id = ?2 AND slot_id IN ({})",
+			"DELETE FROM tus_data WHERE communication_id = ?1 AND owner_id = ?2 AND slot_id IN ({})",
 			generate_string_from_slot_list(slot_list)
 		);
 
@@ -641,7 +641,7 @@ impl Database {
 
 	pub fn tus_delete_vuser_data_with_slotlist(&self, com_id: &ComId, vuser: &str, slot_list: &[i32]) -> Result<(), DbError> {
 		let stmt = format!(
-			"DELETE FROM tus_data_vuser WHERE com_id = ?1 AND vuser = ?2 AND slot_id IN ({})",
+			"DELETE FROM tus_data_vuser WHERE communication_id = ?1 AND vuser = ?2 AND slot_id IN ({})",
 			generate_string_from_slot_list(slot_list)
 		);
 
