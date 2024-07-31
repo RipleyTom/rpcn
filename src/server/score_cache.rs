@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::server::client::{Client, ComId, ErrorType};
+use crate::server::client::{com_id_to_string, Client, ComId, ErrorType};
 use crate::server::database::db_score::{DbBoardInfo, DbScoreInfo};
 use crate::server::database::Database;
 use crate::server::stream_extractor::np2_structs_generated::*;
@@ -10,8 +10,6 @@ use crate::server::Server;
 
 use parking_lot::RwLock;
 use tracing::warn;
-
-use super::client::com_id_to_string;
 
 struct ScoreUserCache {
 	npid: String,
@@ -264,6 +262,9 @@ impl ScoresCache {
 			table.sorted_scores.remove(pos);
 			initial_pos = Some(pos);
 		}
+
+		// Update last insert/sort time
+		table.last_insert = Client::get_psn_timestamp();
 
 		if (table.sorted_scores.len() < table.table_info.rank_limit as usize) || score.cmp(table.sorted_scores.last().unwrap(), table.table_info.sort_mode) == Ordering::Less {
 			let insert_pos = table.sorted_scores.binary_search_by(|probe| probe.cmp(score, table.table_info.sort_mode)).unwrap_err();

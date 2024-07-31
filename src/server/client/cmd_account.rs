@@ -194,6 +194,10 @@ impl Client {
 		}
 	}
 
+	pub fn is_valid_username(npid: &str) -> bool {
+		npid.len() >= 3 && npid.len() <= 16 && npid.chars().all(|x| x.is_ascii_alphanumeric() || x == '-' || x == '_')
+	}
+
 	pub fn create_account(&self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let npid = data.get_string(false);
 		let password = data.get_string(false);
@@ -206,12 +210,12 @@ impl Client {
 			return Err(ErrorType::Malformed);
 		}
 
-		if npid.len() < 3 || npid.len() > 16 || !npid.chars().all(|x| x.is_ascii_alphanumeric() || x == '-' || x == '_') {
+		if !Client::is_valid_username(&npid) {
 			warn!("Error validating NpId");
 			return Err(ErrorType::InvalidInput);
 		}
 
-		if online_name.len() < 3 || online_name.len() > 16 || !online_name.chars().all(|x| x.is_ascii_alphabetic() || x.is_ascii_digit() || x == '-' || x == '_') {
+		if !Client::is_valid_username(&online_name) {
 			warn!("Error validating Online Name");
 			return Err(ErrorType::InvalidInput);
 		}
@@ -233,7 +237,9 @@ impl Client {
 			}
 		}
 
-		match Database::new(self.get_database_connection()?).add_user(&npid, &password, &online_name, &avatar_url, &email, &check_email) {
+		let is_admin = self.config.read().get_admins_list().contains(&npid);
+
+		match Database::new(self.get_database_connection()?).add_user(&npid, &password, &online_name, &avatar_url, &email, &check_email, is_admin) {
 			Ok(token) => {
 				info!("Successfully created account {}", &npid);
 				if self.config.read().is_email_validated() {

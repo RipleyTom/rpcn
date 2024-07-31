@@ -23,6 +23,8 @@ use client::{Client, ClientSharedInfo, PacketType, SharedData, TerminateWatch, H
 mod database;
 mod game_tracker;
 use game_tracker::GameTracker;
+mod gui_room_manager;
+use gui_room_manager::GuiRoomManager;
 mod room_manager;
 use room_manager::RoomManager;
 mod score_cache;
@@ -34,11 +36,12 @@ use crate::Config;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 24;
+const PROTOCOL_VERSION: u32 = 25;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
 	db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
+	gui_room_manager: Arc<RwLock<GuiRoomManager>>,
 	room_manager: Arc<RwLock<RoomManager>>,
 	client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
 	score_cache: Arc<ScoresCache>,
@@ -50,7 +53,7 @@ impl Server {
 	pub fn new(config: Config) -> Result<Server, String> {
 		let config = Arc::new(RwLock::new(config));
 
-		let db_pool = Server::initialize_database()?;
+		let db_pool = Server::initialize_database(config.read().get_admins_list())?;
 		let score_cache = Server::initialize_score(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
 		Server::initialize_tus_data_handler()?;
 
@@ -59,6 +62,7 @@ impl Server {
 		Server::clean_score_data(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
 		Server::clean_tus_data(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
 
+		let gui_room_manager = Arc::new(RwLock::new(GuiRoomManager::new()));
 		let room_manager = Arc::new(RwLock::new(RoomManager::new()));
 		let client_infos = Arc::new(RwLock::new(HashMap::new()));
 		let game_tracker = Arc::new(GameTracker::new());
@@ -67,6 +71,7 @@ impl Server {
 		Ok(Server {
 			config,
 			db_pool,
+			gui_room_manager,
 			room_manager,
 			client_infos,
 			score_cache,
@@ -168,7 +173,7 @@ impl Server {
 						let acceptor = acceptor.clone();
 						let config = self.config.clone();
 						let db_pool = self.db_pool.clone();
-						let shared = SharedData::new(self.room_manager.clone(), self.client_infos.clone(), self.score_cache.clone(), self.game_tracker.clone(), self.cleanup_duty.clone());
+						let shared = SharedData::new(self.gui_room_manager.clone(), self.room_manager.clone(), self.client_infos.clone(), self.score_cache.clone(), self.game_tracker.clone(), self.cleanup_duty.clone());
 						let servinfo_vec = servinfo_vec.clone();
 						let term_watch = term_watch.clone();
 						let fut_client = async move {

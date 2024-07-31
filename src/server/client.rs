@@ -3,6 +3,7 @@ mod cmd_admin;
 mod cmd_friend;
 mod cmd_misc;
 mod cmd_room;
+mod cmd_room_gui;
 mod cmd_score;
 mod cmd_server;
 mod cmd_session;
@@ -10,7 +11,7 @@ pub mod cmd_tus;
 
 mod ticket;
 
-mod notifications;
+pub mod notifications;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -33,6 +34,7 @@ use crate::server::client::notifications::NotificationType;
 use crate::server::client::ticket::Ticket;
 use crate::server::database::Database;
 use crate::server::game_tracker::GameTracker;
+use crate::server::gui_room_manager::GuiRoomManager;
 use crate::server::room_manager::{RoomManager, SignalParam, SignalingType};
 use crate::server::score_cache::ScoresCache;
 use crate::server::stream_extractor::fb_helpers::*;
@@ -43,7 +45,8 @@ use crate::Config;
 pub const HEADER_SIZE: u32 = 15;
 pub const MAX_PACKET_SIZE: u32 = 0x800000; // 8MiB
 
-pub type ComId = [u8; 9];
+pub const COMMUNICATION_ID_SIZE: usize = 12;
+pub type ComId = [u8; COMMUNICATION_ID_SIZE];
 
 #[derive(Clone)]
 pub struct ClientInfo {
@@ -106,7 +109,8 @@ impl ClientSharedPresence {
 	}
 
 	pub fn dump_empty(vec: &mut Vec<u8>) {
-		vec.extend([0; 9]); // com_id
+		const VEC_EMPTY_COMID: [u8; COMMUNICATION_ID_SIZE] = [0, 0, 0, 0, 0, 0, 0, 0, 0, b'_', b'0', b'0'];
+		vec.extend(VEC_EMPTY_COMID); // com_id
 		vec.push(0); // title
 		vec.push(0); // status string
 		vec.push(0); // comment
@@ -160,6 +164,7 @@ impl TerminateWatch {
 
 #[derive(Clone)]
 pub struct SharedData {
+	gui_room_manager: Arc<RwLock<GuiRoomManager>>,
 	room_manager: Arc<RwLock<RoomManager>>,
 	client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
 	score_cache: Arc<ScoresCache>,
@@ -242,6 +247,16 @@ enum CommandType {
 	TusDeleteMultiSlotData,
 	ClearPresence,
 	SetPresence,
+	CreateRoomGUI,
+	JoinRoomGUI,
+	LeaveRoomGUI,
+	GetRoomListGUI,
+	SetRoomSearchFlagGUI,
+	GetRoomSearchFlagGUI,
+	SetRoomInfoGUI,
+	GetRoomInfoGUI,
+	QuickMatchGUI,
+	SearchJoinRoomGUI,
 	UpdateDomainBans = 0x0100,
 	TerminateServer,
 }
@@ -303,6 +318,7 @@ pub fn com_id_to_string(com_id: &ComId) -> String {
 
 impl SharedData {
 	pub fn new(
+		gui_room_manager: Arc<RwLock<GuiRoomManager>>,
 		room_manager: Arc<RwLock<RoomManager>>,
 		client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
 		score_cache: Arc<ScoresCache>,
@@ -310,6 +326,7 @@ impl SharedData {
 		cleanup_duty: Arc<RwLock<HashSet<i64>>>,
 	) -> SharedData {
 		SharedData {
+			gui_room_manager,
 			room_manager,
 			client_infos,
 			score_cache,
@@ -324,14 +341,22 @@ impl Drop for Client {
 		// This code is here instead of at the end of process in case of thread panic to ensure user is properly 'cleaned out' of the system
 		if self.authentified {
 			self.shared.cleanup_duty.write().insert(self.client_info.user_id);
-			let mut self_clone = self.clone();
+			let mut self_clone = Box::new(self.clone()); // We box the clone in order to avoid stack issues when a lot of users drop(shutdown)
 			task::spawn(async move {
 				// leave all rooms user is still in
 				let rooms = self_clone.shared.room_manager.read().get_rooms_by_user(self_clone.client_info.user_id);
 
 				if let Some(rooms) = rooms {
+					for (com_id, room_id) in rooms {
+						self_clone.leave_room(&com_id, room_id, None, EventCause::MemberDisappeared).await;
+					}
+				}
+
+				let rooms = self_clone.shared.gui_room_manager.read().get_rooms_by_user(self_clone.client_info.user_id);
+
+				if let Some(rooms) = rooms {
 					for room in rooms {
-						self_clone.leave_room(&self_clone.shared.room_manager, &room.0, room.1, None, EventCause::MemberDisappeared).await;
+						let _ = self_clone.leave_room_gui(&room).await;
 					}
 				}
 
@@ -644,6 +669,16 @@ impl Client {
 			CommandType::TusDeleteMultiSlotData => self.tus_delete_multislot_data(data).await,
 			CommandType::ClearPresence => self.clear_presence().await,
 			CommandType::SetPresence => self.set_presence(data).await,
+			CommandType::CreateRoomGUI => self.req_create_room_gui(data, reply),
+			CommandType::JoinRoomGUI => self.req_join_room_gui(data, reply).await,
+			CommandType::LeaveRoomGUI => self.req_leave_room_gui(data, reply).await,
+			CommandType::GetRoomListGUI => self.req_get_room_list_gui(data, reply),
+			CommandType::SetRoomSearchFlagGUI => self.req_set_room_search_flag_gui(data),
+			CommandType::GetRoomSearchFlagGUI => self.req_get_room_search_flag_gui(data, reply),
+			CommandType::SetRoomInfoGUI => self.req_set_room_info_gui(data),
+			CommandType::GetRoomInfoGUI => self.req_get_room_info_gui(data, reply),
+			CommandType::QuickMatchGUI => self.req_quickmatch_gui(data, reply).await,
+			CommandType::SearchJoinRoomGUI => self.req_searchjoin_gui(data, reply).await,
 			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
 			CommandType::TerminateServer => self.req_admin_terminate_server(),
 			_ => {
@@ -821,17 +856,22 @@ impl Client {
 	}
 
 	// Various helpers to help with validation
-	pub fn get_com_and_fb<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&mut self, data: &'a mut StreamExtractor) -> Result<(ComId, T::Inner), ErrorType> {
-		let com_id = self.get_com_id_with_redir(data);
-		let tus_req = data.get_flatbuffer::<T>();
+	pub fn get_fb<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&mut self, data: &'a mut StreamExtractor) -> Result<T::Inner, ErrorType> {
+		let fb_req = data.get_flatbuffer::<T>();
 
-		if data.error() || tus_req.is_err() {
+		if data.error() || fb_req.is_err() {
 			warn!("Validation error while extracting data into {}", std::any::type_name::<T>());
 			return Err(ErrorType::Malformed);
 		}
-		let tus_req = tus_req.unwrap();
+		let fb_req = fb_req.unwrap();
 
-		Ok((com_id, tus_req))
+		Ok(fb_req)
+	}
+
+	pub fn get_com_and_fb<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&mut self, data: &'a mut StreamExtractor) -> Result<(ComId, T::Inner), ErrorType> {
+		let com_id = self.get_com_id_with_redir(data);
+		let fb_req = self.get_fb::<T>(data)?;
+		Ok((com_id, fb_req))
 	}
 
 	pub fn validate_and_unwrap<T>(opt: Option<T>) -> Result<T, ErrorType> {

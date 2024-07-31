@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2024-09-19
+
+### Added
+
+- Added a configuration setting letting you set admins rights for specific usernames(set on launch or at account creation)
+- Added commands to support old GUI API (CreateRoomGUI, JoinRoomGUI, LeaveRoomGUI, GetRoomListGUI, SetRoomSearchFlagGUI, GetRoomSearchFlagGUI, SetRoomInfoGUI, GetRoomInfoGUI, QuickMatchGUI, SearchJoinGUI)
+
+### Changed
+
+- Changed the default ranking limit(number of scores ranked per table) from 100 to 250
+- Ticket issuer ID was changed to 0x100(from 0x33333333) as Tony Hawk: SHRED was found to be checking this value
+
+### Fixed
+
+- Allow all messages but invites to be sent to non-friends
+- Fixed score cache last insertion/update time not being updated on insert
+- Fixed SceNpCommunicationId to reflect the sub_id
+- Fixed startIndex in Matching2 search requests not being interpreted and being set wrong in the reply
+- Fixed user_rooms not being appropriately updated when removed from the room forcefully(ie room destroyed)
+- Fixed SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER not being set for the member becoming the new owner if the succession didn't go through the list
+- Ninetime: added servers for all Arcsys games so they should work now(BBCT, BBCSE, BBCPE, BBCF, P4A, P4AU, UNIEL) and for a few other games(Outrun Online Arcade, SCV, KOF13)
+- CookiePLMonster: Fixed scoreboards ordering/rules for RR7, Crazy Taxi, GTHD, Daytona USA, Wrecked, Hotline Miami 2
+
+### Misc
+
+- Updated dependencies
+
+
 ## [1.2.4] - 2024-03-23
 
 ### Fixed
