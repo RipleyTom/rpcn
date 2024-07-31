@@ -1,5 +1,6 @@
 use crate::server::client::*;
 
+#[derive(Clone, Copy)]
 #[repr(u16)]
 pub enum NotificationType {
 	UserJoinedRoom,
@@ -17,6 +18,12 @@ pub enum NotificationType {
 	MessageReceived,
 	FriendPresenceChanged,
 	SignalingInfo,
+	MemberJoinedRoomGUI,
+	MemberLeftRoomGUI,
+	RoomDisappearedGUI,
+	RoomOwnerChangedGUI,
+	_UserKickedGUI,
+	QuickMatchCompleteGUI,
 }
 
 impl Client {

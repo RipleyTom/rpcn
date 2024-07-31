@@ -6,7 +6,7 @@ use std::io::Read;
 use std::str::FromStr;
 
 mod server;
-use server::client::ComId;
+use server::client::{Client, ComId, COMMUNICATION_ID_SIZE};
 use server::Server;
 
 use openssl::ec::EcKey;
@@ -31,6 +31,7 @@ pub struct Config {
 	server_redirs: HashMap<ComId, ComId>,
 	ticket_signature_info: Option<TicketSignInfo>,
 	stat_server_host_and_port: Option<(String, String)>,
+	admins_list: Vec<String>,
 }
 
 impl Config {
@@ -48,6 +49,7 @@ impl Config {
 			server_redirs: HashMap::new(),
 			ticket_signature_info: None,
 			stat_server_host_and_port: None,
+			admins_list: Vec::new(),
 		}
 	}
 
@@ -102,6 +104,32 @@ impl Config {
 				println!("Configuration entry for Verbosity was not found, defaulting to <{}>", d_verbosity);
 			}
 		};
+
+		let set_admins_list = |d_list: &mut Vec<String>| {
+			if let Some(data) = config_data.get("AdminsList") {
+				let admins_list: Vec<String> = data.split(',').map(|a| a.trim().to_string()).collect();
+
+				if admins_list.iter().map(|username| Client::is_valid_username(username)).any(|r| !r) {
+					println!("AdminsList contains an invalid username, the setting will be ignored!");
+				} else {
+					*d_list = admins_list;
+				}
+			} else {
+				println!("Configuration entry for AdminsList was not found, leaving it empty");
+			}
+		};
+
+		// Unused for now
+		// let set_u32 = |name: &str, d_u32: &mut u32| {
+		// 	if let Some(data) = config_data.get(name) {
+		// 		match data.parse::<u32>() {
+		// 			Ok(parsed) => *d_u32 = parsed,
+		// 			Err(e) => println!("Failed to parse value for <{}>, defaulting to <{}>: {}", name, d_u32, e),
+		// 		}
+		// 	} else {
+		// 		println!("Configuration entry for <{}> was not found, defaulting to <{}>", name, d_u32);
+		// 	}
+		// };
 
 		set_bool("CreateMissing", &mut self.create_missing);
 		set_verbosity(&mut self.verbosity);
@@ -159,6 +187,8 @@ impl Config {
 			}
 		}
 
+		set_admins_list(&mut self.admins_list);
+
 		Ok(())
 	}
 
@@ -205,7 +235,7 @@ impl Config {
 				.lines()
 				.filter_map(|line| {
 					let parsed: Vec<&[u8]> = line.trim().split("=>").map(|x| x.trim()).map(|x| x.as_bytes()).collect();
-					if line.is_empty() || line.chars().nth(0).unwrap() == '#' || parsed.len() != 2 || parsed[0].len() != 9 || parsed[1].len() != 9 {
+					if line.is_empty() || line.chars().nth(0).unwrap() == '#' || parsed.len() != 2 || parsed[0].len() != COMMUNICATION_ID_SIZE || parsed[1].len() != COMMUNICATION_ID_SIZE {
 						None
 					} else {
 						Some((parsed[0].try_into().unwrap(), parsed[1].try_into().unwrap()))
@@ -228,6 +258,10 @@ impl Config {
 
 	pub fn get_stat_server_binds(&self) -> &Option<(String, String)> {
 		&self.stat_server_host_and_port
+	}
+
+	pub fn get_admins_list(&self) -> &Vec<String> {
+		&self.admins_list
 	}
 
 	fn load_ticket_private_key() -> Result<PKey<Private>, String> {

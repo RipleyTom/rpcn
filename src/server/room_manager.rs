@@ -359,9 +359,9 @@ impl RoomUser {
 		let online_name = builder.create_string(&self.online_name);
 		let avatar_url = builder.create_string(&self.avatar_url);
 
-		let user_info = UserInfo2::create(
+		let user_info = UserInfo::create(
 			builder,
-			&UserInfo2Args {
+			&UserInfoArgs {
 				npId: Some(npid),
 				onlineName: Some(online_name),
 				avatarUrl: Some(avatar_url),
@@ -628,9 +628,9 @@ impl Room {
 				avatar_url = Some(s);
 			}
 
-			final_owner_info = Some(UserInfo2::create(
+			final_owner_info = Some(UserInfo::create(
 				builder,
-				&UserInfo2Args {
+				&UserInfoArgs {
 					npId: npid,
 					onlineName: online_name,
 					avatarUrl: avatar_url,
@@ -1002,8 +1002,7 @@ impl RoomManager {
 		}
 
 		self.rooms.insert((*com_id, *room_cnt), room);
-		let user_set = self.user_rooms.entry(cinfo.user_id).or_default();
-		user_set.insert((*com_id, *room_cnt));
+		self.user_rooms.entry(cinfo.user_id).or_default().insert((*com_id, *room_cnt));
 
 		// Prepare roomDataInternal
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
@@ -1038,8 +1037,7 @@ impl RoomManager {
 			room.flag_attr |= SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32;
 		}
 
-		let user_set = self.user_rooms.entry(cinfo.user_id).or_default();
-		user_set.insert((*com_id, room.room_id));
+		self.user_rooms.entry(cinfo.user_id).or_default().insert((*com_id, room.room_id));
 
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 		let room_data = room.to_RoomDataInternal(&mut builder);
@@ -1078,10 +1076,7 @@ impl RoomManager {
 		}
 
 		// Generate list of users left
-		let mut user_list = HashSet::new();
-		for user in &room.users {
-			user_list.insert(user.1.user_id);
-		}
+		let user_list: HashSet<i64> = room.users.iter().map(|user| user.1.user_id).collect();
 
 		if member_id == room.owner {
 			// Check if the room is getting destroyed
@@ -1101,6 +1096,7 @@ impl RoomManager {
 			if !found_successor && !room.users.is_empty() {
 				let random_user = rand::thread_rng().gen_range(0..room.users.len());
 				room.owner = *room.users.keys().nth(random_user).unwrap();
+				room.users.entry(room.owner).and_modify(|e| e.flag_attr |= SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER);
 				found_successor = true;
 			}
 
@@ -1108,6 +1104,12 @@ impl RoomManager {
 				// Remove the room from appropriate list
 				let lobby_id = room.lobby_id;
 				let world_id = room.world_id;
+
+				// Remove users from user_rooms
+				for user_id in &user_list {
+					self.user_rooms.get_mut(user_id).unwrap().remove(&(*com_id, room_id));
+				}
+
 				if lobby_id == 0 {
 					self.world_rooms.get_mut(&(*com_id, world_id)).unwrap().remove(&room_id);
 				} else {
@@ -1125,9 +1127,19 @@ impl RoomManager {
 		let world_id = req.worldId();
 		let lobby_id = req.lobbyId();
 
-		// Unclear what the given startIndex means
-		let startindex = 0; // req.rangeFilter_startIndex();
-		let max = req.rangeFilter_max();
+		let startindex = if req.rangeFilter_startIndex() == 0 {
+			error!("SearchRoomRequest.startIndex was 0!");
+			1
+		} else {
+			req.rangeFilter_startIndex()
+		};
+
+		let max = if req.rangeFilter_max() == 0 || req.rangeFilter_max() > 20 {
+			error!("SearchRoomRequest.max was invalid: {}", req.rangeFilter_max());
+			20
+		} else {
+			req.rangeFilter_max()
+		};
 
 		let mut list = None;
 		if world_id != 0 {
@@ -1138,28 +1150,27 @@ impl RoomManager {
 
 		let mut matching_rooms = Vec::new();
 
-		let mut num_found = 0;
-
 		if let Some(room_list) = list {
 			for room_id in room_list.iter() {
 				let room = self.get_room(com_id, *room_id);
 				if room.is_match(req) {
 					matching_rooms.push(room);
-					num_found += 1;
-				}
-				if num_found >= max {
-					break;
 				}
 			}
 		}
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 
 		let mut list_roomdataexternal = Default::default();
-		if !matching_rooms.is_empty() {
+
+		if matching_rooms.len() >= startindex as usize {
 			let inc_attrs = if let Some(attr_ids) = req.attrId() { attr_ids.iter().collect() } else { Vec::new() };
 
+			let start = startindex as usize - 1;
+			let num_to_get = std::cmp::min(matching_rooms.len() - start, max as usize);
+			let end = start + num_to_get;
+
 			let mut room_list = Vec::new();
-			for room in &matching_rooms {
+			for room in &matching_rooms[start..end] {
 				room_list.push(room.to_RoomDataExternal(&mut builder, req.option(), &inc_attrs));
 			}
 			list_roomdataexternal = Some(builder.create_vector(&room_list));
@@ -1170,7 +1181,6 @@ impl RoomManager {
 			&SearchRoomResponseArgs {
 				startIndex: startindex,
 				total: matching_rooms.len() as u32,
-				size_: matching_rooms.len() as u32,
 				rooms: list_roomdataexternal,
 			},
 		);

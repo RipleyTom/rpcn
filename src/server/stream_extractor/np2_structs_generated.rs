@@ -33,8 +33,8 @@ impl<'a> BinAttr<'a> {
     BinAttr { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args BinAttrArgs<'args>
   ) -> flatbuffers::WIPOffset<BinAttr<'bldr>> {
     let mut builder = BinAttrBuilder::new(_fbb);
@@ -87,11 +87,11 @@ impl<'a> Default for BinAttrArgs<'a> {
   }
 }
 
-pub struct BinAttrBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct BinAttrBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> BinAttrBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> BinAttrBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_id(&mut self, id: u16) {
     self.fbb_.push_slot::<u16>(BinAttr::VT_ID, id, 0);
@@ -101,7 +101,7 @@ impl<'a: 'b, 'b> BinAttrBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(BinAttr::VT_DATA, data);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> BinAttrBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> BinAttrBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BinAttrBuilder {
       fbb_: _fbb,
@@ -147,8 +147,8 @@ impl<'a> IntAttr<'a> {
     IntAttr { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args IntAttrArgs
   ) -> flatbuffers::WIPOffset<IntAttr<'bldr>> {
     let mut builder = IntAttrBuilder::new(_fbb);
@@ -201,11 +201,11 @@ impl<'a> Default for IntAttrArgs {
   }
 }
 
-pub struct IntAttrBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct IntAttrBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> IntAttrBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> IntAttrBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_id(&mut self, id: u16) {
     self.fbb_.push_slot::<u16>(IntAttr::VT_ID, id, 0);
@@ -215,7 +215,7 @@ impl<'a: 'b, 'b> IntAttrBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(IntAttr::VT_NUM, num, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> IntAttrBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> IntAttrBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IntAttrBuilder {
       fbb_: _fbb,
@@ -261,8 +261,8 @@ impl<'a> RoomMemberBinAttrInternal<'a> {
     RoomMemberBinAttrInternal { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomMemberBinAttrInternalArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomMemberBinAttrInternal<'bldr>> {
     let mut builder = RoomMemberBinAttrInternalBuilder::new(_fbb);
@@ -315,11 +315,11 @@ impl<'a> Default for RoomMemberBinAttrInternalArgs<'a> {
   }
 }
 
-pub struct RoomMemberBinAttrInternalBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomMemberBinAttrInternalBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomMemberBinAttrInternalBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomMemberBinAttrInternalBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_updateDate(&mut self, updateDate: u64) {
     self.fbb_.push_slot::<u64>(RoomMemberBinAttrInternal::VT_UPDATEDATE, updateDate, 0);
@@ -329,7 +329,7 @@ impl<'a: 'b, 'b> RoomMemberBinAttrInternalBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<BinAttr>>(RoomMemberBinAttrInternal::VT_DATA, data);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomMemberBinAttrInternalBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomMemberBinAttrInternalBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomMemberBinAttrInternalBuilder {
       fbb_: _fbb,
@@ -376,8 +376,8 @@ impl<'a> BinAttrInternal<'a> {
     BinAttrInternal { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args BinAttrInternalArgs<'args>
   ) -> flatbuffers::WIPOffset<BinAttrInternal<'bldr>> {
     let mut builder = BinAttrInternalBuilder::new(_fbb);
@@ -441,11 +441,11 @@ impl<'a> Default for BinAttrInternalArgs<'a> {
   }
 }
 
-pub struct BinAttrInternalBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct BinAttrInternalBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> BinAttrInternalBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> BinAttrInternalBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_updateDate(&mut self, updateDate: u64) {
     self.fbb_.push_slot::<u64>(BinAttrInternal::VT_UPDATEDATE, updateDate, 0);
@@ -459,7 +459,7 @@ impl<'a: 'b, 'b> BinAttrInternalBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<BinAttr>>(BinAttrInternal::VT_DATA, data);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> BinAttrInternalBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> BinAttrInternalBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BinAttrInternalBuilder {
       fbb_: _fbb,
@@ -507,8 +507,8 @@ impl<'a> OptParam<'a> {
     OptParam { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args OptParamArgs
   ) -> flatbuffers::WIPOffset<OptParam<'bldr>> {
     let mut builder = OptParamBuilder::new(_fbb);
@@ -572,11 +572,11 @@ impl<'a> Default for OptParamArgs {
   }
 }
 
-pub struct OptParamBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct OptParamBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> OptParamBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> OptParamBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_type_(&mut self, type_: u8) {
     self.fbb_.push_slot::<u8>(OptParam::VT_TYPE_, type_, 0);
@@ -590,7 +590,7 @@ impl<'a: 'b, 'b> OptParamBuilder<'a, 'b> {
     self.fbb_.push_slot::<u16>(OptParam::VT_HUBMEMBERID, hubMemberId, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> OptParamBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> OptParamBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     OptParamBuilder {
       fbb_: _fbb,
@@ -639,8 +639,8 @@ impl<'a> GroupConfig<'a> {
     GroupConfig { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GroupConfigArgs<'args>
   ) -> flatbuffers::WIPOffset<GroupConfig<'bldr>> {
     let mut builder = GroupConfigBuilder::new(_fbb);
@@ -715,11 +715,11 @@ impl<'a> Default for GroupConfigArgs<'a> {
   }
 }
 
-pub struct GroupConfigBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GroupConfigBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GroupConfigBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GroupConfigBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_slotNum(&mut self, slotNum: u32) {
     self.fbb_.push_slot::<u32>(GroupConfig::VT_SLOTNUM, slotNum, 0);
@@ -737,7 +737,7 @@ impl<'a: 'b, 'b> GroupConfigBuilder<'a, 'b> {
     self.fbb_.push_slot::<bool>(GroupConfig::VT_WITHPASSWORD, withPassword, false);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GroupConfigBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GroupConfigBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GroupConfigBuilder {
       fbb_: _fbb,
@@ -761,36 +761,36 @@ impl core::fmt::Debug for GroupConfig<'_> {
       ds.finish()
   }
 }
-pub enum UserInfo2Offset {}
+pub enum UserInfoOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct UserInfo2<'a> {
+pub struct UserInfo<'a> {
   pub _tab: flatbuffers::Table<'a>,
 }
 
-impl<'a> flatbuffers::Follow<'a> for UserInfo2<'a> {
-  type Inner = UserInfo2<'a>;
+impl<'a> flatbuffers::Follow<'a> for UserInfo<'a> {
+  type Inner = UserInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
     Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
-impl<'a> UserInfo2<'a> {
+impl<'a> UserInfo<'a> {
   pub const VT_NPID: flatbuffers::VOffsetT = 4;
   pub const VT_ONLINENAME: flatbuffers::VOffsetT = 6;
   pub const VT_AVATARURL: flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-    UserInfo2 { _tab: table }
+    UserInfo { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-    args: &'args UserInfo2Args<'args>
-  ) -> flatbuffers::WIPOffset<UserInfo2<'bldr>> {
-    let mut builder = UserInfo2Builder::new(_fbb);
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args UserInfoArgs<'args>
+  ) -> flatbuffers::WIPOffset<UserInfo<'bldr>> {
+    let mut builder = UserInfoBuilder::new(_fbb);
     if let Some(x) = args.avatarUrl { builder.add_avatarUrl(x); }
     if let Some(x) = args.onlineName { builder.add_onlineName(x); }
     if let Some(x) = args.npId { builder.add_npId(x); }
@@ -803,25 +803,25 @@ impl<'a> UserInfo2<'a> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo2::VT_NPID, None)}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo::VT_NPID, None)}
   }
   #[inline]
   pub fn onlineName(&self) -> Option<&'a str> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo2::VT_ONLINENAME, None)}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo::VT_ONLINENAME, None)}
   }
   #[inline]
   pub fn avatarUrl(&self) -> Option<&'a str> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo2::VT_AVATARURL, None)}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(UserInfo::VT_AVATARURL, None)}
   }
 }
 
-impl flatbuffers::Verifiable for UserInfo2<'_> {
+impl flatbuffers::Verifiable for UserInfo<'_> {
   #[inline]
   fn run_verifier(
     v: &mut flatbuffers::Verifier, pos: usize
@@ -835,15 +835,15 @@ impl flatbuffers::Verifiable for UserInfo2<'_> {
     Ok(())
   }
 }
-pub struct UserInfo2Args<'a> {
+pub struct UserInfoArgs<'a> {
     pub npId: Option<flatbuffers::WIPOffset<&'a str>>,
     pub onlineName: Option<flatbuffers::WIPOffset<&'a str>>,
     pub avatarUrl: Option<flatbuffers::WIPOffset<&'a str>>,
 }
-impl<'a> Default for UserInfo2Args<'a> {
+impl<'a> Default for UserInfoArgs<'a> {
   #[inline]
   fn default() -> Self {
-    UserInfo2Args {
+    UserInfoArgs {
       npId: None,
       onlineName: None,
       avatarUrl: None,
@@ -851,41 +851,41 @@ impl<'a> Default for UserInfo2Args<'a> {
   }
 }
 
-pub struct UserInfo2Builder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct UserInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> UserInfo2Builder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> UserInfoBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_npId(&mut self, npId: flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(UserInfo2::VT_NPID, npId);
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(UserInfo::VT_NPID, npId);
   }
   #[inline]
   pub fn add_onlineName(&mut self, onlineName: flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(UserInfo2::VT_ONLINENAME, onlineName);
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(UserInfo::VT_ONLINENAME, onlineName);
   }
   #[inline]
   pub fn add_avatarUrl(&mut self, avatarUrl: flatbuffers::WIPOffset<&'b  str>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(UserInfo2::VT_AVATARURL, avatarUrl);
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(UserInfo::VT_AVATARURL, avatarUrl);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> UserInfo2Builder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> UserInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
-    UserInfo2Builder {
+    UserInfoBuilder {
       fbb_: _fbb,
       start_: start,
     }
   }
   #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<UserInfo2<'a>> {
+  pub fn finish(self) -> flatbuffers::WIPOffset<UserInfo<'a>> {
     let o = self.fbb_.end_table(self.start_);
     flatbuffers::WIPOffset::new(o.value())
   }
 }
 
-impl core::fmt::Debug for UserInfo2<'_> {
+impl core::fmt::Debug for UserInfo<'_> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    let mut ds = f.debug_struct("UserInfo2");
+    let mut ds = f.debug_struct("UserInfo");
       ds.field("npId", &self.npId());
       ds.field("onlineName", &self.onlineName());
       ds.field("avatarUrl", &self.avatarUrl());
@@ -922,8 +922,8 @@ impl<'a> RoomMemberDataInternal<'a> {
     RoomMemberDataInternal { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomMemberDataInternalArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomMemberDataInternal<'bldr>> {
     let mut builder = RoomMemberDataInternalBuilder::new(_fbb);
@@ -940,11 +940,11 @@ impl<'a> RoomMemberDataInternal<'a> {
 
 
   #[inline]
-  pub fn userInfo(&self) -> Option<UserInfo2<'a>> {
+  pub fn userInfo(&self) -> Option<UserInfo<'a>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2>>(RoomMemberDataInternal::VT_USERINFO, None)}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo>>(RoomMemberDataInternal::VT_USERINFO, None)}
   }
   #[inline]
   pub fn joinDate(&self) -> u64 {
@@ -1004,7 +1004,7 @@ impl flatbuffers::Verifiable for RoomMemberDataInternal<'_> {
   ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
     use self::flatbuffers::Verifiable;
     v.visit_table(pos)?
-     .visit_field::<flatbuffers::ForwardsUOffset<UserInfo2>>("userInfo", Self::VT_USERINFO, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<UserInfo>>("userInfo", Self::VT_USERINFO, false)?
      .visit_field::<u64>("joinDate", Self::VT_JOINDATE, false)?
      .visit_field::<u16>("memberId", Self::VT_MEMBERID, false)?
      .visit_field::<u8>("teamId", Self::VT_TEAMID, false)?
@@ -1017,7 +1017,7 @@ impl flatbuffers::Verifiable for RoomMemberDataInternal<'_> {
   }
 }
 pub struct RoomMemberDataInternalArgs<'a> {
-    pub userInfo: Option<flatbuffers::WIPOffset<UserInfo2<'a>>>,
+    pub userInfo: Option<flatbuffers::WIPOffset<UserInfo<'a>>>,
     pub joinDate: u64,
     pub memberId: u16,
     pub teamId: u8,
@@ -1042,14 +1042,14 @@ impl<'a> Default for RoomMemberDataInternalArgs<'a> {
   }
 }
 
-pub struct RoomMemberDataInternalBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomMemberDataInternalBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomMemberDataInternalBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomMemberDataInternalBuilder<'a, 'b, A> {
   #[inline]
-  pub fn add_userInfo(&mut self, userInfo: flatbuffers::WIPOffset<UserInfo2<'b >>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<UserInfo2>>(RoomMemberDataInternal::VT_USERINFO, userInfo);
+  pub fn add_userInfo(&mut self, userInfo: flatbuffers::WIPOffset<UserInfo<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<UserInfo>>(RoomMemberDataInternal::VT_USERINFO, userInfo);
   }
   #[inline]
   pub fn add_joinDate(&mut self, joinDate: u64) {
@@ -1080,7 +1080,7 @@ impl<'a: 'b, 'b> RoomMemberDataInternalBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomMemberDataInternal::VT_ROOMMEMBERBINATTRINTERNAL, roomMemberBinAttrInternal);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomMemberDataInternalBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomMemberDataInternalBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomMemberDataInternalBuilder {
       fbb_: _fbb,
@@ -1136,8 +1136,8 @@ impl<'a> RoomGroup<'a> {
     RoomGroup { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomGroupArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomGroup<'bldr>> {
     let mut builder = RoomGroupBuilder::new(_fbb);
@@ -1234,11 +1234,11 @@ impl<'a> Default for RoomGroupArgs<'a> {
   }
 }
 
-pub struct RoomGroupBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomGroupBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomGroupBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomGroupBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_groupId(&mut self, groupId: u8) {
     self.fbb_.push_slot::<u8>(RoomGroup::VT_GROUPID, groupId, 0);
@@ -1264,7 +1264,7 @@ impl<'a: 'b, 'b> RoomGroupBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(RoomGroup::VT_CURGROUPMEMBERNUM, curGroupMemberNum, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomGroupBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomGroupBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomGroupBuilder {
       fbb_: _fbb,
@@ -1323,8 +1323,8 @@ impl<'a> RoomDataInternal<'a> {
     RoomDataInternal { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomDataInternalArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomDataInternal<'bldr>> {
     let mut builder = RoomDataInternalBuilder::new(_fbb);
@@ -1476,11 +1476,11 @@ impl<'a> Default for RoomDataInternalArgs<'a> {
   }
 }
 
-pub struct RoomDataInternalBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomDataInternalBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomDataInternalBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomDataInternalBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_serverId(&mut self, serverId: u16) {
     self.fbb_.push_slot::<u16>(RoomDataInternal::VT_SERVERID, serverId, 0);
@@ -1526,7 +1526,7 @@ impl<'a: 'b, 'b> RoomDataInternalBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomDataInternal::VT_ROOMBINATTRINTERNAL, roomBinAttrInternal);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomDataInternalBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomDataInternalBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomDataInternalBuilder {
       fbb_: _fbb,
@@ -1596,8 +1596,8 @@ impl<'a> RoomDataExternal<'a> {
     RoomDataExternal { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomDataExternalArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomDataExternal<'bldr>> {
     let mut builder = RoomDataExternalBuilder::new(_fbb);
@@ -1700,11 +1700,11 @@ impl<'a> RoomDataExternal<'a> {
     unsafe { self._tab.get::<u64>(RoomDataExternal::VT_PASSWORDSLOTMASK, Some(0)).unwrap()}
   }
   #[inline]
-  pub fn owner(&self) -> Option<UserInfo2<'a>> {
+  pub fn owner(&self) -> Option<UserInfo<'a>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2>>(RoomDataExternal::VT_OWNER, None)}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo>>(RoomDataExternal::VT_OWNER, None)}
   }
   #[inline]
   pub fn roomGroup(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroup<'a>>>> {
@@ -1761,7 +1761,7 @@ impl flatbuffers::Verifiable for RoomDataExternal<'_> {
      .visit_field::<u16>("openPrivateSlotNum", Self::VT_OPENPRIVATESLOTNUM, false)?
      .visit_field::<u16>("curMemberNum", Self::VT_CURMEMBERNUM, false)?
      .visit_field::<u64>("passwordSlotMask", Self::VT_PASSWORDSLOTMASK, false)?
-     .visit_field::<flatbuffers::ForwardsUOffset<UserInfo2>>("owner", Self::VT_OWNER, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<UserInfo>>("owner", Self::VT_OWNER, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<RoomGroup>>>>("roomGroup", Self::VT_ROOMGROUP, false)?
      .visit_field::<u32>("flagAttr", Self::VT_FLAGATTR, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<IntAttr>>>>("roomSearchableIntAttrExternal", Self::VT_ROOMSEARCHABLEINTATTREXTERNAL, false)?
@@ -1783,7 +1783,7 @@ pub struct RoomDataExternalArgs<'a> {
     pub openPrivateSlotNum: u16,
     pub curMemberNum: u16,
     pub passwordSlotMask: u64,
-    pub owner: Option<flatbuffers::WIPOffset<UserInfo2<'a>>>,
+    pub owner: Option<flatbuffers::WIPOffset<UserInfo<'a>>>,
     pub roomGroup: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroup<'a>>>>>,
     pub flagAttr: u32,
     pub roomSearchableIntAttrExternal: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<IntAttr<'a>>>>>,
@@ -1815,11 +1815,11 @@ impl<'a> Default for RoomDataExternalArgs<'a> {
   }
 }
 
-pub struct RoomDataExternalBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomDataExternalBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomDataExternalBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomDataExternalBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_serverId(&mut self, serverId: u16) {
     self.fbb_.push_slot::<u16>(RoomDataExternal::VT_SERVERID, serverId, 0);
@@ -1865,8 +1865,8 @@ impl<'a: 'b, 'b> RoomDataExternalBuilder<'a, 'b> {
     self.fbb_.push_slot::<u64>(RoomDataExternal::VT_PASSWORDSLOTMASK, passwordSlotMask, 0);
   }
   #[inline]
-  pub fn add_owner(&mut self, owner: flatbuffers::WIPOffset<UserInfo2<'b >>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<UserInfo2>>(RoomDataExternal::VT_OWNER, owner);
+  pub fn add_owner(&mut self, owner: flatbuffers::WIPOffset<UserInfo<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<UserInfo>>(RoomDataExternal::VT_OWNER, owner);
   }
   #[inline]
   pub fn add_roomGroup(&mut self, roomGroup: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<RoomGroup<'b >>>>) {
@@ -1889,7 +1889,7 @@ impl<'a: 'b, 'b> RoomDataExternalBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomDataExternal::VT_ROOMBINATTREXTERNAL, roomBinAttrExternal);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomDataExternalBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomDataExternalBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomDataExternalBuilder {
       fbb_: _fbb,
@@ -1950,8 +1950,8 @@ impl<'a> IntSearchFilter<'a> {
     IntSearchFilter { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args IntSearchFilterArgs<'args>
   ) -> flatbuffers::WIPOffset<IntSearchFilter<'bldr>> {
     let mut builder = IntSearchFilterBuilder::new(_fbb);
@@ -2004,11 +2004,11 @@ impl<'a> Default for IntSearchFilterArgs<'a> {
   }
 }
 
-pub struct IntSearchFilterBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct IntSearchFilterBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> IntSearchFilterBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> IntSearchFilterBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_searchOperator(&mut self, searchOperator: u8) {
     self.fbb_.push_slot::<u8>(IntSearchFilter::VT_SEARCHOPERATOR, searchOperator, 0);
@@ -2018,7 +2018,7 @@ impl<'a: 'b, 'b> IntSearchFilterBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<IntAttr>>(IntSearchFilter::VT_ATTR, attr);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> IntSearchFilterBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> IntSearchFilterBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     IntSearchFilterBuilder {
       fbb_: _fbb,
@@ -2064,8 +2064,8 @@ impl<'a> BinSearchFilter<'a> {
     BinSearchFilter { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args BinSearchFilterArgs<'args>
   ) -> flatbuffers::WIPOffset<BinSearchFilter<'bldr>> {
     let mut builder = BinSearchFilterBuilder::new(_fbb);
@@ -2118,11 +2118,11 @@ impl<'a> Default for BinSearchFilterArgs<'a> {
   }
 }
 
-pub struct BinSearchFilterBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct BinSearchFilterBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> BinSearchFilterBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> BinSearchFilterBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_searchOperator(&mut self, searchOperator: u8) {
     self.fbb_.push_slot::<u8>(BinSearchFilter::VT_SEARCHOPERATOR, searchOperator, 0);
@@ -2132,7 +2132,7 @@ impl<'a: 'b, 'b> BinSearchFilterBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<BinAttr>>(BinSearchFilter::VT_ATTR, attr);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> BinSearchFilterBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> BinSearchFilterBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BinSearchFilterBuilder {
       fbb_: _fbb,
@@ -2178,8 +2178,8 @@ impl<'a> PresenceOptionData<'a> {
     PresenceOptionData { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args PresenceOptionDataArgs<'args>
   ) -> flatbuffers::WIPOffset<PresenceOptionData<'bldr>> {
     let mut builder = PresenceOptionDataBuilder::new(_fbb);
@@ -2232,11 +2232,11 @@ impl<'a> Default for PresenceOptionDataArgs<'a> {
   }
 }
 
-pub struct PresenceOptionDataBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct PresenceOptionDataBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> PresenceOptionDataBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> PresenceOptionDataBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_data(&mut self, data: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(PresenceOptionData::VT_DATA, data);
@@ -2246,7 +2246,7 @@ impl<'a: 'b, 'b> PresenceOptionDataBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(PresenceOptionData::VT_LEN, len, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> PresenceOptionDataBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> PresenceOptionDataBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     PresenceOptionDataBuilder {
       fbb_: _fbb,
@@ -2292,8 +2292,8 @@ impl<'a> RoomGroupPasswordConfig<'a> {
     RoomGroupPasswordConfig { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomGroupPasswordConfigArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomGroupPasswordConfig<'bldr>> {
     let mut builder = RoomGroupPasswordConfigBuilder::new(_fbb);
@@ -2346,11 +2346,11 @@ impl<'a> Default for RoomGroupPasswordConfigArgs<'a> {
   }
 }
 
-pub struct RoomGroupPasswordConfigBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomGroupPasswordConfigBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomGroupPasswordConfigBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomGroupPasswordConfigBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_groupId(&mut self, groupId: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomGroupPasswordConfig::VT_GROUPID, groupId);
@@ -2360,7 +2360,7 @@ impl<'a: 'b, 'b> RoomGroupPasswordConfigBuilder<'a, 'b> {
     self.fbb_.push_slot::<bool>(RoomGroupPasswordConfig::VT_WITHPASSWORD, withPassword, false);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomGroupPasswordConfigBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomGroupPasswordConfigBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomGroupPasswordConfigBuilder {
       fbb_: _fbb,
@@ -2414,8 +2414,8 @@ impl<'a> SearchRoomRequest<'a> {
     SearchRoomRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args SearchRoomRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<SearchRoomRequest<'bldr>> {
     let mut builder = SearchRoomRequestBuilder::new(_fbb);
@@ -2556,11 +2556,11 @@ impl<'a> Default for SearchRoomRequestArgs<'a> {
   }
 }
 
-pub struct SearchRoomRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct SearchRoomRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> SearchRoomRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SearchRoomRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_option(&mut self, option: i32) {
     self.fbb_.push_slot::<i32>(SearchRoomRequest::VT_OPTION, option, 0);
@@ -2602,7 +2602,7 @@ impl<'a: 'b, 'b> SearchRoomRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SearchRoomRequest::VT_ATTRID, attrId);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SearchRoomRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SearchRoomRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SearchRoomRequestBuilder {
       fbb_: _fbb,
@@ -2650,21 +2650,19 @@ impl<'a> flatbuffers::Follow<'a> for SearchRoomResponse<'a> {
 impl<'a> SearchRoomResponse<'a> {
   pub const VT_STARTINDEX: flatbuffers::VOffsetT = 4;
   pub const VT_TOTAL: flatbuffers::VOffsetT = 6;
-  pub const VT_SIZE_: flatbuffers::VOffsetT = 8;
-  pub const VT_ROOMS: flatbuffers::VOffsetT = 10;
+  pub const VT_ROOMS: flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
     SearchRoomResponse { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args SearchRoomResponseArgs<'args>
   ) -> flatbuffers::WIPOffset<SearchRoomResponse<'bldr>> {
     let mut builder = SearchRoomResponseBuilder::new(_fbb);
     if let Some(x) = args.rooms { builder.add_rooms(x); }
-    builder.add_size_(args.size_);
     builder.add_total(args.total);
     builder.add_startIndex(args.startIndex);
     builder.finish()
@@ -2686,13 +2684,6 @@ impl<'a> SearchRoomResponse<'a> {
     unsafe { self._tab.get::<u32>(SearchRoomResponse::VT_TOTAL, Some(0)).unwrap()}
   }
   #[inline]
-  pub fn size_(&self) -> u32 {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<u32>(SearchRoomResponse::VT_SIZE_, Some(0)).unwrap()}
-  }
-  #[inline]
   pub fn rooms(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal<'a>>>> {
     // Safety:
     // Created from valid Table for this object
@@ -2710,7 +2701,6 @@ impl flatbuffers::Verifiable for SearchRoomResponse<'_> {
     v.visit_table(pos)?
      .visit_field::<u32>("startIndex", Self::VT_STARTINDEX, false)?
      .visit_field::<u32>("total", Self::VT_TOTAL, false)?
-     .visit_field::<u32>("size_", Self::VT_SIZE_, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<RoomDataExternal>>>>("rooms", Self::VT_ROOMS, false)?
      .finish();
     Ok(())
@@ -2719,7 +2709,6 @@ impl flatbuffers::Verifiable for SearchRoomResponse<'_> {
 pub struct SearchRoomResponseArgs<'a> {
     pub startIndex: u32,
     pub total: u32,
-    pub size_: u32,
     pub rooms: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomDataExternal<'a>>>>>,
 }
 impl<'a> Default for SearchRoomResponseArgs<'a> {
@@ -2728,17 +2717,16 @@ impl<'a> Default for SearchRoomResponseArgs<'a> {
     SearchRoomResponseArgs {
       startIndex: 0,
       total: 0,
-      size_: 0,
       rooms: None,
     }
   }
 }
 
-pub struct SearchRoomResponseBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct SearchRoomResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> SearchRoomResponseBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SearchRoomResponseBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_startIndex(&mut self, startIndex: u32) {
     self.fbb_.push_slot::<u32>(SearchRoomResponse::VT_STARTINDEX, startIndex, 0);
@@ -2748,15 +2736,11 @@ impl<'a: 'b, 'b> SearchRoomResponseBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(SearchRoomResponse::VT_TOTAL, total, 0);
   }
   #[inline]
-  pub fn add_size_(&mut self, size_: u32) {
-    self.fbb_.push_slot::<u32>(SearchRoomResponse::VT_SIZE_, size_, 0);
-  }
-  #[inline]
   pub fn add_rooms(&mut self, rooms: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<RoomDataExternal<'b >>>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SearchRoomResponse::VT_ROOMS, rooms);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SearchRoomResponseBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SearchRoomResponseBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SearchRoomResponseBuilder {
       fbb_: _fbb,
@@ -2775,7 +2759,6 @@ impl core::fmt::Debug for SearchRoomResponse<'_> {
     let mut ds = f.debug_struct("SearchRoomResponse");
       ds.field("startIndex", &self.startIndex());
       ds.field("total", &self.total());
-      ds.field("size_", &self.size_());
       ds.field("rooms", &self.rooms());
       ds.finish()
   }
@@ -2819,8 +2802,8 @@ impl<'a> CreateJoinRoomRequest<'a> {
     CreateJoinRoomRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args CreateJoinRoomRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<CreateJoinRoomRequest<'bldr>> {
     let mut builder = CreateJoinRoomRequestBuilder::new(_fbb);
@@ -3038,11 +3021,11 @@ impl<'a> Default for CreateJoinRoomRequestArgs<'a> {
   }
 }
 
-pub struct CreateJoinRoomRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct CreateJoinRoomRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> CreateJoinRoomRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> CreateJoinRoomRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_worldId(&mut self, worldId: u32) {
     self.fbb_.push_slot::<u32>(CreateJoinRoomRequest::VT_WORLDID, worldId, 0);
@@ -3112,7 +3095,7 @@ impl<'a: 'b, 'b> CreateJoinRoomRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<OptParam>>(CreateJoinRoomRequest::VT_SIGOPTPARAM, sigOptParam);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> CreateJoinRoomRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> CreateJoinRoomRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     CreateJoinRoomRequestBuilder {
       fbb_: _fbb,
@@ -3177,8 +3160,8 @@ impl<'a> JoinRoomRequest<'a> {
     JoinRoomRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args JoinRoomRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<JoinRoomRequest<'bldr>> {
     let mut builder = JoinRoomRequestBuilder::new(_fbb);
@@ -3275,11 +3258,11 @@ impl<'a> Default for JoinRoomRequestArgs<'a> {
   }
 }
 
-pub struct JoinRoomRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct JoinRoomRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> JoinRoomRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> JoinRoomRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomId(&mut self, roomId: u64) {
     self.fbb_.push_slot::<u64>(JoinRoomRequest::VT_ROOMID, roomId, 0);
@@ -3305,7 +3288,7 @@ impl<'a: 'b, 'b> JoinRoomRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<u8>(JoinRoomRequest::VT_TEAMID, teamId, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> JoinRoomRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> JoinRoomRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     JoinRoomRequestBuilder {
       fbb_: _fbb,
@@ -3355,8 +3338,8 @@ impl<'a> LeaveRoomRequest<'a> {
     LeaveRoomRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args LeaveRoomRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<LeaveRoomRequest<'bldr>> {
     let mut builder = LeaveRoomRequestBuilder::new(_fbb);
@@ -3409,11 +3392,11 @@ impl<'a> Default for LeaveRoomRequestArgs<'a> {
   }
 }
 
-pub struct LeaveRoomRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct LeaveRoomRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> LeaveRoomRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> LeaveRoomRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomId(&mut self, roomId: u64) {
     self.fbb_.push_slot::<u64>(LeaveRoomRequest::VT_ROOMID, roomId, 0);
@@ -3423,7 +3406,7 @@ impl<'a: 'b, 'b> LeaveRoomRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<PresenceOptionData>>(LeaveRoomRequest::VT_OPTDATA, optData);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> LeaveRoomRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> LeaveRoomRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     LeaveRoomRequestBuilder {
       fbb_: _fbb,
@@ -3469,8 +3452,8 @@ impl<'a> GetRoomDataExternalListRequest<'a> {
     GetRoomDataExternalListRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetRoomDataExternalListRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<GetRoomDataExternalListRequest<'bldr>> {
     let mut builder = GetRoomDataExternalListRequestBuilder::new(_fbb);
@@ -3523,11 +3506,11 @@ impl<'a> Default for GetRoomDataExternalListRequestArgs<'a> {
   }
 }
 
-pub struct GetRoomDataExternalListRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetRoomDataExternalListRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetRoomDataExternalListRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetRoomDataExternalListRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomIds(&mut self, roomIds: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u64>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomDataExternalListRequest::VT_ROOMIDS, roomIds);
@@ -3537,7 +3520,7 @@ impl<'a: 'b, 'b> GetRoomDataExternalListRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomDataExternalListRequest::VT_ATTRIDS, attrIds);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetRoomDataExternalListRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetRoomDataExternalListRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetRoomDataExternalListRequestBuilder {
       fbb_: _fbb,
@@ -3582,8 +3565,8 @@ impl<'a> GetRoomDataExternalListResponse<'a> {
     GetRoomDataExternalListResponse { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetRoomDataExternalListResponseArgs<'args>
   ) -> flatbuffers::WIPOffset<GetRoomDataExternalListResponse<'bldr>> {
     let mut builder = GetRoomDataExternalListResponseBuilder::new(_fbb);
@@ -3625,17 +3608,17 @@ impl<'a> Default for GetRoomDataExternalListResponseArgs<'a> {
   }
 }
 
-pub struct GetRoomDataExternalListResponseBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetRoomDataExternalListResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetRoomDataExternalListResponseBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetRoomDataExternalListResponseBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_rooms(&mut self, rooms: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<RoomDataExternal<'b >>>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomDataExternalListResponse::VT_ROOMS, rooms);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetRoomDataExternalListResponseBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetRoomDataExternalListResponseBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetRoomDataExternalListResponseBuilder {
       fbb_: _fbb,
@@ -3682,8 +3665,8 @@ impl<'a> SetRoomDataExternalRequest<'a> {
     SetRoomDataExternalRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args SetRoomDataExternalRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<SetRoomDataExternalRequest<'bldr>> {
     let mut builder = SetRoomDataExternalRequestBuilder::new(_fbb);
@@ -3758,11 +3741,11 @@ impl<'a> Default for SetRoomDataExternalRequestArgs<'a> {
   }
 }
 
-pub struct SetRoomDataExternalRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct SetRoomDataExternalRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> SetRoomDataExternalRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetRoomDataExternalRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomId(&mut self, roomId: u64) {
     self.fbb_.push_slot::<u64>(SetRoomDataExternalRequest::VT_ROOMID, roomId, 0);
@@ -3780,7 +3763,7 @@ impl<'a: 'b, 'b> SetRoomDataExternalRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetRoomDataExternalRequest::VT_ROOMBINATTREXTERNAL, roomBinAttrExternal);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SetRoomDataExternalRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SetRoomDataExternalRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SetRoomDataExternalRequestBuilder {
       fbb_: _fbb,
@@ -3833,8 +3816,8 @@ impl<'a> SetRoomDataInternalRequest<'a> {
     SetRoomDataInternalRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args SetRoomDataInternalRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<SetRoomDataInternalRequest<'bldr>> {
     let mut builder = SetRoomDataInternalRequestBuilder::new(_fbb);
@@ -3942,11 +3925,11 @@ impl<'a> Default for SetRoomDataInternalRequestArgs<'a> {
   }
 }
 
-pub struct SetRoomDataInternalRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct SetRoomDataInternalRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> SetRoomDataInternalRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetRoomDataInternalRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomId(&mut self, roomId: u64) {
     self.fbb_.push_slot::<u64>(SetRoomDataInternalRequest::VT_ROOMID, roomId, 0);
@@ -3976,7 +3959,7 @@ impl<'a: 'b, 'b> SetRoomDataInternalRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetRoomDataInternalRequest::VT_OWNERPRIVILEGERANK, ownerPrivilegeRank);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SetRoomDataInternalRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SetRoomDataInternalRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SetRoomDataInternalRequestBuilder {
       fbb_: _fbb,
@@ -4028,8 +4011,8 @@ impl<'a> GetRoomMemberDataInternalRequest<'a> {
     GetRoomMemberDataInternalRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetRoomMemberDataInternalRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<GetRoomMemberDataInternalRequest<'bldr>> {
     let mut builder = GetRoomMemberDataInternalRequestBuilder::new(_fbb);
@@ -4093,11 +4076,11 @@ impl<'a> Default for GetRoomMemberDataInternalRequestArgs<'a> {
   }
 }
 
-pub struct GetRoomMemberDataInternalRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetRoomMemberDataInternalRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetRoomMemberDataInternalRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetRoomMemberDataInternalRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomId(&mut self, roomId: u64) {
     self.fbb_.push_slot::<u64>(GetRoomMemberDataInternalRequest::VT_ROOMID, roomId, 0);
@@ -4111,7 +4094,7 @@ impl<'a: 'b, 'b> GetRoomMemberDataInternalRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomMemberDataInternalRequest::VT_ATTRID, attrId);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetRoomMemberDataInternalRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetRoomMemberDataInternalRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetRoomMemberDataInternalRequestBuilder {
       fbb_: _fbb,
@@ -4160,8 +4143,8 @@ impl<'a> SetRoomMemberDataInternalRequest<'a> {
     SetRoomMemberDataInternalRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args SetRoomMemberDataInternalRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<SetRoomMemberDataInternalRequest<'bldr>> {
     let mut builder = SetRoomMemberDataInternalRequestBuilder::new(_fbb);
@@ -4236,11 +4219,11 @@ impl<'a> Default for SetRoomMemberDataInternalRequestArgs<'a> {
   }
 }
 
-pub struct SetRoomMemberDataInternalRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct SetRoomMemberDataInternalRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> SetRoomMemberDataInternalRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetRoomMemberDataInternalRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomId(&mut self, roomId: u64) {
     self.fbb_.push_slot::<u64>(SetRoomMemberDataInternalRequest::VT_ROOMID, roomId, 0);
@@ -4258,7 +4241,7 @@ impl<'a: 'b, 'b> SetRoomMemberDataInternalRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetRoomMemberDataInternalRequest::VT_ROOMMEMBERBINATTRINTERNAL, roomMemberBinAttrInternal);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SetRoomMemberDataInternalRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SetRoomMemberDataInternalRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SetRoomMemberDataInternalRequestBuilder {
       fbb_: _fbb,
@@ -4306,8 +4289,8 @@ impl<'a> SetUserInfo<'a> {
     SetUserInfo { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args SetUserInfoArgs<'args>
   ) -> flatbuffers::WIPOffset<SetUserInfo<'bldr>> {
     let mut builder = SetUserInfoBuilder::new(_fbb);
@@ -4360,11 +4343,11 @@ impl<'a> Default for SetUserInfoArgs<'a> {
   }
 }
 
-pub struct SetUserInfoBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct SetUserInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> SetUserInfoBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetUserInfoBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_serverId(&mut self, serverId: u16) {
     self.fbb_.push_slot::<u16>(SetUserInfo::VT_SERVERID, serverId, 0);
@@ -4374,7 +4357,7 @@ impl<'a: 'b, 'b> SetUserInfoBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetUserInfo::VT_USERBINATTR, userBinAttr);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SetUserInfoBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SetUserInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SetUserInfoBuilder {
       fbb_: _fbb,
@@ -4420,8 +4403,8 @@ impl<'a> GetRoomDataInternalRequest<'a> {
     GetRoomDataInternalRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetRoomDataInternalRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<GetRoomDataInternalRequest<'bldr>> {
     let mut builder = GetRoomDataInternalRequestBuilder::new(_fbb);
@@ -4474,11 +4457,11 @@ impl<'a> Default for GetRoomDataInternalRequestArgs<'a> {
   }
 }
 
-pub struct GetRoomDataInternalRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetRoomDataInternalRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetRoomDataInternalRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetRoomDataInternalRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomId(&mut self, roomId: u64) {
     self.fbb_.push_slot::<u64>(GetRoomDataInternalRequest::VT_ROOMID, roomId, 0);
@@ -4488,7 +4471,7 @@ impl<'a: 'b, 'b> GetRoomDataInternalRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomDataInternalRequest::VT_ATTRID, attrId);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetRoomDataInternalRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetRoomDataInternalRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetRoomDataInternalRequestBuilder {
       fbb_: _fbb,
@@ -4535,8 +4518,8 @@ impl<'a> RoomMemberUpdateInfo<'a> {
     RoomMemberUpdateInfo { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomMemberUpdateInfoArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomMemberUpdateInfo<'bldr>> {
     let mut builder = RoomMemberUpdateInfoBuilder::new(_fbb);
@@ -4600,11 +4583,11 @@ impl<'a> Default for RoomMemberUpdateInfoArgs<'a> {
   }
 }
 
-pub struct RoomMemberUpdateInfoBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomMemberUpdateInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomMemberUpdateInfoBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomMemberUpdateInfoBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomMemberDataInternal(&mut self, roomMemberDataInternal: flatbuffers::WIPOffset<RoomMemberDataInternal<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<RoomMemberDataInternal>>(RoomMemberUpdateInfo::VT_ROOMMEMBERDATAINTERNAL, roomMemberDataInternal);
@@ -4618,7 +4601,7 @@ impl<'a: 'b, 'b> RoomMemberUpdateInfoBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<PresenceOptionData>>(RoomMemberUpdateInfo::VT_OPTDATA, optData);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomMemberUpdateInfoBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomMemberUpdateInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomMemberUpdateInfoBuilder {
       fbb_: _fbb,
@@ -4666,8 +4649,8 @@ impl<'a> RoomUpdateInfo<'a> {
     RoomUpdateInfo { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomUpdateInfoArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomUpdateInfo<'bldr>> {
     let mut builder = RoomUpdateInfoBuilder::new(_fbb);
@@ -4731,11 +4714,11 @@ impl<'a> Default for RoomUpdateInfoArgs<'a> {
   }
 }
 
-pub struct RoomUpdateInfoBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomUpdateInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomUpdateInfoBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomUpdateInfoBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_eventCause(&mut self, eventCause: u8) {
     self.fbb_.push_slot::<u8>(RoomUpdateInfo::VT_EVENTCAUSE, eventCause, 0);
@@ -4749,7 +4732,7 @@ impl<'a: 'b, 'b> RoomUpdateInfoBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<PresenceOptionData>>(RoomUpdateInfo::VT_OPTDATA, optData);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomUpdateInfoBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomUpdateInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomUpdateInfoBuilder {
       fbb_: _fbb,
@@ -4799,8 +4782,8 @@ impl<'a> RoomDataInternalUpdateInfo<'a> {
     RoomDataInternalUpdateInfo { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomDataInternalUpdateInfoArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomDataInternalUpdateInfo<'bldr>> {
     let mut builder = RoomDataInternalUpdateInfoBuilder::new(_fbb);
@@ -4886,11 +4869,11 @@ impl<'a> Default for RoomDataInternalUpdateInfoArgs<'a> {
   }
 }
 
-pub struct RoomDataInternalUpdateInfoBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomDataInternalUpdateInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomDataInternalUpdateInfoBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomDataInternalUpdateInfoBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_newRoomDataInternal(&mut self, newRoomDataInternal: flatbuffers::WIPOffset<RoomDataInternal<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<RoomDataInternal>>(RoomDataInternalUpdateInfo::VT_NEWROOMDATAINTERNAL, newRoomDataInternal);
@@ -4912,7 +4895,7 @@ impl<'a: 'b, 'b> RoomDataInternalUpdateInfoBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomDataInternalUpdateInfo::VT_NEWROOMBINATTRINTERNAL, newRoomBinAttrInternal);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomDataInternalUpdateInfoBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomDataInternalUpdateInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomDataInternalUpdateInfoBuilder {
       fbb_: _fbb,
@@ -4963,8 +4946,8 @@ impl<'a> RoomMemberDataInternalUpdateInfo<'a> {
     RoomMemberDataInternalUpdateInfo { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomMemberDataInternalUpdateInfoArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomMemberDataInternalUpdateInfo<'bldr>> {
     let mut builder = RoomMemberDataInternalUpdateInfoBuilder::new(_fbb);
@@ -5039,11 +5022,11 @@ impl<'a> Default for RoomMemberDataInternalUpdateInfoArgs<'a> {
   }
 }
 
-pub struct RoomMemberDataInternalUpdateInfoBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomMemberDataInternalUpdateInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomMemberDataInternalUpdateInfoBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomMemberDataInternalUpdateInfoBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_newRoomMemberDataInternal(&mut self, newRoomMemberDataInternal: flatbuffers::WIPOffset<RoomMemberDataInternal<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<RoomMemberDataInternal>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERDATAINTERNAL, newRoomMemberDataInternal);
@@ -5061,7 +5044,7 @@ impl<'a: 'b, 'b> RoomMemberDataInternalUpdateInfoBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomMemberDataInternalUpdateInfo::VT_NEWROOMMEMBERBINATTRINTERNAL, newRoomMemberBinAttrInternal);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomMemberDataInternalUpdateInfoBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomMemberDataInternalUpdateInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomMemberDataInternalUpdateInfoBuilder {
       fbb_: _fbb,
@@ -5111,8 +5094,8 @@ impl<'a> GetPingInfoResponse<'a> {
     GetPingInfoResponse { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetPingInfoResponseArgs
   ) -> flatbuffers::WIPOffset<GetPingInfoResponse<'bldr>> {
     let mut builder = GetPingInfoResponseBuilder::new(_fbb);
@@ -5187,11 +5170,11 @@ impl<'a> Default for GetPingInfoResponseArgs {
   }
 }
 
-pub struct GetPingInfoResponseBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetPingInfoResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetPingInfoResponseBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetPingInfoResponseBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_serverId(&mut self, serverId: u16) {
     self.fbb_.push_slot::<u16>(GetPingInfoResponse::VT_SERVERID, serverId, 0);
@@ -5209,7 +5192,7 @@ impl<'a: 'b, 'b> GetPingInfoResponseBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(GetPingInfoResponse::VT_RTT, rtt, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetPingInfoResponseBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetPingInfoResponseBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetPingInfoResponseBuilder {
       fbb_: _fbb,
@@ -5260,8 +5243,8 @@ impl<'a> SendRoomMessageRequest<'a> {
     SendRoomMessageRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args SendRoomMessageRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<SendRoomMessageRequest<'bldr>> {
     let mut builder = SendRoomMessageRequestBuilder::new(_fbb);
@@ -5347,11 +5330,11 @@ impl<'a> Default for SendRoomMessageRequestArgs<'a> {
   }
 }
 
-pub struct SendRoomMessageRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct SendRoomMessageRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> SendRoomMessageRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SendRoomMessageRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_roomId(&mut self, roomId: u64) {
     self.fbb_.push_slot::<u64>(SendRoomMessageRequest::VT_ROOMID, roomId, 0);
@@ -5373,7 +5356,7 @@ impl<'a: 'b, 'b> SendRoomMessageRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<u8>(SendRoomMessageRequest::VT_OPTION, option, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SendRoomMessageRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SendRoomMessageRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SendRoomMessageRequestBuilder {
       fbb_: _fbb,
@@ -5425,8 +5408,8 @@ impl<'a> RoomMessageInfo<'a> {
     RoomMessageInfo { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RoomMessageInfoArgs<'args>
   ) -> flatbuffers::WIPOffset<RoomMessageInfo<'bldr>> {
     let mut builder = RoomMessageInfoBuilder::new(_fbb);
@@ -5461,11 +5444,11 @@ impl<'a> RoomMessageInfo<'a> {
     unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u16>>>(RoomMessageInfo::VT_DST, None)}
   }
   #[inline]
-  pub fn srcMember(&self) -> Option<UserInfo2<'a>> {
+  pub fn srcMember(&self) -> Option<UserInfo<'a>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo2>>(RoomMessageInfo::VT_SRCMEMBER, None)}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo>>(RoomMessageInfo::VT_SRCMEMBER, None)}
   }
   #[inline]
   pub fn msg(&self) -> Option<flatbuffers::Vector<'a, u8>> {
@@ -5486,7 +5469,7 @@ impl flatbuffers::Verifiable for RoomMessageInfo<'_> {
      .visit_field::<bool>("filtered", Self::VT_FILTERED, false)?
      .visit_field::<u8>("castType", Self::VT_CASTTYPE, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>("dst", Self::VT_DST, false)?
-     .visit_field::<flatbuffers::ForwardsUOffset<UserInfo2>>("srcMember", Self::VT_SRCMEMBER, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<UserInfo>>("srcMember", Self::VT_SRCMEMBER, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("msg", Self::VT_MSG, false)?
      .finish();
     Ok(())
@@ -5496,7 +5479,7 @@ pub struct RoomMessageInfoArgs<'a> {
     pub filtered: bool,
     pub castType: u8,
     pub dst: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
-    pub srcMember: Option<flatbuffers::WIPOffset<UserInfo2<'a>>>,
+    pub srcMember: Option<flatbuffers::WIPOffset<UserInfo<'a>>>,
     pub msg: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
 }
 impl<'a> Default for RoomMessageInfoArgs<'a> {
@@ -5512,11 +5495,11 @@ impl<'a> Default for RoomMessageInfoArgs<'a> {
   }
 }
 
-pub struct RoomMessageInfoBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RoomMessageInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RoomMessageInfoBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomMessageInfoBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_filtered(&mut self, filtered: bool) {
     self.fbb_.push_slot::<bool>(RoomMessageInfo::VT_FILTERED, filtered, false);
@@ -5530,15 +5513,15 @@ impl<'a: 'b, 'b> RoomMessageInfoBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomMessageInfo::VT_DST, dst);
   }
   #[inline]
-  pub fn add_srcMember(&mut self, srcMember: flatbuffers::WIPOffset<UserInfo2<'b >>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<UserInfo2>>(RoomMessageInfo::VT_SRCMEMBER, srcMember);
+  pub fn add_srcMember(&mut self, srcMember: flatbuffers::WIPOffset<UserInfo<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<UserInfo>>(RoomMessageInfo::VT_SRCMEMBER, srcMember);
   }
   #[inline]
   pub fn add_msg(&mut self, msg: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomMessageInfo::VT_MSG, msg);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RoomMessageInfoBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RoomMessageInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RoomMessageInfoBuilder {
       fbb_: _fbb,
@@ -5593,8 +5576,8 @@ impl<'a> MessageDetails<'a> {
     MessageDetails { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args MessageDetailsArgs<'args>
   ) -> flatbuffers::WIPOffset<MessageDetails<'bldr>> {
     let mut builder = MessageDetailsBuilder::new(_fbb);
@@ -5713,11 +5696,11 @@ impl<'a> Default for MessageDetailsArgs<'a> {
   }
 }
 
-pub struct MessageDetailsBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct MessageDetailsBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> MessageDetailsBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MessageDetailsBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_communicationId(&mut self, communicationId: flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MessageDetails::VT_COMMUNICATIONID, communicationId);
@@ -5751,7 +5734,7 @@ impl<'a: 'b, 'b> MessageDetailsBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MessageDetails::VT_DATA, data);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> MessageDetailsBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MessageDetailsBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     MessageDetailsBuilder {
       fbb_: _fbb,
@@ -5803,8 +5786,8 @@ impl<'a> SendMessageRequest<'a> {
     SendMessageRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args SendMessageRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<SendMessageRequest<'bldr>> {
     let mut builder = SendMessageRequestBuilder::new(_fbb);
@@ -5866,11 +5849,11 @@ impl<'a> Default for SendMessageRequestArgs<'a> {
   }
 }
 
-pub struct SendMessageRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct SendMessageRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> SendMessageRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SendMessageRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_message(&mut self, message: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SendMessageRequest::VT_MESSAGE, message);
@@ -5880,7 +5863,7 @@ impl<'a: 'b, 'b> SendMessageRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SendMessageRequest::VT_NPIDS, npids);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SendMessageRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SendMessageRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SendMessageRequestBuilder {
       fbb_: _fbb,
@@ -5929,8 +5912,8 @@ impl<'a> BoardInfo<'a> {
     BoardInfo { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args BoardInfoArgs
   ) -> flatbuffers::WIPOffset<BoardInfo<'bldr>> {
     let mut builder = BoardInfoBuilder::new(_fbb);
@@ -6016,11 +5999,11 @@ impl<'a> Default for BoardInfoArgs {
   }
 }
 
-pub struct BoardInfoBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct BoardInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> BoardInfoBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> BoardInfoBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_rankLimit(&mut self, rankLimit: u32) {
     self.fbb_.push_slot::<u32>(BoardInfo::VT_RANKLIMIT, rankLimit, 0);
@@ -6042,7 +6025,7 @@ impl<'a: 'b, 'b> BoardInfoBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(BoardInfo::VT_UPLOADSIZELIMIT, uploadSizeLimit, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> BoardInfoBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> BoardInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     BoardInfoBuilder {
       fbb_: _fbb,
@@ -6094,8 +6077,8 @@ impl<'a> RecordScoreRequest<'a> {
     RecordScoreRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RecordScoreRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<RecordScoreRequest<'bldr>> {
     let mut builder = RecordScoreRequestBuilder::new(_fbb);
@@ -6181,11 +6164,11 @@ impl<'a> Default for RecordScoreRequestArgs<'a> {
   }
 }
 
-pub struct RecordScoreRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RecordScoreRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RecordScoreRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RecordScoreRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_boardId(&mut self, boardId: u32) {
     self.fbb_.push_slot::<u32>(RecordScoreRequest::VT_BOARDID, boardId, 0);
@@ -6207,7 +6190,7 @@ impl<'a: 'b, 'b> RecordScoreRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RecordScoreRequest::VT_DATA, data);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RecordScoreRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RecordScoreRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RecordScoreRequestBuilder {
       fbb_: _fbb,
@@ -6259,8 +6242,8 @@ impl<'a> GetScoreRangeRequest<'a> {
     GetScoreRangeRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetScoreRangeRequestArgs
   ) -> flatbuffers::WIPOffset<GetScoreRangeRequest<'bldr>> {
     let mut builder = GetScoreRangeRequestBuilder::new(_fbb);
@@ -6346,11 +6329,11 @@ impl<'a> Default for GetScoreRangeRequestArgs {
   }
 }
 
-pub struct GetScoreRangeRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetScoreRangeRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetScoreRangeRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetScoreRangeRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_boardId(&mut self, boardId: u32) {
     self.fbb_.push_slot::<u32>(GetScoreRangeRequest::VT_BOARDID, boardId, 0);
@@ -6372,7 +6355,7 @@ impl<'a: 'b, 'b> GetScoreRangeRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<bool>(GetScoreRangeRequest::VT_WITHGAMEINFO, withGameInfo, false);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetScoreRangeRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetScoreRangeRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetScoreRangeRequestBuilder {
       fbb_: _fbb,
@@ -6421,8 +6404,8 @@ impl<'a> ScoreNpIdPcId<'a> {
     ScoreNpIdPcId { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args ScoreNpIdPcIdArgs<'args>
   ) -> flatbuffers::WIPOffset<ScoreNpIdPcId<'bldr>> {
     let mut builder = ScoreNpIdPcIdBuilder::new(_fbb);
@@ -6475,11 +6458,11 @@ impl<'a> Default for ScoreNpIdPcIdArgs<'a> {
   }
 }
 
-pub struct ScoreNpIdPcIdBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct ScoreNpIdPcIdBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> ScoreNpIdPcIdBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ScoreNpIdPcIdBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_npid(&mut self, npid: flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ScoreNpIdPcId::VT_NPID, npid);
@@ -6489,7 +6472,7 @@ impl<'a: 'b, 'b> ScoreNpIdPcIdBuilder<'a, 'b> {
     self.fbb_.push_slot::<i32>(ScoreNpIdPcId::VT_PCID, pcId, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> ScoreNpIdPcIdBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ScoreNpIdPcIdBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ScoreNpIdPcIdBuilder {
       fbb_: _fbb,
@@ -6537,8 +6520,8 @@ impl<'a> GetScoreNpIdRequest<'a> {
     GetScoreNpIdRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetScoreNpIdRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<GetScoreNpIdRequest<'bldr>> {
     let mut builder = GetScoreNpIdRequestBuilder::new(_fbb);
@@ -6613,11 +6596,11 @@ impl<'a> Default for GetScoreNpIdRequestArgs<'a> {
   }
 }
 
-pub struct GetScoreNpIdRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetScoreNpIdRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetScoreNpIdRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetScoreNpIdRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_boardId(&mut self, boardId: u32) {
     self.fbb_.push_slot::<u32>(GetScoreNpIdRequest::VT_BOARDID, boardId, 0);
@@ -6635,7 +6618,7 @@ impl<'a: 'b, 'b> GetScoreNpIdRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<bool>(GetScoreNpIdRequest::VT_WITHGAMEINFO, withGameInfo, false);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetScoreNpIdRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetScoreNpIdRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetScoreNpIdRequestBuilder {
       fbb_: _fbb,
@@ -6686,8 +6669,8 @@ impl<'a> GetScoreFriendsRequest<'a> {
     GetScoreFriendsRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetScoreFriendsRequestArgs
   ) -> flatbuffers::WIPOffset<GetScoreFriendsRequest<'bldr>> {
     let mut builder = GetScoreFriendsRequestBuilder::new(_fbb);
@@ -6773,11 +6756,11 @@ impl<'a> Default for GetScoreFriendsRequestArgs {
   }
 }
 
-pub struct GetScoreFriendsRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetScoreFriendsRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetScoreFriendsRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetScoreFriendsRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_boardId(&mut self, boardId: u32) {
     self.fbb_.push_slot::<u32>(GetScoreFriendsRequest::VT_BOARDID, boardId, 0);
@@ -6799,7 +6782,7 @@ impl<'a: 'b, 'b> GetScoreFriendsRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<bool>(GetScoreFriendsRequest::VT_WITHGAMEINFO, withGameInfo, false);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetScoreFriendsRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetScoreFriendsRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetScoreFriendsRequestBuilder {
       fbb_: _fbb,
@@ -6853,8 +6836,8 @@ impl<'a> ScoreRankData<'a> {
     ScoreRankData { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args ScoreRankDataArgs<'args>
   ) -> flatbuffers::WIPOffset<ScoreRankData<'bldr>> {
     let mut builder = ScoreRankDataBuilder::new(_fbb);
@@ -6962,11 +6945,11 @@ impl<'a> Default for ScoreRankDataArgs<'a> {
   }
 }
 
-pub struct ScoreRankDataBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct ScoreRankDataBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> ScoreRankDataBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ScoreRankDataBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_npId(&mut self, npId: flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ScoreRankData::VT_NPID, npId);
@@ -6996,7 +6979,7 @@ impl<'a: 'b, 'b> ScoreRankDataBuilder<'a, 'b> {
     self.fbb_.push_slot::<u64>(ScoreRankData::VT_RECORDDATE, recordDate, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> ScoreRankDataBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ScoreRankDataBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ScoreRankDataBuilder {
       fbb_: _fbb,
@@ -7046,8 +7029,8 @@ impl<'a> ScoreInfo<'a> {
     ScoreInfo { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args ScoreInfoArgs<'args>
   ) -> flatbuffers::WIPOffset<ScoreInfo<'bldr>> {
     let mut builder = ScoreInfoBuilder::new(_fbb);
@@ -7089,17 +7072,17 @@ impl<'a> Default for ScoreInfoArgs<'a> {
   }
 }
 
-pub struct ScoreInfoBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct ScoreInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> ScoreInfoBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> ScoreInfoBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_data(&mut self, data: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(ScoreInfo::VT_DATA, data);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> ScoreInfoBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> ScoreInfoBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     ScoreInfoBuilder {
       fbb_: _fbb,
@@ -7147,8 +7130,8 @@ impl<'a> GetScoreResponse<'a> {
     GetScoreResponse { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetScoreResponseArgs<'args>
   ) -> flatbuffers::WIPOffset<GetScoreResponse<'bldr>> {
     let mut builder = GetScoreResponseBuilder::new(_fbb);
@@ -7234,11 +7217,11 @@ impl<'a> Default for GetScoreResponseArgs<'a> {
   }
 }
 
-pub struct GetScoreResponseBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetScoreResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetScoreResponseBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetScoreResponseBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_rankArray(&mut self, rankArray: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<ScoreRankData<'b >>>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetScoreResponse::VT_RANKARRAY, rankArray);
@@ -7260,7 +7243,7 @@ impl<'a: 'b, 'b> GetScoreResponseBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(GetScoreResponse::VT_TOTALRECORD, totalRecord, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetScoreResponseBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetScoreResponseBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetScoreResponseBuilder {
       fbb_: _fbb,
@@ -7310,8 +7293,8 @@ impl<'a> RecordScoreGameDataRequest<'a> {
     RecordScoreGameDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args RecordScoreGameDataRequestArgs
   ) -> flatbuffers::WIPOffset<RecordScoreGameDataRequest<'bldr>> {
     let mut builder = RecordScoreGameDataRequestBuilder::new(_fbb);
@@ -7375,11 +7358,11 @@ impl<'a> Default for RecordScoreGameDataRequestArgs {
   }
 }
 
-pub struct RecordScoreGameDataRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct RecordScoreGameDataRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> RecordScoreGameDataRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RecordScoreGameDataRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_boardId(&mut self, boardId: u32) {
     self.fbb_.push_slot::<u32>(RecordScoreGameDataRequest::VT_BOARDID, boardId, 0);
@@ -7393,7 +7376,7 @@ impl<'a: 'b, 'b> RecordScoreGameDataRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<i64>(RecordScoreGameDataRequest::VT_SCORE, score, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> RecordScoreGameDataRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> RecordScoreGameDataRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     RecordScoreGameDataRequestBuilder {
       fbb_: _fbb,
@@ -7441,8 +7424,8 @@ impl<'a> GetScoreGameDataRequest<'a> {
     GetScoreGameDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args GetScoreGameDataRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<GetScoreGameDataRequest<'bldr>> {
     let mut builder = GetScoreGameDataRequestBuilder::new(_fbb);
@@ -7506,11 +7489,11 @@ impl<'a> Default for GetScoreGameDataRequestArgs<'a> {
   }
 }
 
-pub struct GetScoreGameDataRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct GetScoreGameDataRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> GetScoreGameDataRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetScoreGameDataRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_boardId(&mut self, boardId: u32) {
     self.fbb_.push_slot::<u32>(GetScoreGameDataRequest::VT_BOARDID, boardId, 0);
@@ -7524,7 +7507,7 @@ impl<'a: 'b, 'b> GetScoreGameDataRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<i32>(GetScoreGameDataRequest::VT_PCID, pcId, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> GetScoreGameDataRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetScoreGameDataRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     GetScoreGameDataRequestBuilder {
       fbb_: _fbb,
@@ -7571,8 +7554,8 @@ impl<'a> TusUser<'a> {
     TusUser { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusUserArgs<'args>
   ) -> flatbuffers::WIPOffset<TusUser<'bldr>> {
     let mut builder = TusUserBuilder::new(_fbb);
@@ -7625,11 +7608,11 @@ impl<'a> Default for TusUserArgs<'a> {
   }
 }
 
-pub struct TusUserBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusUserBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusUserBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusUserBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_vuser(&mut self, vuser: bool) {
     self.fbb_.push_slot::<bool>(TusUser::VT_VUSER, vuser, false);
@@ -7639,7 +7622,7 @@ impl<'a: 'b, 'b> TusUserBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusUser::VT_NPID, npid);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusUserBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusUserBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusUserBuilder {
       fbb_: _fbb,
@@ -7689,8 +7672,8 @@ impl<'a> TusVariable<'a> {
     TusVariable { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusVariableArgs<'args>
   ) -> flatbuffers::WIPOffset<TusVariable<'bldr>> {
     let mut builder = TusVariableBuilder::new(_fbb);
@@ -7787,11 +7770,11 @@ impl<'a> Default for TusVariableArgs<'a> {
   }
 }
 
-pub struct TusVariableBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusVariableBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusVariableBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusVariableBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_ownerId(&mut self, ownerId: flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusVariable::VT_OWNERID, ownerId);
@@ -7817,7 +7800,7 @@ impl<'a: 'b, 'b> TusVariableBuilder<'a, 'b> {
     self.fbb_.push_slot::<i64>(TusVariable::VT_OLDVARIABLE, oldVariable, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusVariableBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusVariableBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusVariableBuilder {
       fbb_: _fbb,
@@ -7866,8 +7849,8 @@ impl<'a> TusVarResponse<'a> {
     TusVarResponse { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusVarResponseArgs<'args>
   ) -> flatbuffers::WIPOffset<TusVarResponse<'bldr>> {
     let mut builder = TusVarResponseBuilder::new(_fbb);
@@ -7909,17 +7892,17 @@ impl<'a> Default for TusVarResponseArgs<'a> {
   }
 }
 
-pub struct TusVarResponseBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusVarResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusVarResponseBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusVarResponseBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_vars(&mut self, vars: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<TusVariable<'b >>>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusVarResponse::VT_VARS, vars);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusVarResponseBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusVarResponseBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusVarResponseBuilder {
       fbb_: _fbb,
@@ -7965,8 +7948,8 @@ impl<'a> TusSetMultiSlotVariableRequest<'a> {
     TusSetMultiSlotVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusSetMultiSlotVariableRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusSetMultiSlotVariableRequest<'bldr>> {
     let mut builder = TusSetMultiSlotVariableRequestBuilder::new(_fbb);
@@ -8030,11 +8013,11 @@ impl<'a> Default for TusSetMultiSlotVariableRequestArgs<'a> {
   }
 }
 
-pub struct TusSetMultiSlotVariableRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusSetMultiSlotVariableRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusSetMultiSlotVariableRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusSetMultiSlotVariableRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusSetMultiSlotVariableRequest::VT_USER, user);
@@ -8048,7 +8031,7 @@ impl<'a: 'b, 'b> TusSetMultiSlotVariableRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusSetMultiSlotVariableRequest::VT_VARIABLEARRAY, variableArray);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusSetMultiSlotVariableRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusSetMultiSlotVariableRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusSetMultiSlotVariableRequestBuilder {
       fbb_: _fbb,
@@ -8095,8 +8078,8 @@ impl<'a> TusGetMultiSlotVariableRequest<'a> {
     TusGetMultiSlotVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusGetMultiSlotVariableRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusGetMultiSlotVariableRequest<'bldr>> {
     let mut builder = TusGetMultiSlotVariableRequestBuilder::new(_fbb);
@@ -8149,11 +8132,11 @@ impl<'a> Default for TusGetMultiSlotVariableRequestArgs<'a> {
   }
 }
 
-pub struct TusGetMultiSlotVariableRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusGetMultiSlotVariableRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusGetMultiSlotVariableRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusGetMultiSlotVariableRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusGetMultiSlotVariableRequest::VT_USER, user);
@@ -8163,7 +8146,7 @@ impl<'a: 'b, 'b> TusGetMultiSlotVariableRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusGetMultiSlotVariableRequest::VT_SLOTIDARRAY, slotIdArray);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetMultiSlotVariableRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusGetMultiSlotVariableRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusGetMultiSlotVariableRequestBuilder {
       fbb_: _fbb,
@@ -8209,8 +8192,8 @@ impl<'a> TusGetMultiUserVariableRequest<'a> {
     TusGetMultiUserVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusGetMultiUserVariableRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusGetMultiUserVariableRequest<'bldr>> {
     let mut builder = TusGetMultiUserVariableRequestBuilder::new(_fbb);
@@ -8263,11 +8246,11 @@ impl<'a> Default for TusGetMultiUserVariableRequestArgs<'a> {
   }
 }
 
-pub struct TusGetMultiUserVariableRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusGetMultiUserVariableRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusGetMultiUserVariableRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusGetMultiUserVariableRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_users(&mut self, users: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<TusUser<'b >>>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusGetMultiUserVariableRequest::VT_USERS, users);
@@ -8277,7 +8260,7 @@ impl<'a: 'b, 'b> TusGetMultiUserVariableRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<i32>(TusGetMultiUserVariableRequest::VT_SLOTID, slotId, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetMultiUserVariableRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusGetMultiUserVariableRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusGetMultiUserVariableRequestBuilder {
       fbb_: _fbb,
@@ -8325,8 +8308,8 @@ impl<'a> TusGetFriendsVariableRequest<'a> {
     TusGetFriendsVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusGetFriendsVariableRequestArgs
   ) -> flatbuffers::WIPOffset<TusGetFriendsVariableRequest<'bldr>> {
     let mut builder = TusGetFriendsVariableRequestBuilder::new(_fbb);
@@ -8401,11 +8384,11 @@ impl<'a> Default for TusGetFriendsVariableRequestArgs {
   }
 }
 
-pub struct TusGetFriendsVariableRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusGetFriendsVariableRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusGetFriendsVariableRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusGetFriendsVariableRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_slotId(&mut self, slotId: i32) {
     self.fbb_.push_slot::<i32>(TusGetFriendsVariableRequest::VT_SLOTID, slotId, 0);
@@ -8423,7 +8406,7 @@ impl<'a: 'b, 'b> TusGetFriendsVariableRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(TusGetFriendsVariableRequest::VT_ARRAYNUM, arrayNum, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetFriendsVariableRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusGetFriendsVariableRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusGetFriendsVariableRequestBuilder {
       fbb_: _fbb,
@@ -8474,8 +8457,8 @@ impl<'a> TusAddAndGetVariableRequest<'a> {
     TusAddAndGetVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusAddAndGetVariableRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusAddAndGetVariableRequest<'bldr>> {
     let mut builder = TusAddAndGetVariableRequestBuilder::new(_fbb);
@@ -8561,11 +8544,11 @@ impl<'a> Default for TusAddAndGetVariableRequestArgs<'a> {
   }
 }
 
-pub struct TusAddAndGetVariableRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusAddAndGetVariableRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusAddAndGetVariableRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusAddAndGetVariableRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusAddAndGetVariableRequest::VT_USER, user);
@@ -8587,7 +8570,7 @@ impl<'a: 'b, 'b> TusAddAndGetVariableRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusAddAndGetVariableRequest::VT_ISLASTCHANGEDAUTHORID, isLastChangedAuthorId);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusAddAndGetVariableRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusAddAndGetVariableRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusAddAndGetVariableRequestBuilder {
       fbb_: _fbb,
@@ -8641,8 +8624,8 @@ impl<'a> TusTryAndSetVariableRequest<'a> {
     TusTryAndSetVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusTryAndSetVariableRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusTryAndSetVariableRequest<'bldr>> {
     let mut builder = TusTryAndSetVariableRequestBuilder::new(_fbb);
@@ -8750,11 +8733,11 @@ impl<'a> Default for TusTryAndSetVariableRequestArgs<'a> {
   }
 }
 
-pub struct TusTryAndSetVariableRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusTryAndSetVariableRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusTryAndSetVariableRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusTryAndSetVariableRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusTryAndSetVariableRequest::VT_USER, user);
@@ -8784,7 +8767,7 @@ impl<'a: 'b, 'b> TusTryAndSetVariableRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusTryAndSetVariableRequest::VT_COMPAREVALUE, compareValue);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusTryAndSetVariableRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusTryAndSetVariableRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusTryAndSetVariableRequestBuilder {
       fbb_: _fbb,
@@ -8835,8 +8818,8 @@ impl<'a> TusDeleteMultiSlotVariableRequest<'a> {
     TusDeleteMultiSlotVariableRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusDeleteMultiSlotVariableRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusDeleteMultiSlotVariableRequest<'bldr>> {
     let mut builder = TusDeleteMultiSlotVariableRequestBuilder::new(_fbb);
@@ -8889,11 +8872,11 @@ impl<'a> Default for TusDeleteMultiSlotVariableRequestArgs<'a> {
   }
 }
 
-pub struct TusDeleteMultiSlotVariableRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusDeleteMultiSlotVariableRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusDeleteMultiSlotVariableRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusDeleteMultiSlotVariableRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusDeleteMultiSlotVariableRequest::VT_USER, user);
@@ -8903,7 +8886,7 @@ impl<'a: 'b, 'b> TusDeleteMultiSlotVariableRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDeleteMultiSlotVariableRequest::VT_SLOTIDARRAY, slotIdArray);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDeleteMultiSlotVariableRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusDeleteMultiSlotVariableRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusDeleteMultiSlotVariableRequestBuilder {
       fbb_: _fbb,
@@ -8953,8 +8936,8 @@ impl<'a> TusSetDataRequest<'a> {
     TusSetDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusSetDataRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusSetDataRequest<'bldr>> {
     let mut builder = TusSetDataRequestBuilder::new(_fbb);
@@ -9051,11 +9034,11 @@ impl<'a> Default for TusSetDataRequestArgs<'a> {
   }
 }
 
-pub struct TusSetDataRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusSetDataRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusSetDataRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusSetDataRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusSetDataRequest::VT_USER, user);
@@ -9081,7 +9064,7 @@ impl<'a: 'b, 'b> TusSetDataRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusSetDataRequest::VT_ISLASTCHANGEDAUTHORID, isLastChangedAuthorId);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusSetDataRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusSetDataRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusSetDataRequestBuilder {
       fbb_: _fbb,
@@ -9134,8 +9117,8 @@ impl<'a> TusDataStatus<'a> {
     TusDataStatus { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusDataStatusArgs<'args>
   ) -> flatbuffers::WIPOffset<TusDataStatus<'bldr>> {
     let mut builder = TusDataStatusBuilder::new(_fbb);
@@ -9221,11 +9204,11 @@ impl<'a> Default for TusDataStatusArgs<'a> {
   }
 }
 
-pub struct TusDataStatusBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusDataStatusBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusDataStatusBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusDataStatusBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_ownerId(&mut self, ownerId: flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDataStatus::VT_OWNERID, ownerId);
@@ -9247,7 +9230,7 @@ impl<'a: 'b, 'b> TusDataStatusBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDataStatus::VT_INFO, info);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDataStatusBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusDataStatusBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusDataStatusBuilder {
       fbb_: _fbb,
@@ -9296,8 +9279,8 @@ impl<'a> TusData<'a> {
     TusData { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusDataArgs<'args>
   ) -> flatbuffers::WIPOffset<TusData<'bldr>> {
     let mut builder = TusDataBuilder::new(_fbb);
@@ -9350,11 +9333,11 @@ impl<'a> Default for TusDataArgs<'a> {
   }
 }
 
-pub struct TusDataBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusDataBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusDataBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusDataBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_status(&mut self, status: flatbuffers::WIPOffset<TusDataStatus<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusDataStatus>>(TusData::VT_STATUS, status);
@@ -9364,7 +9347,7 @@ impl<'a: 'b, 'b> TusDataBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusData::VT_DATA, data);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDataBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusDataBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusDataBuilder {
       fbb_: _fbb,
@@ -9409,8 +9392,8 @@ impl<'a> TusDataStatusResponse<'a> {
     TusDataStatusResponse { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusDataStatusResponseArgs<'args>
   ) -> flatbuffers::WIPOffset<TusDataStatusResponse<'bldr>> {
     let mut builder = TusDataStatusResponseBuilder::new(_fbb);
@@ -9452,17 +9435,17 @@ impl<'a> Default for TusDataStatusResponseArgs<'a> {
   }
 }
 
-pub struct TusDataStatusResponseBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusDataStatusResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusDataStatusResponseBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusDataStatusResponseBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_status(&mut self, status: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<TusDataStatus<'b >>>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDataStatusResponse::VT_STATUS, status);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDataStatusResponseBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusDataStatusResponseBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusDataStatusResponseBuilder {
       fbb_: _fbb,
@@ -9507,8 +9490,8 @@ impl<'a> TusGetDataRequest<'a> {
     TusGetDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusGetDataRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusGetDataRequest<'bldr>> {
     let mut builder = TusGetDataRequestBuilder::new(_fbb);
@@ -9561,11 +9544,11 @@ impl<'a> Default for TusGetDataRequestArgs<'a> {
   }
 }
 
-pub struct TusGetDataRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusGetDataRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusGetDataRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusGetDataRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusGetDataRequest::VT_USER, user);
@@ -9575,7 +9558,7 @@ impl<'a: 'b, 'b> TusGetDataRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<i32>(TusGetDataRequest::VT_SLOTID, slotId, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetDataRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusGetDataRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusGetDataRequestBuilder {
       fbb_: _fbb,
@@ -9621,8 +9604,8 @@ impl<'a> TusGetMultiSlotDataStatusRequest<'a> {
     TusGetMultiSlotDataStatusRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusGetMultiSlotDataStatusRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusGetMultiSlotDataStatusRequest<'bldr>> {
     let mut builder = TusGetMultiSlotDataStatusRequestBuilder::new(_fbb);
@@ -9675,11 +9658,11 @@ impl<'a> Default for TusGetMultiSlotDataStatusRequestArgs<'a> {
   }
 }
 
-pub struct TusGetMultiSlotDataStatusRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusGetMultiSlotDataStatusRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusGetMultiSlotDataStatusRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusGetMultiSlotDataStatusRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusGetMultiSlotDataStatusRequest::VT_USER, user);
@@ -9689,7 +9672,7 @@ impl<'a: 'b, 'b> TusGetMultiSlotDataStatusRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusGetMultiSlotDataStatusRequest::VT_SLOTIDARRAY, slotIdArray);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetMultiSlotDataStatusRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusGetMultiSlotDataStatusRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusGetMultiSlotDataStatusRequestBuilder {
       fbb_: _fbb,
@@ -9735,8 +9718,8 @@ impl<'a> TusGetMultiUserDataStatusRequest<'a> {
     TusGetMultiUserDataStatusRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusGetMultiUserDataStatusRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusGetMultiUserDataStatusRequest<'bldr>> {
     let mut builder = TusGetMultiUserDataStatusRequestBuilder::new(_fbb);
@@ -9789,11 +9772,11 @@ impl<'a> Default for TusGetMultiUserDataStatusRequestArgs<'a> {
   }
 }
 
-pub struct TusGetMultiUserDataStatusRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusGetMultiUserDataStatusRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusGetMultiUserDataStatusRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusGetMultiUserDataStatusRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_users(&mut self, users: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<TusUser<'b >>>>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusGetMultiUserDataStatusRequest::VT_USERS, users);
@@ -9803,7 +9786,7 @@ impl<'a: 'b, 'b> TusGetMultiUserDataStatusRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<i32>(TusGetMultiUserDataStatusRequest::VT_SLOTID, slotId, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetMultiUserDataStatusRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusGetMultiUserDataStatusRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusGetMultiUserDataStatusRequestBuilder {
       fbb_: _fbb,
@@ -9851,8 +9834,8 @@ impl<'a> TusGetFriendsDataStatusRequest<'a> {
     TusGetFriendsDataStatusRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusGetFriendsDataStatusRequestArgs
   ) -> flatbuffers::WIPOffset<TusGetFriendsDataStatusRequest<'bldr>> {
     let mut builder = TusGetFriendsDataStatusRequestBuilder::new(_fbb);
@@ -9927,11 +9910,11 @@ impl<'a> Default for TusGetFriendsDataStatusRequestArgs {
   }
 }
 
-pub struct TusGetFriendsDataStatusRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusGetFriendsDataStatusRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusGetFriendsDataStatusRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusGetFriendsDataStatusRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_slotId(&mut self, slotId: i32) {
     self.fbb_.push_slot::<i32>(TusGetFriendsDataStatusRequest::VT_SLOTID, slotId, 0);
@@ -9949,7 +9932,7 @@ impl<'a: 'b, 'b> TusGetFriendsDataStatusRequestBuilder<'a, 'b> {
     self.fbb_.push_slot::<u32>(TusGetFriendsDataStatusRequest::VT_ARRAYNUM, arrayNum, 0);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusGetFriendsDataStatusRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusGetFriendsDataStatusRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusGetFriendsDataStatusRequestBuilder {
       fbb_: _fbb,
@@ -9997,8 +9980,8 @@ impl<'a> TusDeleteMultiSlotDataRequest<'a> {
     TusDeleteMultiSlotDataRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args TusDeleteMultiSlotDataRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<TusDeleteMultiSlotDataRequest<'bldr>> {
     let mut builder = TusDeleteMultiSlotDataRequestBuilder::new(_fbb);
@@ -10051,11 +10034,11 @@ impl<'a> Default for TusDeleteMultiSlotDataRequestArgs<'a> {
   }
 }
 
-pub struct TusDeleteMultiSlotDataRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct TusDeleteMultiSlotDataRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> TusDeleteMultiSlotDataRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> TusDeleteMultiSlotDataRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_user(&mut self, user: flatbuffers::WIPOffset<TusUser<'b >>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<TusUser>>(TusDeleteMultiSlotDataRequest::VT_USER, user);
@@ -10065,7 +10048,7 @@ impl<'a: 'b, 'b> TusDeleteMultiSlotDataRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(TusDeleteMultiSlotDataRequest::VT_SLOTIDARRAY, slotIdArray);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> TusDeleteMultiSlotDataRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> TusDeleteMultiSlotDataRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     TusDeleteMultiSlotDataRequestBuilder {
       fbb_: _fbb,
@@ -10113,8 +10096,8 @@ impl<'a> SetPresenceRequest<'a> {
     SetPresenceRequest { _tab: table }
   }
   #[allow(unused_mut)]
-  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
-    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
     args: &'args SetPresenceRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<SetPresenceRequest<'bldr>> {
     let mut builder = SetPresenceRequestBuilder::new(_fbb);
@@ -10189,11 +10172,11 @@ impl<'a> Default for SetPresenceRequestArgs<'a> {
   }
 }
 
-pub struct SetPresenceRequestBuilder<'a: 'b, 'b> {
-  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+pub struct SetPresenceRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> SetPresenceRequestBuilder<'a, 'b> {
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetPresenceRequestBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_title(&mut self, title: flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetPresenceRequest::VT_TITLE, title);
@@ -10211,7 +10194,7 @@ impl<'a: 'b, 'b> SetPresenceRequestBuilder<'a, 'b> {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetPresenceRequest::VT_DATA, data);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> SetPresenceRequestBuilder<'a, 'b> {
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SetPresenceRequestBuilder<'a, 'b, A> {
     let start = _fbb.start_table();
     SetPresenceRequestBuilder {
       fbb_: _fbb,
@@ -10232,6 +10215,1675 @@ impl core::fmt::Debug for SetPresenceRequest<'_> {
       ds.field("status", &self.status());
       ds.field("comment", &self.comment());
       ds.field("data", &self.data());
+      ds.finish()
+  }
+}
+pub enum MatchingSearchConditionOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MatchingSearchCondition<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for MatchingSearchCondition<'a> {
+  type Inner = MatchingSearchCondition<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> MatchingSearchCondition<'a> {
+  pub const VT_ATTR_TYPE: flatbuffers::VOffsetT = 4;
+  pub const VT_ATTR_ID: flatbuffers::VOffsetT = 6;
+  pub const VT_COMP_OP: flatbuffers::VOffsetT = 8;
+  pub const VT_COMP_VALUE: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    MatchingSearchCondition { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MatchingSearchConditionArgs
+  ) -> flatbuffers::WIPOffset<MatchingSearchCondition<'bldr>> {
+    let mut builder = MatchingSearchConditionBuilder::new(_fbb);
+    builder.add_comp_value(args.comp_value);
+    builder.add_comp_op(args.comp_op);
+    builder.add_attr_id(args.attr_id);
+    builder.add_attr_type(args.attr_type);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn attr_type(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MatchingSearchCondition::VT_ATTR_TYPE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn attr_id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MatchingSearchCondition::VT_ATTR_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn comp_op(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MatchingSearchCondition::VT_COMP_OP, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn comp_value(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MatchingSearchCondition::VT_COMP_VALUE, Some(0)).unwrap()}
+  }
+}
+
+impl flatbuffers::Verifiable for MatchingSearchCondition<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u32>("attr_type", Self::VT_ATTR_TYPE, false)?
+     .visit_field::<u32>("attr_id", Self::VT_ATTR_ID, false)?
+     .visit_field::<u32>("comp_op", Self::VT_COMP_OP, false)?
+     .visit_field::<u32>("comp_value", Self::VT_COMP_VALUE, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MatchingSearchConditionArgs {
+    pub attr_type: u32,
+    pub attr_id: u32,
+    pub comp_op: u32,
+    pub comp_value: u32,
+}
+impl<'a> Default for MatchingSearchConditionArgs {
+  #[inline]
+  fn default() -> Self {
+    MatchingSearchConditionArgs {
+      attr_type: 0,
+      attr_id: 0,
+      comp_op: 0,
+      comp_value: 0,
+    }
+  }
+}
+
+pub struct MatchingSearchConditionBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MatchingSearchConditionBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_attr_type(&mut self, attr_type: u32) {
+    self.fbb_.push_slot::<u32>(MatchingSearchCondition::VT_ATTR_TYPE, attr_type, 0);
+  }
+  #[inline]
+  pub fn add_attr_id(&mut self, attr_id: u32) {
+    self.fbb_.push_slot::<u32>(MatchingSearchCondition::VT_ATTR_ID, attr_id, 0);
+  }
+  #[inline]
+  pub fn add_comp_op(&mut self, comp_op: u32) {
+    self.fbb_.push_slot::<u32>(MatchingSearchCondition::VT_COMP_OP, comp_op, 0);
+  }
+  #[inline]
+  pub fn add_comp_value(&mut self, comp_value: u32) {
+    self.fbb_.push_slot::<u32>(MatchingSearchCondition::VT_COMP_VALUE, comp_value, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MatchingSearchConditionBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MatchingSearchConditionBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<MatchingSearchCondition<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for MatchingSearchCondition<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("MatchingSearchCondition");
+      ds.field("attr_type", &self.attr_type());
+      ds.field("attr_id", &self.attr_id());
+      ds.field("comp_op", &self.comp_op());
+      ds.field("comp_value", &self.comp_value());
+      ds.finish()
+  }
+}
+pub enum MatchingAttrOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MatchingAttr<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for MatchingAttr<'a> {
+  type Inner = MatchingAttr<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> MatchingAttr<'a> {
+  pub const VT_ATTR_TYPE: flatbuffers::VOffsetT = 4;
+  pub const VT_ATTR_ID: flatbuffers::VOffsetT = 6;
+  pub const VT_NUM: flatbuffers::VOffsetT = 8;
+  pub const VT_DATA: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    MatchingAttr { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MatchingAttrArgs<'args>
+  ) -> flatbuffers::WIPOffset<MatchingAttr<'bldr>> {
+    let mut builder = MatchingAttrBuilder::new(_fbb);
+    if let Some(x) = args.data { builder.add_data(x); }
+    builder.add_num(args.num);
+    builder.add_attr_id(args.attr_id);
+    builder.add_attr_type(args.attr_type);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn attr_type(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MatchingAttr::VT_ATTR_TYPE, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn attr_id(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MatchingAttr::VT_ATTR_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn num(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MatchingAttr::VT_NUM, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn data(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(MatchingAttr::VT_DATA, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for MatchingAttr<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u32>("attr_type", Self::VT_ATTR_TYPE, false)?
+     .visit_field::<u32>("attr_id", Self::VT_ATTR_ID, false)?
+     .visit_field::<u32>("num", Self::VT_NUM, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("data", Self::VT_DATA, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MatchingAttrArgs<'a> {
+    pub attr_type: u32,
+    pub attr_id: u32,
+    pub num: u32,
+    pub data: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+}
+impl<'a> Default for MatchingAttrArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MatchingAttrArgs {
+      attr_type: 0,
+      attr_id: 0,
+      num: 0,
+      data: None,
+    }
+  }
+}
+
+pub struct MatchingAttrBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MatchingAttrBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_attr_type(&mut self, attr_type: u32) {
+    self.fbb_.push_slot::<u32>(MatchingAttr::VT_ATTR_TYPE, attr_type, 0);
+  }
+  #[inline]
+  pub fn add_attr_id(&mut self, attr_id: u32) {
+    self.fbb_.push_slot::<u32>(MatchingAttr::VT_ATTR_ID, attr_id, 0);
+  }
+  #[inline]
+  pub fn add_num(&mut self, num: u32) {
+    self.fbb_.push_slot::<u32>(MatchingAttr::VT_NUM, num, 0);
+  }
+  #[inline]
+  pub fn add_data(&mut self, data: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingAttr::VT_DATA, data);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MatchingAttrBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MatchingAttrBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<MatchingAttr<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for MatchingAttr<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("MatchingAttr");
+      ds.field("attr_type", &self.attr_type());
+      ds.field("attr_id", &self.attr_id());
+      ds.field("num", &self.num());
+      ds.field("data", &self.data());
+      ds.finish()
+  }
+}
+pub enum CreateRoomGUIRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct CreateRoomGUIRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for CreateRoomGUIRequest<'a> {
+  type Inner = CreateRoomGUIRequest<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> CreateRoomGUIRequest<'a> {
+  pub const VT_TOTAL_SLOTS: flatbuffers::VOffsetT = 4;
+  pub const VT_PRIVATE_SLOTS: flatbuffers::VOffsetT = 6;
+  pub const VT_PRIVILEGE_GRANT: flatbuffers::VOffsetT = 8;
+  pub const VT_STEALTH: flatbuffers::VOffsetT = 10;
+  pub const VT_GAME_ATTRS: flatbuffers::VOffsetT = 12;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    CreateRoomGUIRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args CreateRoomGUIRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<CreateRoomGUIRequest<'bldr>> {
+    let mut builder = CreateRoomGUIRequestBuilder::new(_fbb);
+    if let Some(x) = args.game_attrs { builder.add_game_attrs(x); }
+    builder.add_private_slots(args.private_slots);
+    builder.add_total_slots(args.total_slots);
+    builder.add_stealth(args.stealth);
+    builder.add_privilege_grant(args.privilege_grant);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn total_slots(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CreateRoomGUIRequest::VT_TOTAL_SLOTS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn private_slots(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(CreateRoomGUIRequest::VT_PRIVATE_SLOTS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn privilege_grant(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(CreateRoomGUIRequest::VT_PRIVILEGE_GRANT, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn stealth(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(CreateRoomGUIRequest::VT_STEALTH, Some(false)).unwrap()}
+  }
+  #[inline]
+  pub fn game_attrs(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr>>>>(CreateRoomGUIRequest::VT_GAME_ATTRS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for CreateRoomGUIRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u32>("total_slots", Self::VT_TOTAL_SLOTS, false)?
+     .visit_field::<u32>("private_slots", Self::VT_PRIVATE_SLOTS, false)?
+     .visit_field::<bool>("privilege_grant", Self::VT_PRIVILEGE_GRANT, false)?
+     .visit_field::<bool>("stealth", Self::VT_STEALTH, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingAttr>>>>("game_attrs", Self::VT_GAME_ATTRS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct CreateRoomGUIRequestArgs<'a> {
+    pub total_slots: u32,
+    pub private_slots: u32,
+    pub privilege_grant: bool,
+    pub stealth: bool,
+    pub game_attrs: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>>>,
+}
+impl<'a> Default for CreateRoomGUIRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    CreateRoomGUIRequestArgs {
+      total_slots: 0,
+      private_slots: 0,
+      privilege_grant: false,
+      stealth: false,
+      game_attrs: None,
+    }
+  }
+}
+
+pub struct CreateRoomGUIRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> CreateRoomGUIRequestBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_total_slots(&mut self, total_slots: u32) {
+    self.fbb_.push_slot::<u32>(CreateRoomGUIRequest::VT_TOTAL_SLOTS, total_slots, 0);
+  }
+  #[inline]
+  pub fn add_private_slots(&mut self, private_slots: u32) {
+    self.fbb_.push_slot::<u32>(CreateRoomGUIRequest::VT_PRIVATE_SLOTS, private_slots, 0);
+  }
+  #[inline]
+  pub fn add_privilege_grant(&mut self, privilege_grant: bool) {
+    self.fbb_.push_slot::<bool>(CreateRoomGUIRequest::VT_PRIVILEGE_GRANT, privilege_grant, false);
+  }
+  #[inline]
+  pub fn add_stealth(&mut self, stealth: bool) {
+    self.fbb_.push_slot::<bool>(CreateRoomGUIRequest::VT_STEALTH, stealth, false);
+  }
+  #[inline]
+  pub fn add_game_attrs(&mut self, game_attrs: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MatchingAttr<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(CreateRoomGUIRequest::VT_GAME_ATTRS, game_attrs);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> CreateRoomGUIRequestBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    CreateRoomGUIRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<CreateRoomGUIRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for CreateRoomGUIRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("CreateRoomGUIRequest");
+      ds.field("total_slots", &self.total_slots());
+      ds.field("private_slots", &self.private_slots());
+      ds.field("privilege_grant", &self.privilege_grant());
+      ds.field("stealth", &self.stealth());
+      ds.field("game_attrs", &self.game_attrs());
+      ds.finish()
+  }
+}
+pub enum GUIUserInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GUIUserInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for GUIUserInfo<'a> {
+  type Inner = GUIUserInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> GUIUserInfo<'a> {
+  pub const VT_INFO: flatbuffers::VOffsetT = 4;
+  pub const VT_OWNER: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    GUIUserInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GUIUserInfoArgs<'args>
+  ) -> flatbuffers::WIPOffset<GUIUserInfo<'bldr>> {
+    let mut builder = GUIUserInfoBuilder::new(_fbb);
+    if let Some(x) = args.info { builder.add_info(x); }
+    builder.add_owner(args.owner);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn info(&self) -> Option<UserInfo<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<UserInfo>>(GUIUserInfo::VT_INFO, None)}
+  }
+  #[inline]
+  pub fn owner(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(GUIUserInfo::VT_OWNER, Some(false)).unwrap()}
+  }
+}
+
+impl flatbuffers::Verifiable for GUIUserInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<UserInfo>>("info", Self::VT_INFO, false)?
+     .visit_field::<bool>("owner", Self::VT_OWNER, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GUIUserInfoArgs<'a> {
+    pub info: Option<flatbuffers::WIPOffset<UserInfo<'a>>>,
+    pub owner: bool,
+}
+impl<'a> Default for GUIUserInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GUIUserInfoArgs {
+      info: None,
+      owner: false,
+    }
+  }
+}
+
+pub struct GUIUserInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GUIUserInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_info(&mut self, info: flatbuffers::WIPOffset<UserInfo<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<UserInfo>>(GUIUserInfo::VT_INFO, info);
+  }
+  #[inline]
+  pub fn add_owner(&mut self, owner: bool) {
+    self.fbb_.push_slot::<bool>(GUIUserInfo::VT_OWNER, owner, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GUIUserInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GUIUserInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<GUIUserInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for GUIUserInfo<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("GUIUserInfo");
+      ds.field("info", &self.info());
+      ds.field("owner", &self.owner());
+      ds.finish()
+  }
+}
+pub enum MatchingRoomStatusOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MatchingRoomStatus<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for MatchingRoomStatus<'a> {
+  type Inner = MatchingRoomStatus<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> MatchingRoomStatus<'a> {
+  pub const VT_ID: flatbuffers::VOffsetT = 4;
+  pub const VT_MEMBERS: flatbuffers::VOffsetT = 6;
+  pub const VT_KICK_ACTOR: flatbuffers::VOffsetT = 8;
+  pub const VT_OPT: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    MatchingRoomStatus { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MatchingRoomStatusArgs<'args>
+  ) -> flatbuffers::WIPOffset<MatchingRoomStatus<'bldr>> {
+    let mut builder = MatchingRoomStatusBuilder::new(_fbb);
+    if let Some(x) = args.opt { builder.add_opt(x); }
+    if let Some(x) = args.kick_actor { builder.add_kick_actor(x); }
+    if let Some(x) = args.members { builder.add_members(x); }
+    if let Some(x) = args.id { builder.add_id(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(MatchingRoomStatus::VT_ID, None)}
+  }
+  #[inline]
+  pub fn members(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<GUIUserInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<GUIUserInfo>>>>(MatchingRoomStatus::VT_MEMBERS, None)}
+  }
+  #[inline]
+  pub fn kick_actor(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(MatchingRoomStatus::VT_KICK_ACTOR, None)}
+  }
+  #[inline]
+  pub fn opt(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(MatchingRoomStatus::VT_OPT, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for MatchingRoomStatus<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("id", Self::VT_ID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<GUIUserInfo>>>>("members", Self::VT_MEMBERS, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("kick_actor", Self::VT_KICK_ACTOR, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("opt", Self::VT_OPT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MatchingRoomStatusArgs<'a> {
+    pub id: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+    pub members: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<GUIUserInfo<'a>>>>>,
+    pub kick_actor: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub opt: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+}
+impl<'a> Default for MatchingRoomStatusArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MatchingRoomStatusArgs {
+      id: None,
+      members: None,
+      kick_actor: None,
+      opt: None,
+    }
+  }
+}
+
+pub struct MatchingRoomStatusBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MatchingRoomStatusBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingRoomStatus::VT_ID, id);
+  }
+  #[inline]
+  pub fn add_members(&mut self, members: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<GUIUserInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingRoomStatus::VT_MEMBERS, members);
+  }
+  #[inline]
+  pub fn add_kick_actor(&mut self, kick_actor: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingRoomStatus::VT_KICK_ACTOR, kick_actor);
+  }
+  #[inline]
+  pub fn add_opt(&mut self, opt: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingRoomStatus::VT_OPT, opt);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MatchingRoomStatusBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MatchingRoomStatusBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<MatchingRoomStatus<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for MatchingRoomStatus<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("MatchingRoomStatus");
+      ds.field("id", &self.id());
+      ds.field("members", &self.members());
+      ds.field("kick_actor", &self.kick_actor());
+      ds.field("opt", &self.opt());
+      ds.finish()
+  }
+}
+pub enum GetRoomListGUIRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct GetRoomListGUIRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for GetRoomListGUIRequest<'a> {
+  type Inner = GetRoomListGUIRequest<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> GetRoomListGUIRequest<'a> {
+  pub const VT_RANGE_START: flatbuffers::VOffsetT = 4;
+  pub const VT_RANGE_MAX: flatbuffers::VOffsetT = 6;
+  pub const VT_CONDS: flatbuffers::VOffsetT = 8;
+  pub const VT_ATTRS: flatbuffers::VOffsetT = 10;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    GetRoomListGUIRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args GetRoomListGUIRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<GetRoomListGUIRequest<'bldr>> {
+    let mut builder = GetRoomListGUIRequestBuilder::new(_fbb);
+    if let Some(x) = args.attrs { builder.add_attrs(x); }
+    if let Some(x) = args.conds { builder.add_conds(x); }
+    builder.add_range_max(args.range_max);
+    builder.add_range_start(args.range_start);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn range_start(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetRoomListGUIRequest::VT_RANGE_START, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn range_max(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(GetRoomListGUIRequest::VT_RANGE_MAX, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn conds(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingSearchCondition<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingSearchCondition>>>>(GetRoomListGUIRequest::VT_CONDS, None)}
+  }
+  #[inline]
+  pub fn attrs(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr>>>>(GetRoomListGUIRequest::VT_ATTRS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for GetRoomListGUIRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u32>("range_start", Self::VT_RANGE_START, false)?
+     .visit_field::<u32>("range_max", Self::VT_RANGE_MAX, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingSearchCondition>>>>("conds", Self::VT_CONDS, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingAttr>>>>("attrs", Self::VT_ATTRS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct GetRoomListGUIRequestArgs<'a> {
+    pub range_start: u32,
+    pub range_max: u32,
+    pub conds: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingSearchCondition<'a>>>>>,
+    pub attrs: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>>>,
+}
+impl<'a> Default for GetRoomListGUIRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    GetRoomListGUIRequestArgs {
+      range_start: 0,
+      range_max: 0,
+      conds: None,
+      attrs: None,
+    }
+  }
+}
+
+pub struct GetRoomListGUIRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GetRoomListGUIRequestBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_range_start(&mut self, range_start: u32) {
+    self.fbb_.push_slot::<u32>(GetRoomListGUIRequest::VT_RANGE_START, range_start, 0);
+  }
+  #[inline]
+  pub fn add_range_max(&mut self, range_max: u32) {
+    self.fbb_.push_slot::<u32>(GetRoomListGUIRequest::VT_RANGE_MAX, range_max, 0);
+  }
+  #[inline]
+  pub fn add_conds(&mut self, conds: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MatchingSearchCondition<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomListGUIRequest::VT_CONDS, conds);
+  }
+  #[inline]
+  pub fn add_attrs(&mut self, attrs: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MatchingAttr<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(GetRoomListGUIRequest::VT_ATTRS, attrs);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> GetRoomListGUIRequestBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    GetRoomListGUIRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<GetRoomListGUIRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for GetRoomListGUIRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("GetRoomListGUIRequest");
+      ds.field("range_start", &self.range_start());
+      ds.field("range_max", &self.range_max());
+      ds.field("conds", &self.conds());
+      ds.field("attrs", &self.attrs());
+      ds.finish()
+  }
+}
+pub enum MatchingRoomOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MatchingRoom<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for MatchingRoom<'a> {
+  type Inner = MatchingRoom<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> MatchingRoom<'a> {
+  pub const VT_ID: flatbuffers::VOffsetT = 4;
+  pub const VT_ATTR: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    MatchingRoom { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MatchingRoomArgs<'args>
+  ) -> flatbuffers::WIPOffset<MatchingRoom<'bldr>> {
+    let mut builder = MatchingRoomBuilder::new(_fbb);
+    if let Some(x) = args.attr { builder.add_attr(x); }
+    if let Some(x) = args.id { builder.add_id(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(MatchingRoom::VT_ID, None)}
+  }
+  #[inline]
+  pub fn attr(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr>>>>(MatchingRoom::VT_ATTR, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for MatchingRoom<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("id", Self::VT_ID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingAttr>>>>("attr", Self::VT_ATTR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MatchingRoomArgs<'a> {
+    pub id: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+    pub attr: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>>>,
+}
+impl<'a> Default for MatchingRoomArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MatchingRoomArgs {
+      id: None,
+      attr: None,
+    }
+  }
+}
+
+pub struct MatchingRoomBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MatchingRoomBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingRoom::VT_ID, id);
+  }
+  #[inline]
+  pub fn add_attr(&mut self, attr: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MatchingAttr<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingRoom::VT_ATTR, attr);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MatchingRoomBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MatchingRoomBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<MatchingRoom<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for MatchingRoom<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("MatchingRoom");
+      ds.field("id", &self.id());
+      ds.field("attr", &self.attr());
+      ds.finish()
+  }
+}
+pub enum MatchingRoomListOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MatchingRoomList<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for MatchingRoomList<'a> {
+  type Inner = MatchingRoomList<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> MatchingRoomList<'a> {
+  pub const VT_START: flatbuffers::VOffsetT = 4;
+  pub const VT_TOTAL: flatbuffers::VOffsetT = 6;
+  pub const VT_ROOMS: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    MatchingRoomList { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MatchingRoomListArgs<'args>
+  ) -> flatbuffers::WIPOffset<MatchingRoomList<'bldr>> {
+    let mut builder = MatchingRoomListBuilder::new(_fbb);
+    if let Some(x) = args.rooms { builder.add_rooms(x); }
+    builder.add_total(args.total);
+    builder.add_start(args.start);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn start(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MatchingRoomList::VT_START, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn total(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(MatchingRoomList::VT_TOTAL, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn rooms(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingRoom<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingRoom>>>>(MatchingRoomList::VT_ROOMS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for MatchingRoomList<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u32>("start", Self::VT_START, false)?
+     .visit_field::<u32>("total", Self::VT_TOTAL, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingRoom>>>>("rooms", Self::VT_ROOMS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MatchingRoomListArgs<'a> {
+    pub start: u32,
+    pub total: u32,
+    pub rooms: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingRoom<'a>>>>>,
+}
+impl<'a> Default for MatchingRoomListArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MatchingRoomListArgs {
+      start: 0,
+      total: 0,
+      rooms: None,
+    }
+  }
+}
+
+pub struct MatchingRoomListBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MatchingRoomListBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_start(&mut self, start: u32) {
+    self.fbb_.push_slot::<u32>(MatchingRoomList::VT_START, start, 0);
+  }
+  #[inline]
+  pub fn add_total(&mut self, total: u32) {
+    self.fbb_.push_slot::<u32>(MatchingRoomList::VT_TOTAL, total, 0);
+  }
+  #[inline]
+  pub fn add_rooms(&mut self, rooms: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MatchingRoom<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingRoomList::VT_ROOMS, rooms);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MatchingRoomListBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MatchingRoomListBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<MatchingRoomList<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for MatchingRoomList<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("MatchingRoomList");
+      ds.field("start", &self.start());
+      ds.field("total", &self.total());
+      ds.field("rooms", &self.rooms());
+      ds.finish()
+  }
+}
+pub enum MatchingGuiRoomIdOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MatchingGuiRoomId<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for MatchingGuiRoomId<'a> {
+  type Inner = MatchingGuiRoomId<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> MatchingGuiRoomId<'a> {
+  pub const VT_ID: flatbuffers::VOffsetT = 4;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    MatchingGuiRoomId { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MatchingGuiRoomIdArgs<'args>
+  ) -> flatbuffers::WIPOffset<MatchingGuiRoomId<'bldr>> {
+    let mut builder = MatchingGuiRoomIdBuilder::new(_fbb);
+    if let Some(x) = args.id { builder.add_id(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn id(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(MatchingGuiRoomId::VT_ID, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for MatchingGuiRoomId<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("id", Self::VT_ID, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MatchingGuiRoomIdArgs<'a> {
+    pub id: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+}
+impl<'a> Default for MatchingGuiRoomIdArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MatchingGuiRoomIdArgs {
+      id: None,
+    }
+  }
+}
+
+pub struct MatchingGuiRoomIdBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MatchingGuiRoomIdBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_id(&mut self, id: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingGuiRoomId::VT_ID, id);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MatchingGuiRoomIdBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MatchingGuiRoomIdBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<MatchingGuiRoomId<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for MatchingGuiRoomId<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("MatchingGuiRoomId");
+      ds.field("id", &self.id());
+      ds.finish()
+  }
+}
+pub enum SetRoomSearchFlagGUIOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SetRoomSearchFlagGUI<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SetRoomSearchFlagGUI<'a> {
+  type Inner = SetRoomSearchFlagGUI<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> SetRoomSearchFlagGUI<'a> {
+  pub const VT_ROOMID: flatbuffers::VOffsetT = 4;
+  pub const VT_STEALTH: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    SetRoomSearchFlagGUI { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SetRoomSearchFlagGUIArgs<'args>
+  ) -> flatbuffers::WIPOffset<SetRoomSearchFlagGUI<'bldr>> {
+    let mut builder = SetRoomSearchFlagGUIBuilder::new(_fbb);
+    if let Some(x) = args.roomid { builder.add_roomid(x); }
+    builder.add_stealth(args.stealth);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn roomid(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(SetRoomSearchFlagGUI::VT_ROOMID, None)}
+  }
+  #[inline]
+  pub fn stealth(&self) -> bool {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<bool>(SetRoomSearchFlagGUI::VT_STEALTH, Some(false)).unwrap()}
+  }
+}
+
+impl flatbuffers::Verifiable for SetRoomSearchFlagGUI<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("roomid", Self::VT_ROOMID, false)?
+     .visit_field::<bool>("stealth", Self::VT_STEALTH, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SetRoomSearchFlagGUIArgs<'a> {
+    pub roomid: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+    pub stealth: bool,
+}
+impl<'a> Default for SetRoomSearchFlagGUIArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SetRoomSearchFlagGUIArgs {
+      roomid: None,
+      stealth: false,
+    }
+  }
+}
+
+pub struct SetRoomSearchFlagGUIBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetRoomSearchFlagGUIBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_roomid(&mut self, roomid: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetRoomSearchFlagGUI::VT_ROOMID, roomid);
+  }
+  #[inline]
+  pub fn add_stealth(&mut self, stealth: bool) {
+    self.fbb_.push_slot::<bool>(SetRoomSearchFlagGUI::VT_STEALTH, stealth, false);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SetRoomSearchFlagGUIBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SetRoomSearchFlagGUIBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SetRoomSearchFlagGUI<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for SetRoomSearchFlagGUI<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("SetRoomSearchFlagGUI");
+      ds.field("roomid", &self.roomid());
+      ds.field("stealth", &self.stealth());
+      ds.finish()
+  }
+}
+pub enum QuickMatchGUIRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct QuickMatchGUIRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for QuickMatchGUIRequest<'a> {
+  type Inner = QuickMatchGUIRequest<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> QuickMatchGUIRequest<'a> {
+  pub const VT_CONDS: flatbuffers::VOffsetT = 4;
+  pub const VT_AVAILABLE_NUM: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    QuickMatchGUIRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args QuickMatchGUIRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<QuickMatchGUIRequest<'bldr>> {
+    let mut builder = QuickMatchGUIRequestBuilder::new(_fbb);
+    builder.add_available_num(args.available_num);
+    if let Some(x) = args.conds { builder.add_conds(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn conds(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingSearchCondition<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingSearchCondition>>>>(QuickMatchGUIRequest::VT_CONDS, None)}
+  }
+  #[inline]
+  pub fn available_num(&self) -> u32 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u32>(QuickMatchGUIRequest::VT_AVAILABLE_NUM, Some(0)).unwrap()}
+  }
+}
+
+impl flatbuffers::Verifiable for QuickMatchGUIRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingSearchCondition>>>>("conds", Self::VT_CONDS, false)?
+     .visit_field::<u32>("available_num", Self::VT_AVAILABLE_NUM, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct QuickMatchGUIRequestArgs<'a> {
+    pub conds: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingSearchCondition<'a>>>>>,
+    pub available_num: u32,
+}
+impl<'a> Default for QuickMatchGUIRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    QuickMatchGUIRequestArgs {
+      conds: None,
+      available_num: 0,
+    }
+  }
+}
+
+pub struct QuickMatchGUIRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> QuickMatchGUIRequestBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_conds(&mut self, conds: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MatchingSearchCondition<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(QuickMatchGUIRequest::VT_CONDS, conds);
+  }
+  #[inline]
+  pub fn add_available_num(&mut self, available_num: u32) {
+    self.fbb_.push_slot::<u32>(QuickMatchGUIRequest::VT_AVAILABLE_NUM, available_num, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> QuickMatchGUIRequestBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    QuickMatchGUIRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<QuickMatchGUIRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for QuickMatchGUIRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("QuickMatchGUIRequest");
+      ds.field("conds", &self.conds());
+      ds.field("available_num", &self.available_num());
+      ds.finish()
+  }
+}
+pub enum SearchJoinRoomGUIRequestOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SearchJoinRoomGUIRequest<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SearchJoinRoomGUIRequest<'a> {
+  type Inner = SearchJoinRoomGUIRequest<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> SearchJoinRoomGUIRequest<'a> {
+  pub const VT_CONDS: flatbuffers::VOffsetT = 4;
+  pub const VT_ATTRS: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    SearchJoinRoomGUIRequest { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SearchJoinRoomGUIRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<SearchJoinRoomGUIRequest<'bldr>> {
+    let mut builder = SearchJoinRoomGUIRequestBuilder::new(_fbb);
+    if let Some(x) = args.attrs { builder.add_attrs(x); }
+    if let Some(x) = args.conds { builder.add_conds(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn conds(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingSearchCondition<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingSearchCondition>>>>(SearchJoinRoomGUIRequest::VT_CONDS, None)}
+  }
+  #[inline]
+  pub fn attrs(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr>>>>(SearchJoinRoomGUIRequest::VT_ATTRS, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for SearchJoinRoomGUIRequest<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingSearchCondition>>>>("conds", Self::VT_CONDS, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingAttr>>>>("attrs", Self::VT_ATTRS, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SearchJoinRoomGUIRequestArgs<'a> {
+    pub conds: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingSearchCondition<'a>>>>>,
+    pub attrs: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>>>,
+}
+impl<'a> Default for SearchJoinRoomGUIRequestArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SearchJoinRoomGUIRequestArgs {
+      conds: None,
+      attrs: None,
+    }
+  }
+}
+
+pub struct SearchJoinRoomGUIRequestBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SearchJoinRoomGUIRequestBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_conds(&mut self, conds: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MatchingSearchCondition<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SearchJoinRoomGUIRequest::VT_CONDS, conds);
+  }
+  #[inline]
+  pub fn add_attrs(&mut self, attrs: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MatchingAttr<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SearchJoinRoomGUIRequest::VT_ATTRS, attrs);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SearchJoinRoomGUIRequestBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SearchJoinRoomGUIRequestBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SearchJoinRoomGUIRequest<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for SearchJoinRoomGUIRequest<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("SearchJoinRoomGUIRequest");
+      ds.field("conds", &self.conds());
+      ds.field("attrs", &self.attrs());
+      ds.finish()
+  }
+}
+pub enum MatchingSearchJoinRoomInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MatchingSearchJoinRoomInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for MatchingSearchJoinRoomInfo<'a> {
+  type Inner = MatchingSearchJoinRoomInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> MatchingSearchJoinRoomInfo<'a> {
+  pub const VT_ROOM: flatbuffers::VOffsetT = 4;
+  pub const VT_ATTR: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    MatchingSearchJoinRoomInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MatchingSearchJoinRoomInfoArgs<'args>
+  ) -> flatbuffers::WIPOffset<MatchingSearchJoinRoomInfo<'bldr>> {
+    let mut builder = MatchingSearchJoinRoomInfoBuilder::new(_fbb);
+    if let Some(x) = args.attr { builder.add_attr(x); }
+    if let Some(x) = args.room { builder.add_room(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn room(&self) -> Option<MatchingRoomStatus<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<MatchingRoomStatus>>(MatchingSearchJoinRoomInfo::VT_ROOM, None)}
+  }
+  #[inline]
+  pub fn attr(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr>>>>(MatchingSearchJoinRoomInfo::VT_ATTR, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for MatchingSearchJoinRoomInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<MatchingRoomStatus>>("room", Self::VT_ROOM, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingAttr>>>>("attr", Self::VT_ATTR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MatchingSearchJoinRoomInfoArgs<'a> {
+    pub room: Option<flatbuffers::WIPOffset<MatchingRoomStatus<'a>>>,
+    pub attr: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<MatchingAttr<'a>>>>>,
+}
+impl<'a> Default for MatchingSearchJoinRoomInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MatchingSearchJoinRoomInfoArgs {
+      room: None,
+      attr: None,
+    }
+  }
+}
+
+pub struct MatchingSearchJoinRoomInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MatchingSearchJoinRoomInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_room(&mut self, room: flatbuffers::WIPOffset<MatchingRoomStatus<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<MatchingRoomStatus>>(MatchingSearchJoinRoomInfo::VT_ROOM, room);
+  }
+  #[inline]
+  pub fn add_attr(&mut self, attr: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<MatchingAttr<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingSearchJoinRoomInfo::VT_ATTR, attr);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MatchingSearchJoinRoomInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MatchingSearchJoinRoomInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<MatchingSearchJoinRoomInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for MatchingSearchJoinRoomInfo<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("MatchingSearchJoinRoomInfo");
+      ds.field("room", &self.room());
+      ds.field("attr", &self.attr());
       ds.finish()
   }
 }

@@ -9,3 +9,4 @@
 /.vscode/**
 /db/**
 ticket_private.pem
+key.pem

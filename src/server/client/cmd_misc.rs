@@ -5,6 +5,16 @@ const SCE_NP_BASIC_PRESENCE_EXTENDED_STATUS_SIZE_MAX: usize = 192;
 const SCE_NP_BASIC_PRESENCE_COMMENT_SIZE_MAX: usize = 64;
 const SCE_NP_BASIC_MAX_PRESENCE_SIZE: usize = 128;
 
+#[allow(dead_code)]
+#[allow(non_camel_case_types)]
+#[repr(u16)]
+enum MessageMainType {
+	SCE_NP_BASIC_MESSAGE_MAIN_TYPE_DATA_ATTACHMENT = 0,
+	SCE_NP_BASIC_MESSAGE_MAIN_TYPE_GENERAL = 1,
+	SCE_NP_BASIC_MESSAGE_MAIN_TYPE_ADD_FRIEND = 2,
+	SCE_NP_BASIC_MESSAGE_MAIN_TYPE_INVITE = 3,
+}
+
 impl Client {
 	pub async fn req_signaling_infos(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let npid = data.get_string(false);
@@ -127,8 +137,12 @@ impl Client {
 			return Ok(ErrorType::InvalidInput);
 		}
 
-		// Ensure all recipients are friends(TODO: might not be necessary for all messages?)
-		{
+		// Ensure all recipients are friends for invite messages(is this necessary?)
+		let msg = flatbuffers::root::<MessageDetails>(message.bytes()).map_err(|e| {
+			warn!("MessageDetails was malformed: {}", e);
+			ErrorType::Malformed
+		})?;
+		if msg.mainType() == MessageMainType::SCE_NP_BASIC_MESSAGE_MAIN_TYPE_INVITE as u16 {
 			let client_infos = self.shared.client_infos.read();
 			let client_fi = client_infos.get(&self.client_info.user_id).unwrap().friend_info.read();
 			if !client_fi.friends.keys().copied().collect::<HashSet<i64>>().is_superset(&ids) {

@@ -121,7 +121,9 @@ impl Ticket {
 		let mut serial_vec = serial_str.as_bytes().to_vec();
 		serial_vec.resize(0x14, 0);
 
-		let issuer_id: u32 = 0x33333333;
+		// used to be 0x33333333 but some games actually check this value(Tony Hawk: SHRED)
+		// 0x100 is supposed to be the release network, other known values are 8 and 1(test and dev networks?)
+		let issuer_id: u32 = 0x100;
 		let issued_date: u64 = (SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_millis() as u64) - (60 * 1000);
 		let expire_date = issued_date + (60 * 1000 * 15);
 

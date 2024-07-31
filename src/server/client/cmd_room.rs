@@ -76,10 +76,10 @@ impl Client {
 		Ok(ErrorType::NoError)
 	}
 
-	pub async fn leave_room(&self, room_manager: &Arc<RwLock<RoomManager>>, com_id: &ComId, room_id: u64, opt_data: Option<&PresenceOptionData<'_>>, event_cause: EventCause) -> ErrorType {
+	pub async fn leave_room(&self, com_id: &ComId, room_id: u64, opt_data: Option<&PresenceOptionData<'_>>, event_cause: EventCause) -> ErrorType {
 		let (destroyed, users, user_data);
 		{
-			let mut room_manager = room_manager.write();
+			let mut room_manager = self.shared.room_manager.write();
 			if !room_manager.room_exists(com_id, room_id) {
 				return ErrorType::NotFound;
 			}
@@ -139,9 +139,7 @@ impl Client {
 	pub async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let (com_id, leave_req) = self.get_com_and_fb::<LeaveRoomRequest>(data)?;
 
-		let res = self
-			.leave_room(&self.shared.room_manager, &com_id, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction)
-			.await;
+		let res = self.leave_room(&com_id, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction).await;
 		reply.extend(&leave_req.roomId().to_le_bytes());
 		Ok(res)
 	}
@@ -315,9 +313,9 @@ impl Client {
 				avatar_url = Some(builder.create_string(&self.client_info.avatar_url));
 			}
 
-			let src_user_info = UserInfo2::create(
+			let src_user_info = UserInfo::create(
 				&mut builder,
-				&UserInfo2Args {
+				&UserInfoArgs {
 					npId: npid,
 					onlineName: online_name,
 					avatarUrl: avatar_url,

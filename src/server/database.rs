@@ -100,7 +100,7 @@ struct MigrationData {
 
 static DATABASE_PATH: &str = "db/rpcn.db";
 
-static DATABASE_MIGRATIONS: [MigrationData; 5] = [
+static DATABASE_MIGRATIONS: [MigrationData; 8] = [
 	MigrationData {
 		version: 1,
 		text: "Initial setup",
@@ -125,6 +125,21 @@ static DATABASE_MIGRATIONS: [MigrationData; 5] = [
 		version: 5,
 		text: "Adding indexes to tables",
 		function: add_indexes,
+	},
+	MigrationData {
+		version: 6,
+		text: "Updating communication_id entries to show subid",
+		function: update_communication_ids,
+	},
+	MigrationData {
+		version: 7,
+		text: "Change score rank limit's default",
+		function: change_score_rank_limit_default,
+	},
+	MigrationData {
+		version: 8,
+		text: "Fixup for RR7 tables",
+		function: ridge_racer_7_fixup,
 	},
 ];
 
@@ -278,8 +293,61 @@ fn add_indexes(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManage
 	Ok(())
 }
 
+fn update_communication_ids(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	conn.pragma_update(None, "foreign_keys", false)
+		.map_err(|e| format!("Failed to disable foreign_keys constraint: {}", e))?;
+
+	let table_list = ["server", "world", "lobby", "score_table", "tus_var", "tus_data", "tus_var_vuser", "tus_data_vuser", "score"];
+
+	for table in &table_list {
+		let query = format!("UPDATE {} SET communication_id = communication_id || '_00'", table);
+		conn.execute(&query, []).map_err(|e| format!("Error updating communication_id for table {}: {}", table, e))?;
+	}
+
+	conn.pragma_update(None, "foreign_keys", true).map_err(|e| format!("Failed to enable foreign_keys constraint: {}", e))?;
+	Ok(())
+}
+
+fn change_score_rank_limit_default(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	conn.execute("UPDATE score_table SET rank_limit = 250", [])
+		.map_err(|e| format!("Failed to update score rank_limit default: {}", e))?;
+	Ok(())
+}
+
+fn ridge_racer_7_fixup(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	for table_id in 0..=1 {
+		let res = conn.execute(
+				"INSERT INTO score_table ( communication_id, board_id, rank_limit, update_mode, sort_mode, upload_num_limit, upload_size_limit ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7 ) ON CONFLICT( communication_id, board_id ) DO UPDATE SET rank_limit = excluded.rank_limit, update_mode = excluded.update_mode, sort_mode = excluded.sort_mode, upload_num_limit = excluded.upload_num_limit, upload_size_limit = excluded.upload_size_limit",
+				rusqlite::params![
+					"NPWR00001_01",
+					table_id,
+					250,
+					0,
+					0,
+					10,
+					6000000,
+				],
+			);
+
+		if let Err(e) = res {
+			return Err(format!("Unexpected error creating/updating RR7 score table {}: {}", table_id, e));
+		}
+
+		let res = conn.execute(
+			"UPDATE score SET communication_id = ?1 WHERE communication_id = ?2 AND board_id = ?3 AND score > 60000000000000000",
+			rusqlite::params!["NPWR00001_01", "NPWR00001_00", table_id,],
+		);
+
+		if let Err(e) = res {
+			return Err(format!("Unexpected error updating RR7 scores: {}", e));
+		}
+	}
+
+	Ok(())
+}
+
 impl Server {
-	pub fn initialize_database() -> Result<r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, String> {
+	pub fn initialize_database(admin_list: &Vec<String>) -> Result<r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, String> {
 		match fs::create_dir("db") {
 			Ok(_) => {}
 			Err(e) => match e.kind() {
@@ -351,7 +419,7 @@ impl Server {
 						}
 
 						let servers_infos: Vec<&str> = l.trim().split('|').map(|v| v.trim()).collect();
-						if servers_infos.len() != 4 || servers_infos[0].len() != 9 {
+						if servers_infos.len() != 4 || servers_infos[0].len() != COMMUNICATION_ID_SIZE {
 							println!("servers.cfg: line({}) was considered invalid and was skipped", l);
 							return None;
 						}
@@ -389,6 +457,12 @@ impl Server {
 				std::io::ErrorKind::NotFound => {}
 				_ => return Err(format!("Unexpected error opening servers.cfg: {}", e)),
 			},
+		}
+
+		// Set admin rights from config
+		if !admin_list.is_empty() {
+			let set_admin_cmd = format!("UPDATE account SET admin = TRUE WHERE username IN ({})", "'".to_string() + &admin_list.join("','") + "'");
+			let _ = conn.execute(&set_admin_cmd, []);
 		}
 
 		Ok(pool)
@@ -472,20 +546,19 @@ impl Database {
 		Database { conn }
 	}
 
-	pub fn add_user(&self, username: &str, password: &str, online_name: &str, avatar_url: &str, email: &str, email_check: &str) -> Result<String, DbError> {
+	pub fn add_user(&self, username: &str, password: &str, online_name: &str, avatar_url: &str, email: &str, email_check: &str, is_admin: bool) -> Result<String, DbError> {
 		let mut rng_gen = StdRng::from_entropy();
 		let (hash, salt) = hash_password(&mut rng_gen, password);
 
 		let salt_slice = &salt[..];
 		let token_str = generate_token(&mut rng_gen);
 
-		let admin = false;
 		let stat_agent = false;
 		let banned = false;
 
 		if let Err(e) = self.conn.execute(
 			"INSERT INTO account ( username, hash, salt, online_name, avatar_url, email, email_check, token, admin, stat_agent, banned ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11 )",
-			rusqlite::params![username, hash, salt_slice, online_name, avatar_url, email, email_check, token_str, admin, stat_agent, banned],
+			rusqlite::params![username, hash, salt_slice, online_name, avatar_url, email, email_check, token_str, is_admin, stat_agent, banned],
 		) {
 			if let rusqlite::Error::SqliteFailure(error, ref msg) = e {
 				if error.code == rusqlite::ErrorCode::ConstraintViolation {

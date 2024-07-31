@@ -5,7 +5,7 @@ pub mod np2_structs_generated;
 
 pub mod fb_helpers;
 
-use crate::server::client::ComId;
+use crate::server::client::{ComId, COMMUNICATION_ID_SIZE};
 use num_traits::*;
 use std::cell::Cell;
 use std::mem;
@@ -75,7 +75,7 @@ impl StreamExtractor {
 		res_vec
 	}
 	pub fn get_com_id(&self) -> ComId {
-		let mut com_id: ComId = [0; 9];
+		let mut com_id: ComId = [0; COMMUNICATION_ID_SIZE];
 
 		if self.i.get() + com_id.len() > self.vec.len() {
 			self.error.set(true);
@@ -85,8 +85,16 @@ impl StreamExtractor {
 			}
 		}
 
-		if !com_id.iter().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
-			self.error.set(true)
+		if !com_id[0..9].iter().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) {
+			self.error.set(true);
+		}
+
+		if com_id[9] != b'_' {
+			self.error.set(true);
+		}
+
+		if !com_id[10..12].iter().all(|c| c.is_ascii_digit()) {
+			self.error.set(true);
 		}
 
 		com_id
