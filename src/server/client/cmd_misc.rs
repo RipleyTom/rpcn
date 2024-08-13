@@ -127,16 +127,6 @@ impl Client {
 			return Ok(ErrorType::InvalidInput);
 		}
 
-		// Ensure all recipients are friends(TODO: might not be necessary for all messages?)
-		{
-			let client_infos = self.shared.client_infos.read();
-			let client_fi = client_infos.get(&self.client_info.user_id).unwrap().friend_info.read();
-			if !client_fi.friends.keys().copied().collect::<HashSet<i64>>().is_superset(&ids) {
-				warn!("Requested to send a message to a non-friend!");
-				return Ok(ErrorType::InvalidInput);
-			}
-		}
-
 		// Finally send the notifications
 		let mut n_msg: Vec<u8> = Vec::new();
 		n_msg.extend(self.client_info.npid.as_bytes());
