@@ -107,6 +107,10 @@ impl Config {
 
 		let set_admins_list = |d_list: &mut Vec<String>| {
 			if let Some(data) = config_data.get("AdminsList") {
+				if data.is_empty() {
+					return;
+				}
+
 				let admins_list: Vec<String> = data.split(',').map(|a| a.trim().to_string()).collect();
 
 				if admins_list.iter().map(|username| Client::is_valid_username(username)).any(|r| !r) {
