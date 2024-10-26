@@ -80,7 +80,6 @@ impl ClientSharedSignalingInfo {
 pub struct ClientSharedPresence {
 	pub communication_id: ComId,
 	pub title: String,
-	// pub title_id: String,
 	pub status: String,
 	pub comment: String,
 	pub data: Vec<u8>,

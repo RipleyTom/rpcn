@@ -1070,16 +1070,16 @@ impl Database {
 		Ok(())
 	}
 
-	pub fn get_game_list(&self, com_id: &ComId, title_id: &str, title: &str) -> Result<Option<u32>, DbError> {
-		let com_id_str = com_id_to_string(com_id);
+	// pub fn get_game_list(&self, com_id: &ComId, title_id: &str, title: &str) -> Result<Option<u32>, DbError> {
+	// 	let com_id_str = com_id_to_string(com_id);
 		
-		self.conn
-				.query_row("SELECT communication_id, title_id, title FROM games_list WHERE communication_id = ?1 AND title_id = ?2", rusqlite::params![com_id_str, title_id], |r|r.get(0))
-				.map_err(|e| {
-					error!("Unexpected error getting game list value: {}", e);
-					DbError::Internal
-				})
-	}
+	// 	self.conn
+	// 			.query_row("SELECT communication_id, title_id, title FROM games_list WHERE communication_id = ?1 AND title_id = ?2", rusqlite::params![com_id_str, title_id], |r|r.get(0))
+	// 			.map_err(|e| {
+	// 				error!("Unexpected error getting game list value: {}", e);
+	// 				DbError::Internal
+	// 			})
+	// }
 
 	pub fn update_game_list(&self, com_id: &ComId, title_id: &str, title: &str) -> Result<(), DbError> {
 		let com_id_str = com_id_to_string(com_id);
@@ -1091,8 +1091,8 @@ impl Database {
 				if let rusqlite::Error::SqliteFailure(error, ref msg) = e {
 					if error.code == rusqlite::ErrorCode::ConstraintViolation {
 						if let Some(msg) = msg {
-							if msg.contains("game_list.communication_id") {
-								warn!("Game already exists on list({})", com_id_str);
+							if msg.contains("games_list.communication_id") {
+								warn!("Game already exists on list: {}", com_id_str);
 								return Err(DbError::ExistingGame);
 							}
 						}
@@ -1102,7 +1102,7 @@ impl Database {
 				Err(DbError::Internal)
 			}
 		else{
-			warn!("Game added to list: {}", com_id_str);
+			info!("Game added to list: {}", com_id_str);
 			Ok(())
 		}
 	}

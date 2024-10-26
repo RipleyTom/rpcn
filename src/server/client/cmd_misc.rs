@@ -201,7 +201,7 @@ impl Client {
 		let db = Database::new(self.get_database_connection()?);
 
 		if db.update_game_list(&com_id, title_id, title).is_err() {
-			error!("Unexpected error updating game list");
+			trace!("Unexpected error updating game list");
 		}
 
 		let notify: Option<(ClientSharedPresence, HashSet<i64>)>;
