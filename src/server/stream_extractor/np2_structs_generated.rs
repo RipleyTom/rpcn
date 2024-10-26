@@ -10087,9 +10087,10 @@ impl<'a> flatbuffers::Follow<'a> for SetPresenceRequest<'a> {
 
 impl<'a> SetPresenceRequest<'a> {
   pub const VT_TITLE: flatbuffers::VOffsetT = 4;
-  pub const VT_STATUS: flatbuffers::VOffsetT = 6;
-  pub const VT_COMMENT: flatbuffers::VOffsetT = 8;
-  pub const VT_DATA: flatbuffers::VOffsetT = 10;
+  pub const VT_TITLE_ID: flatbuffers::VOffsetT = 6;
+  pub const VT_STATUS: flatbuffers::VOffsetT = 8;
+  pub const VT_COMMENT: flatbuffers::VOffsetT = 10;
+  pub const VT_DATA: flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -10104,6 +10105,7 @@ impl<'a> SetPresenceRequest<'a> {
     if let Some(x) = args.data { builder.add_data(x); }
     if let Some(x) = args.comment { builder.add_comment(x); }
     if let Some(x) = args.status { builder.add_status(x); }
+    if let Some(x) = args.title_id { builder.add_title_id(x); }
     if let Some(x) = args.title { builder.add_title(x); }
     builder.finish()
   }
@@ -10115,6 +10117,13 @@ impl<'a> SetPresenceRequest<'a> {
     // Created from valid Table for this object
     // which contains a valid value in this slot
     unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(SetPresenceRequest::VT_TITLE, None)}
+  }
+  #[inline]
+  pub fn title_id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(SetPresenceRequest::VT_TITLE_ID, None)}
   }
   #[inline]
   pub fn status(&self) -> Option<&'a str> {
@@ -10147,6 +10156,7 @@ impl flatbuffers::Verifiable for SetPresenceRequest<'_> {
     use self::flatbuffers::Verifiable;
     v.visit_table(pos)?
      .visit_field::<flatbuffers::ForwardsUOffset<&str>>("title", Self::VT_TITLE, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("title_id", Self::VT_TITLE_ID, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<&str>>("status", Self::VT_STATUS, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<&str>>("comment", Self::VT_COMMENT, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("data", Self::VT_DATA, false)?
@@ -10156,6 +10166,7 @@ impl flatbuffers::Verifiable for SetPresenceRequest<'_> {
 }
 pub struct SetPresenceRequestArgs<'a> {
     pub title: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub title_id: Option<flatbuffers::WIPOffset<&'a str>>,
     pub status: Option<flatbuffers::WIPOffset<&'a str>>,
     pub comment: Option<flatbuffers::WIPOffset<&'a str>>,
     pub data: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
@@ -10165,6 +10176,7 @@ impl<'a> Default for SetPresenceRequestArgs<'a> {
   fn default() -> Self {
     SetPresenceRequestArgs {
       title: None,
+      title_id: None,
       status: None,
       comment: None,
       data: None,
@@ -10180,6 +10192,10 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetPresenceRequestBuilder<'a, '
   #[inline]
   pub fn add_title(&mut self, title: flatbuffers::WIPOffset<&'b  str>) {
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetPresenceRequest::VT_TITLE, title);
+  }
+  #[inline]
+  pub fn add_title_id(&mut self, title_id: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetPresenceRequest::VT_TITLE_ID, title_id);
   }
   #[inline]
   pub fn add_status(&mut self, status: flatbuffers::WIPOffset<&'b  str>) {
@@ -10212,6 +10228,7 @@ impl core::fmt::Debug for SetPresenceRequest<'_> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let mut ds = f.debug_struct("SetPresenceRequest");
       ds.field("title", &self.title());
+      ds.field("title_id", &self.title_id());
       ds.field("status", &self.status());
       ds.field("comment", &self.comment());
       ds.field("data", &self.data());

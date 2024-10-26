@@ -196,6 +196,13 @@ impl Client {
 	pub async fn set_presence(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let (com_id, pr_req) = self.get_com_and_fb::<SetPresenceRequest>(data)?;
 		let title = Client::validate_and_unwrap(pr_req.title())?;
+		let title_id = Client::validate_and_unwrap(pr_req.title_id())?;
+
+		let db = Database::new(self.get_database_connection()?);
+
+		if db.update_game_list(&com_id, title_id, title).is_err() {
+			error!("Unexpected error updating game list");
+		}
 
 		let notify: Option<(ClientSharedPresence, HashSet<i64>)>;
 
