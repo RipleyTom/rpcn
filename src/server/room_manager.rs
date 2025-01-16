@@ -13,6 +13,8 @@ use crate::server::client::{Client, ClientInfo, ComId, ErrorType, EventCause};
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
 
+use super::client::ClientSharedSignalingInfo;
+
 #[repr(u8)]
 #[derive(FromPrimitive)]
 #[allow(clippy::enum_variant_names)]
@@ -43,6 +45,9 @@ const SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID: u16 = 0x57;
 const SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_2_ID: u16 = 0x58;
 
 const SCE_NP_MATCHING2_ROOMMEMBER_BIN_ATTR_INTERNAL_1_ID: u16 = 0x59;
+
+const SCE_NP_MATCHING2_SESSION_PASSWORD_SIZE: usize = 8;
+const SCE_NP_MATCHING2_GROUP_LABEL_SIZE: usize = 8;
 
 #[repr(u32)]
 enum SceNpMatching2FlagAttr {
@@ -182,8 +187,8 @@ impl RoomIntAttr {
 
 struct RoomGroupConfig {
 	slot_num: u32,
-	with_label: bool,
-	label: [u8; 8],
+	fixed_label: bool,
+	label: Option<[u8; SCE_NP_MATCHING2_GROUP_LABEL_SIZE]>,
 	with_password: bool,
 	group_id: u8,
 	num_members: u32,
@@ -191,32 +196,37 @@ struct RoomGroupConfig {
 impl RoomGroupConfig {
 	pub fn from_flatbuffer(fb: &GroupConfig, group_id: u8) -> RoomGroupConfig {
 		let slot_num = fb.slotNum();
-		let with_label = fb.withLabel();
-		let mut label = [0; 8];
-		if let Some(vec) = fb.label() {
-			if vec.len() == 8 {
-				label.clone_from_slice(&vec.bytes()[0..8]);
+		let label = if let Some(vec) = fb.label() {
+			if vec.len() == SCE_NP_MATCHING2_GROUP_LABEL_SIZE {
+				let mut label_array = [0; SCE_NP_MATCHING2_GROUP_LABEL_SIZE];
+				label_array.clone_from_slice(&vec.bytes()[0..SCE_NP_MATCHING2_GROUP_LABEL_SIZE]);
+				Some(label_array)
+			} else {
+				None
 			}
-		}
+		} else {
+			None
+		};
+
 		let with_password = fb.withPassword();
 		RoomGroupConfig {
 			slot_num,
-			with_label,
+			fixed_label: label.is_some(),
 			label,
 			with_password,
 			group_id,
 			num_members: 0,
 		}
 	}
+
 	pub fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<RoomGroup<'a>> {
-		let label = Some(builder.create_vector(&self.label));
+		let label = self.label.map(|label_array| builder.create_vector(&label_array));
 
 		RoomGroup::create(
 			builder,
 			&RoomGroupArgs {
 				groupId: self.group_id,
 				withPassword: self.with_password,
-				withLabel: self.with_label,
 				label,
 				slotNum: self.slot_num,
 				curGroupMemberNum: self.num_members,
@@ -226,7 +236,7 @@ impl RoomGroupConfig {
 }
 
 #[derive(Clone)]
-pub struct SignalParam {
+struct SignalParam {
 	sig_type: SignalingType,
 	flag: u8,
 	hub_member_id: u16,
@@ -266,14 +276,12 @@ struct RoomUser {
 	team_id: u8,
 
 	member_id: u16,
+
+	signaling_info: ClientSharedSignalingInfo,
 }
 impl RoomUser {
-	pub fn from_CreateJoinRoomRequest(fb: &CreateJoinRoomRequest) -> RoomUser {
+	pub fn from_CreateJoinRoomRequest(fb: &CreateJoinRoomRequest, signaling_info: ClientSharedSignalingInfo) -> RoomUser {
 		let group_id = 0;
-
-		if let Some(_vec) = fb.joinRoomGroupLabel() {
-			// Add group to room and set id TODO
-		}
 
 		let member_attr = {
 			if let Some(vec) = fb.roomMemberBinAttrInternal() {
@@ -309,9 +317,11 @@ impl RoomUser {
 			member_attr,
 			team_id,
 			member_id: 0,
+
+			signaling_info,
 		}
 	}
-	pub fn from_JoinRoomRequest(fb: &JoinRoomRequest) -> RoomUser {
+	pub fn from_JoinRoomRequest(fb: &JoinRoomRequest, signaling_info: ClientSharedSignalingInfo) -> RoomUser {
 		let group_id = 0;
 
 		if let Some(_vec) = fb.joinRoomGroupLabel() {
@@ -352,6 +362,8 @@ impl RoomUser {
 			member_attr,
 			team_id,
 			member_id: 0,
+
+			signaling_info,
 		}
 	}
 	pub fn to_RoomMemberDataInternal<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>, room: &Room) -> flatbuffers::WIPOffset<RoomMemberDataInternal<'a>> {
@@ -374,7 +386,7 @@ impl RoomUser {
 		};
 
 		let room_group = if self.group_id != 0 {
-			Some(room.group_config.get(&self.group_id).unwrap().to_flatbuffer(builder))
+			Some(room.group_config[self.group_id as usize - 1].to_flatbuffer(builder))
 		} else {
 			None
 		};
@@ -387,7 +399,7 @@ impl RoomUser {
 				memberId: self.member_id,
 				teamId: self.team_id,
 				roomGroup: room_group,
-				natType: 2, // todo
+				natType: 2,
 				flagAttr: self.flag_attr,
 				roomMemberBinAttrInternal: bin_attr,
 			},
@@ -406,7 +418,7 @@ pub struct Room {
 	search_bin_attr: RoomBinAttr<64>,
 	search_int_attr: [RoomIntAttr; 8],
 	room_password: Option<[u8; 8]>,
-	group_config: BTreeMap<u8, RoomGroupConfig>,
+	group_config: Vec<RoomGroupConfig>,
 	password_slot_mask: u64,
 	allowed_users: Vec<String>,
 	blocked_users: Vec<String>,
@@ -449,7 +461,7 @@ impl Room {
 			RoomIntAttr::with_id(SCE_NP_MATCHING2_ROOM_SEARCHABLE_INT_ATTR_EXTERNAL_8_ID),
 		];
 		let mut room_password = None;
-		let mut group_config: BTreeMap<u8, RoomGroupConfig> = BTreeMap::new();
+		let mut group_config: Vec<RoomGroupConfig> = Vec::new();
 		let mut allowed_users: Vec<String> = Vec::new();
 		let mut blocked_users: Vec<String> = Vec::new();
 		let mut signaling_param = None;
@@ -508,12 +520,14 @@ impl Room {
 				let mut room_password_data = [0; 8];
 				room_password_data.clone_from_slice(&password.bytes()[0..8]);
 				room_password = Some(room_password_data);
+			} else {
+				error!("Invalid password length in CreateRoom: {}", password.len());
 			}
 		}
 		if let Some(vec) = fb.groupConfig() {
 			for i in 0..vec.len() {
 				let group_id = (i + 1) as u8;
-				group_config.insert(group_id, RoomGroupConfig::from_flatbuffer(&vec.get(i), group_id));
+				group_config.push(RoomGroupConfig::from_flatbuffer(&vec.get(i), group_id));
 			}
 		}
 		let password_slot_mask = fb.passwordSlotMask();
@@ -567,7 +581,7 @@ impl Room {
 		let mut final_group_list = None;
 		if !self.group_config.is_empty() {
 			let mut group_list = Vec::new();
-			for group in self.group_config.values() {
+			for group in &self.group_config {
 				group_list.push(group.to_flatbuffer(builder));
 			}
 			final_group_list = Some(builder.create_vector(&group_list));
@@ -640,7 +654,7 @@ impl Room {
 		let mut final_group_list = None;
 		if !self.group_config.is_empty() {
 			let mut group_list = Vec::new();
-			for group in self.group_config.values() {
+			for group in &self.group_config {
 				group_list.push(group.to_flatbuffer(builder));
 			}
 			final_group_list = Some(builder.create_vector(&group_list));
@@ -730,30 +744,29 @@ impl Room {
 		rbuild.finish()
 	}
 
-	pub fn get_signaling_info(&self) -> Option<SignalParam> {
-		self.signaling_param.clone()
-	}
-	pub fn get_room_member_update_info(&self, member_id: u16, event_cause: EventCause, user_opt_data: Option<&PresenceOptionData>) -> Vec<u8> {
+	pub fn get_room_member_update_info<'a>(
+		&self,
+		builder: &mut flatbuffers::FlatBufferBuilder<'a>,
+		member_id: u16,
+		event_cause: EventCause,
+		user_opt_data: Option<&PresenceOptionData>,
+	) -> flatbuffers::WIPOffset<RoomMemberUpdateInfo<'a>> {
 		assert!(self.users.contains_key(&member_id));
 		let user = self.users.get(&member_id).unwrap();
 
 		// Builds flatbuffer
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+		let member_internal = user.to_RoomMemberDataInternal(builder, self);
 
-		let member_internal = user.to_RoomMemberDataInternal(&mut builder, self);
+		let opt_data = dc_opt_data(builder, user_opt_data);
 
-		let opt_data = dc_opt_data(&mut builder, user_opt_data);
-
-		let up_info = RoomMemberUpdateInfo::create(
-			&mut builder,
+		RoomMemberUpdateInfo::create(
+			builder,
 			&RoomMemberUpdateInfoArgs {
 				roomMemberDataInternal: Some(member_internal),
 				eventCause: event_cause as u8,
 				optData: Some(opt_data),
 			},
-		);
-		builder.finish(up_info, None);
-		builder.finished_data().to_vec()
+		)
 	}
 	pub fn get_room_users(&self) -> HashMap<u16, i64> {
 		let mut users_vec = HashMap::new();
@@ -900,17 +913,36 @@ impl Room {
 		true
 	}
 
-	pub fn req_slot(&mut self) -> Result<u16, ErrorType> {
+	fn is_slot_private(&self, slot: usize) -> bool {
+		(self.password_slot_mask & (64 - slot as u64)) != 0
+	}
+
+	fn occupy_slot(&mut self, slot: usize) -> u16 {
+		assert!(!self.slots[slot - 1]);
+		self.slots[slot - 1] = true;
+		let member_id = ((slot as u16) << 4) + self.member_id_counter;
+		self.member_id_counter = (self.member_id_counter + 1) & 0xF;
+
+		member_id
+	}
+
+	fn req_slot(&mut self, private: bool) -> Result<u16, ErrorType> {
 		for i in 1..=(self.max_slot as usize) {
-			if !self.slots[i - 1] {
-				self.slots[i - 1] = true;
-				let member_id = ((i as u16) << 4) + self.member_id_counter;
-				self.member_id_counter = (self.member_id_counter + 1) & 0xF;
-				return Ok(member_id);
+			if !self.slots[i - 1] && private == self.is_slot_private(i) {
+				return Ok(self.occupy_slot(i));
 			}
 		}
 
 		Err(ErrorType::RoomFull)
+	}
+
+	fn req_specific_slots(&mut self, start_slot: usize, num_slots: usize) -> u16 {
+		for i in start_slot..(start_slot + num_slots) {
+			if !self.slots[i - 1] {
+				return self.occupy_slot(i);
+			}
+		}
+		unreachable!("req_specific_slots didn't find a slot!");
 	}
 
 	pub fn free_slot(&mut self, member_id: u16) -> Result<(), ()> {
@@ -931,6 +963,88 @@ impl Room {
 		}
 
 		0
+	}
+
+	fn get_a_slot(&mut self, join_label: Option<[u8; 8]>, password: Option<[u8; 8]>) -> Result<(u8, u16), ErrorType> {
+		if !self.group_config.is_empty() {
+			if join_label.is_none() {
+				warn!("Tried to join a group room without a label!");
+				return Err(ErrorType::RoomGroupNoJoinLabel);
+			}
+
+			let mut cur_slot_id = 1;
+			// First try to see if the group already exist
+			for (group_id, group) in self.group_config.iter_mut().enumerate() {
+				if group.label == join_label {
+					// Found the group
+					if group.with_password && password != self.room_password {
+						warn!("Tried to join a private group without a password or with a wrong password!");
+						return Err(ErrorType::RoomPasswordMismatch);
+					}
+
+					if group.num_members >= group.slot_num {
+						warn!("Tried to join a full group!");
+						return Err(ErrorType::RoomGroupFull);
+					}
+
+					group.num_members += 1;
+					let slot_num = group.slot_num as usize;
+
+					let member_id = self.req_specific_slots(cur_slot_id, slot_num);
+					return Ok(((group_id + 1) as u8, member_id));
+				} else {
+					cur_slot_id += group.slot_num as usize;
+				}
+			}
+			// If that fails then we search for a group with no label and we set it
+			cur_slot_id = 1;
+			'labelless_search: for (group_id, group) in self.group_config.iter_mut().enumerate() {
+				if group.label.is_none() {
+					// Found a possible group
+					if group.with_password {
+						if password.is_none() {
+							cur_slot_id += group.slot_num as usize;
+							continue 'labelless_search;
+						}
+
+						if password != self.room_password {
+							warn!("Tried to join a private group with a wrong password!");
+							return Err(ErrorType::RoomPasswordMismatch);
+						}
+					}
+
+					group.num_members += 1;
+					let slot_num = group.slot_num as usize;
+
+					let member_id = self.req_specific_slots(cur_slot_id, slot_num);
+					return Ok(((group_id + 1) as u8, member_id));
+				} else {
+					cur_slot_id += group.slot_num as usize;
+				}
+			}
+
+			// If both failed then we couldn't find the label
+			Err(ErrorType::RoomGroupJoinLabelNotFound)
+		} else {
+			// Determine lowest member id available
+			let member_id = if let Some(password) = password {
+				if Some(password) == self.room_password {
+					// We try to get a private slot and if it fails we try to get a public slot
+					match self.req_slot(true) {
+						Ok(member_id) => member_id,
+						Err(_) => self.req_slot(false)?,
+					}
+				} else {
+					warn!("User submitted a password but it was invalid!");
+					return Err(ErrorType::RoomPasswordMismatch);
+				}
+			} else {
+				// Try to get a public slot
+				self.req_slot(false)?
+			};
+
+			Ok((0, member_id))
+		}
 	}
 }
 
@@ -965,33 +1079,85 @@ impl RoomManager {
 
 	pub fn get_room_infos(&self, com_id: &ComId, room_id: u64) -> Result<(u16, u32, u64), ErrorType> {
 		if !self.room_exists(com_id, room_id) {
-			return Err(ErrorType::NotFound);
+			return Err(ErrorType::RoomMissing);
 		}
 
 		let room = self.get_room(com_id, room_id);
 		Ok((room.server_id, room.world_id, room.lobby_id))
 	}
 
-	pub fn create_room(&mut self, com_id: &ComId, req: &CreateJoinRoomRequest, cinfo: &ClientInfo, server_id: u16) -> Vec<u8> {
+	pub fn create_room(&mut self, com_id: &ComId, req: &CreateJoinRoomRequest, cinfo: &ClientInfo, server_id: u16, signaling_info: ClientSharedSignalingInfo) -> Result<Vec<u8>, ErrorType> {
+		if req.maxSlot() == 0 || req.maxSlot() > 64 {
+			return Err(ErrorType::Malformed);
+		}
+
 		let room_cnt = self.room_cnt.entry(*com_id).or_insert(0);
-		*room_cnt += 1;
 
 		// Creates the room from input fb
 		let mut room = Room::from_flatbuffer(req);
-		let member_id: u16 = room.req_slot().unwrap();
+
+		// Initial room owner always get slot 1
+		let member_id = room.occupy_slot(1);
+
 		room.owner = member_id;
-		room.room_id = *room_cnt;
+		room.room_id = (*room_cnt) + 1;
 		room.server_id = server_id;
 		// Add the user as its owner
-		let mut room_user = RoomUser::from_CreateJoinRoomRequest(req);
+		let mut room_user = RoomUser::from_CreateJoinRoomRequest(req, signaling_info);
 		room_user.user_id = cinfo.user_id;
 		room_user.npid = cinfo.npid.clone();
 		room_user.online_name = cinfo.online_name.clone();
 		room_user.avatar_url = cinfo.avatar_url.clone();
 		room_user.member_id = member_id;
 		room_user.flag_attr = SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER;
-		// TODO: Group Label, joindate
+
+		if !room.group_config.is_empty() {
+			// Check that the groups fill the max slots size
+			if room.group_config.iter().map(|g| g.slot_num).sum::<u32>() != room.max_slot as u32 {
+				warn!("Tried to create a group room where max_slot != sum(group.slot_num)!");
+				return Err(ErrorType::RoomGroupMaxSlotMismatch);
+			}
+			if room.group_config.iter().any(|g| g.with_password) && room.room_password.is_none() {
+				warn!("Tried to create a group room with private slots and no password!");
+				return Err(ErrorType::RoomPasswordMissing);
+			}
+			if req.joinRoomGroupLabel().is_none() {
+				warn!("Tried to create a group room without a join label!");
+				return Err(ErrorType::RoomGroupNoJoinLabel);
+			}
+			let join_label = req.joinRoomGroupLabel().unwrap();
+			if join_label.len() != SCE_NP_MATCHING2_GROUP_LABEL_SIZE {
+				error!("Tried to create a group room with a join label with size != 8!");
+				return Err(ErrorType::Malformed);
+			}
+
+			let mut label = [0u8; SCE_NP_MATCHING2_GROUP_LABEL_SIZE];
+			label.clone_from_slice(&join_label.bytes()[0..SCE_NP_MATCHING2_GROUP_LABEL_SIZE]);
+
+			// Requires Group to be the first group
+			if room.group_config[0].label.as_ref().is_some_and(|v| *v == label) {
+			} else if room.group_config[0].label.is_none() {
+				room.group_config[0].label = Some(label);
+			} else {
+				error!("Invalid join label when creating the room!");
+				return Err(ErrorType::Malformed);
+			}
+
+			room.group_config[0].num_members += 1;
+
+			room_user.group_id = 1;
+		} else {
+			// If private slots are used the password must be set!
+			if room.password_slot_mask != 0 && room.room_password.is_none() {
+				warn!("Tried to create a room with private slots and no password!");
+				return Err(ErrorType::RoomPasswordMissing);
+			}
+		}
+
 		room.users.insert(member_id, room_user);
+
+		// No error possible past this point
+		*room_cnt += 1;
 
 		if room.lobby_id == 0 {
 			let daset = self.world_rooms.entry((*com_id, room.world_id)).or_default();
@@ -1009,27 +1175,58 @@ impl RoomManager {
 		let room_data = self.rooms[&(*com_id, *room_cnt)].to_RoomDataInternal(&mut builder);
 
 		builder.finish(room_data, None);
-		builder.finished_data().to_vec()
+		Ok(builder.finished_data().to_vec())
 	}
 
-	pub fn join_room(&mut self, com_id: &ComId, req: &JoinRoomRequest, cinfo: &ClientInfo) -> Result<(u16, Vec<u8>), ErrorType> {
-		let room = self.rooms.get_mut(&(*com_id, req.roomId())).unwrap();
+	pub fn join_room(
+		&mut self,
+		com_id: &ComId,
+		req: &JoinRoomRequest,
+		cinfo: &ClientInfo,
+		signaling_info: ClientSharedSignalingInfo,
+	) -> Result<(Vec<u8>, [Option<(Vec<u8>, HashSet<i64>)>; 4]), ErrorType> {
+		let room_id = req.roomId();
+		let room = self.rooms.get_mut(&(*com_id, room_id)).unwrap();
 
 		if (room.flag_attr & SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32) != 0 {
 			return Err(ErrorType::RoomFull);
 		}
 
-		// Determine lowest member id available
-		// TODO: check if password was submitted and use id associated with password slotmask
-		let member_id = room.req_slot()?;
+		if req.joinRoomGroupLabel().as_ref().is_some_and(|v| v.len() != SCE_NP_MATCHING2_GROUP_LABEL_SIZE) {
+			error!("Tried to join a room with a join label with size != SCE_NP_MATCHING2_GROUP_LABEL_SIZE!");
+			return Err(ErrorType::Malformed);
+		}
 
-		let mut room_user = RoomUser::from_JoinRoomRequest(req);
+		if req.roomPassword().as_ref().is_some_and(|v| v.len() != SCE_NP_MATCHING2_SESSION_PASSWORD_SIZE) {
+			error!("Tried to join a room with a password with size != SCE_NP_MATCHING2_SESSION_PASSWORD_SIZE!");
+			return Err(ErrorType::Malformed);
+		}
+
+		let join_label = req.joinRoomGroupLabel().map(|v| {
+			let mut label = [0u8; SCE_NP_MATCHING2_GROUP_LABEL_SIZE];
+			label.clone_from_slice(&v.bytes()[0..SCE_NP_MATCHING2_GROUP_LABEL_SIZE]);
+			label
+		});
+
+		let password = req.roomPassword().map(|v| {
+			let mut pass = [0u8; SCE_NP_MATCHING2_SESSION_PASSWORD_SIZE];
+			pass.clone_from_slice(&v.bytes()[0..SCE_NP_MATCHING2_SESSION_PASSWORD_SIZE]);
+			pass
+		});
+
+		let (group_id, member_id) = room.get_a_slot(join_label, password)?;
+
+		let mut room_user = RoomUser::from_JoinRoomRequest(req, signaling_info.clone());
 		room_user.user_id = cinfo.user_id;
 		room_user.npid = cinfo.npid.clone();
 		room_user.online_name = cinfo.online_name.clone();
 		room_user.avatar_url = cinfo.avatar_url.clone();
 		room_user.member_id = member_id;
-		// TODO: Group Label
+		room_user.group_id = group_id;
+
+		// Get all previous user ids before adding our user
+		let all_previous_users: HashSet<i64> = room.users.iter().map(|user| user.1.user_id).collect();
+
 		room.users.insert(member_id, room_user);
 
 		// Set full flag if necessary
@@ -1039,17 +1236,139 @@ impl RoomManager {
 
 		self.user_rooms.entry(cinfo.user_id).or_default().insert((*com_id, room.room_id));
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let room_data = room.to_RoomDataInternal(&mut builder);
+		// Build notifications
+		let need_signaling = room.signaling_param.as_ref().is_some_and(|sig_param| sig_param.should_signal());
 
-		builder.finish(room_data, None);
-		Ok((member_id, builder.finished_data().to_vec()))
+		// We have 4 possible types of notification:
+		// - No signaling
+		// - Local Signaling
+		// - Public Signaling IPv4
+		// - Public Signaling IPv6
+
+		let build_notification = |signaling_info: Option<(&[u8], u16)>| {
+			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+
+			let update_info = Some(room.get_room_member_update_info(&mut builder, member_id, EventCause::None, Some(&req.optData().unwrap())));
+			let signaling = if let Some((ip, port)) = signaling_info {
+				let vec_ip = builder.create_vector(ip);
+				Some(SignalingAddr::create(&mut builder, &SignalingAddrArgs { ip: Some(vec_ip), port }))
+			} else {
+				None
+			};
+
+			let notif_data = NotificationUserJoinedRoom::create(&mut builder, &NotificationUserJoinedRoomArgs { room_id, update_info, signaling });
+
+			builder.finish(notif_data, None);
+			builder.finished_data().to_vec()
+		};
+
+		let add_to_notif_list = |notif_list: &mut Option<(Vec<u8>, HashSet<i64>)>, signaling_info: (&[u8], u16), to_add: i64| match notif_list {
+			None => {
+				*notif_list = Some((build_notification(Some(signaling_info)), [to_add].into()));
+			}
+			Some((_notif_data, notif_user_ids)) => {
+				notif_user_ids.insert(to_add);
+			}
+		};
+
+		let mut notif_no_signaling = None;
+		let mut notif_local_signaling = None;
+		let mut notif_public_signaling_ipv4 = None;
+		let mut notif_public_signaling_ipv6 = None;
+
+		let mut signaling_list_reply: Vec<(u16, Vec<u8>, u16)> = Vec::new();
+
+		// Signaling
+		if need_signaling {
+			let sig_param = room.signaling_param.as_ref().unwrap();
+
+			match sig_param.get_type() {
+				SignalingType::SignalingMesh => {
+					// User should connect to everyone
+					// Everyone should connect to user
+					for user in room.users.values() {
+						if user.member_id == member_id {
+							continue;
+						}
+						if user.signaling_info.addr_p2p_ipv4.0 == signaling_info.addr_p2p_ipv4.0 {
+							add_to_notif_list(&mut notif_local_signaling, (&signaling_info.local_addr_p2p, 3658), user.user_id);
+							signaling_list_reply.push((user.member_id, user.signaling_info.local_addr_p2p.to_vec(), 3658));
+						} else {
+							match (user.signaling_info.addr_p2p_ipv6, signaling_info.addr_p2p_ipv6) {
+								(Some(user_ipv6), Some(joiner_ipv6)) => {
+									add_to_notif_list(&mut notif_public_signaling_ipv6, (&joiner_ipv6.0, joiner_ipv6.1), user.user_id);
+									signaling_list_reply.push((user.member_id, user_ipv6.0.to_vec(), user_ipv6.1));
+								}
+								_ => {
+									add_to_notif_list(&mut notif_public_signaling_ipv4, (&signaling_info.addr_p2p_ipv4.0, signaling_info.addr_p2p_ipv4.1), user.user_id);
+									signaling_list_reply.push((user.member_id, user.signaling_info.addr_p2p_ipv4.0.to_vec(), user.signaling_info.addr_p2p_ipv4.1));
+								}
+							}
+						}
+					}
+				}
+				SignalingType::SignalingStar => {
+					// User should connect to hub
+					// Hub should connect to User
+					let hub = if sig_param.get_hub() == 0 { room.owner } else { sig_param.get_hub() };
+					let hub_user = room.users.get(&hub).unwrap();
+
+					if hub_user.signaling_info.addr_p2p_ipv4.0 == signaling_info.addr_p2p_ipv4.0 {
+						add_to_notif_list(&mut notif_local_signaling, (&signaling_info.local_addr_p2p, 3658), hub_user.user_id);
+						signaling_list_reply.push((hub_user.member_id, hub_user.signaling_info.local_addr_p2p.to_vec(), 3658));
+					} else {
+						match (hub_user.signaling_info.addr_p2p_ipv6, signaling_info.addr_p2p_ipv6) {
+							(Some(hub_user_ipv6), Some(joiner_ipv6)) => {
+								add_to_notif_list(&mut notif_public_signaling_ipv6, (&joiner_ipv6.0, joiner_ipv6.1), hub_user.user_id);
+								signaling_list_reply.push((hub_user.member_id, hub_user_ipv6.0.to_vec(), hub_user_ipv6.1));
+							}
+							_ => {
+								add_to_notif_list(&mut notif_public_signaling_ipv4, (&signaling_info.addr_p2p_ipv4.0, signaling_info.addr_p2p_ipv4.1), hub_user.user_id);
+								signaling_list_reply.push((hub_user.member_id, hub_user.signaling_info.addr_p2p_ipv4.0.to_vec(), hub_user.signaling_info.addr_p2p_ipv4.1));
+							}
+						}
+					}
+
+					let mut all_users_except_hub_user = all_previous_users;
+					all_users_except_hub_user.remove(&hub_user.user_id);
+					notif_no_signaling = Some((build_notification(None), all_users_except_hub_user));
+				}
+				_ => unreachable!(),
+			}
+		} else {
+			notif_no_signaling = Some((build_notification(None), all_previous_users));
+		}
+
+		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+		let room_data = Some(room.to_RoomDataInternal(&mut builder));
+
+		let signaling_data = if !signaling_list_reply.is_empty() {
+			let mut wip_vec = Vec::new();
+
+			for (member_id, ip, port) in signaling_list_reply {
+				let vec_ip = builder.create_vector(&ip);
+				let sig_addr = Some(SignalingAddr::create(&mut builder, &SignalingAddrArgs { ip: Some(vec_ip), port }));
+				wip_vec.push(Matching2SignalingInfo::create(&mut builder, &Matching2SignalingInfoArgs { member_id, addr: sig_addr }));
+			}
+
+			Some(builder.create_vector(&wip_vec))
+		} else {
+			None
+		};
+
+		let reply = JoinRoomResponse::create(&mut builder, &JoinRoomResponseArgs { room_data, signaling_data });
+
+		builder.finish(reply, None);
+		Ok((
+			builder.finished_data().to_vec(),
+			[notif_no_signaling, notif_local_signaling, notif_public_signaling_ipv4, notif_public_signaling_ipv6],
+		))
 	}
 
 	pub fn leave_room(&mut self, com_id: &ComId, room_id: u64, user_id: i64) -> Result<(bool, HashSet<i64>), ErrorType> {
 		if !self.room_exists(com_id, room_id) {
 			warn!("Attempted to leave a non existing room");
-			return Err(ErrorType::NotFound);
+			return Err(ErrorType::RoomMissing);
 		}
 
 		if let Some(user_set) = self.user_rooms.get_mut(&user_id) {
@@ -1067,7 +1386,16 @@ impl RoomManager {
 		let member_id = room.find_user(user_id);
 		assert!(member_id != 0); // This should never happen as it would mean user_rooms is incoherent
 
-		room.users.remove(&member_id);
+		let member = room.users.remove(&member_id).unwrap();
+		if member.group_id != 0 {
+			let group = &mut room.group_config[(member.group_id - 1) as usize];
+
+			group.num_members -= 1;
+			if group.num_members == 0 && group.fixed_label == false {
+				group.label = None;
+			}
+		}
+
 		room.free_slot(member_id).unwrap();
 
 		// Remove full flag if necessary
@@ -1120,6 +1448,8 @@ impl RoomManager {
 				return Ok((true, user_list));
 			}
 		}
+
+		// TODO: signaling if room is in star signaling mode!
 
 		Ok((false, user_list))
 	}
@@ -1217,16 +1547,16 @@ impl RoomManager {
 
 	pub fn set_roomdata_external(&mut self, com_id: &ComId, req: &SetRoomDataExternalRequest, user_id: i64) -> Result<(), ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
-			return Err(ErrorType::NotFound);
+			return Err(ErrorType::RoomMissing);
 		}
 		let room = self.get_mut_room(com_id, req.roomId());
 
 		let member_id = room.get_member_id(user_id)?;
 		let is_room_owner = room.get_owner() == member_id;
 
+		// Only the room owner can change external information of the room
 		if !is_room_owner {
-			// Should this return an error?
-			return Ok(());
+			return Err(ErrorType::Unauthorized);
 		}
 
 		if let Some(vec) = req.roomBinAttrExternal() {
@@ -1268,13 +1598,11 @@ impl RoomManager {
 
 		Ok(())
 	}
-	pub fn get_roomdata_internal(&self, com_id: &ComId, req: &GetRoomDataInternalRequest) -> Result<Vec<u8>, u8> {
+	pub fn get_roomdata_internal(&self, com_id: &ComId, req: &GetRoomDataInternalRequest) -> Result<Vec<u8>, ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
-			return Err(ErrorType::NotFound as u8);
+			return Err(ErrorType::RoomMissing);
 		}
 		let room = self.get_room(com_id, req.roomId());
-
-		// TODO: only retrieve specified values
 
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 		let room_data = room.to_RoomDataInternal(&mut builder);
@@ -1285,7 +1613,7 @@ impl RoomManager {
 	}
 	pub fn set_roomdata_internal(&mut self, com_id: &ComId, req: &SetRoomDataInternalRequest, user_id: i64) -> Result<Option<(HashSet<i64>, Vec<u8>)>, ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
-			return Err(ErrorType::NotFound);
+			return Err(ErrorType::RoomMissing);
 		}
 		let room = self.get_mut_room(com_id, req.roomId());
 		let member_id = room.get_member_id(user_id)?;
@@ -1295,6 +1623,7 @@ impl RoomManager {
 
 		let old_password_slot_mask = room.password_slot_mask;
 		let old_flag_attr = room.flag_attr;
+		let mut vec_new_groups: Vec<u8> = Vec::new();
 
 		if is_room_owner {
 			let flag_filter = req.flagFilter();
@@ -1306,7 +1635,22 @@ impl RoomManager {
 				has_changed = true;
 			}
 
-			// Group stuff TODO
+			if let Some(room_group_config) = req.passwordConfig() {
+				for i in 0..room_group_config.len() {
+					let group_config = room_group_config.get(i);
+
+					if group_config.groupId() as usize > room.group_config.len() {
+						error!("set_roomdata_internal: group_id > roomgroup_config.len() ( {} : {} )", group_config.groupId(), room.group_config.len());
+						continue;
+					}
+
+					if room.group_config[(group_config.groupId() - 1) as usize].with_password != group_config.withPassword() {
+						room.group_config[(group_config.groupId() - 1) as usize].with_password = group_config.withPassword();
+						vec_new_groups.push(group_config.groupId());
+						has_changed = true;
+					}
+				}
+			}
 
 			if old_password_slot_mask != req.passwordSlotMask() {
 				room.password_slot_mask = req.passwordSlotMask();
@@ -1351,6 +1695,7 @@ impl RoomManager {
 			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 			let room_data_internal = room.to_RoomDataInternal(&mut builder);
 			let fb_new_binattr = new_binattr.map(|vec_new_binattr| builder.create_vector(&vec_new_binattr));
+			let fb_new_groups = if vec_new_groups.is_empty() { None } else { Some(builder.create_vector(&vec_new_groups)) };
 
 			let resp = RoomDataInternalUpdateInfo::create(
 				&mut builder,
@@ -1358,7 +1703,7 @@ impl RoomManager {
 					newRoomDataInternal: Some(room_data_internal),
 					prevFlagAttr: old_flag_attr,
 					prevRoomPasswordSlotMask: old_password_slot_mask,
-					newRoomGroup: None, // TODO
+					newRoomGroup: fb_new_groups,
 					newRoomBinAttrInternal: fb_new_binattr,
 				},
 			);
@@ -1375,7 +1720,7 @@ impl RoomManager {
 
 	pub fn get_roommemberdata_internal(&self, com_id: &ComId, req: &GetRoomMemberDataInternalRequest) -> Result<Vec<u8>, ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
-			return Err(ErrorType::NotFound);
+			return Err(ErrorType::RoomMissing);
 		}
 
 		let room = self.get_room(com_id, req.roomId());
@@ -1388,7 +1733,7 @@ impl RoomManager {
 
 	pub fn set_roommemberdata_internal(&mut self, com_id: &ComId, req: &SetRoomMemberDataInternalRequest, user_id: i64) -> Result<(HashSet<i64>, Vec<u8>), ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
-			return Err(ErrorType::NotFound);
+			return Err(ErrorType::RoomMissing);
 		}
 
 		let mut new_binattr = None;

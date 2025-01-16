@@ -526,7 +526,7 @@ impl<'a> GuiRoomManager {
 	}
 
 	pub fn join_room_gui(&mut self, room_id: &GuiRoomId, cinfo: &ClientInfo) -> Result<(Vec<u8>, HashSet<i64>, Vec<u8>), ErrorType> {
-		let room = self.rooms.get_mut(room_id).ok_or(ErrorType::NotFound)?;
+		let room = self.rooms.get_mut(room_id).ok_or(ErrorType::RoomMissing)?;
 
 		if room.members.len() == room.total_slots as usize {
 			return Err(ErrorType::RoomFull);
@@ -557,11 +557,11 @@ impl<'a> GuiRoomManager {
 	}
 
 	pub fn leave_room_gui(&mut self, room_id: &GuiRoomId, cinfo: &ClientInfo) -> Result<(Vec<u8>, HashSet<i64>, Vec<(NotificationType, Vec<u8>)>), ErrorType> {
-		let room = self.rooms.get_mut(room_id).ok_or(ErrorType::NotFound)?;
+		let room = self.rooms.get_mut(room_id).ok_or(ErrorType::RoomMissing)?;
 
 		let member_left = room.members.remove(&cinfo.user_id);
 		if member_left.is_none() {
-			return Err(ErrorType::NotFound); // Should this return a different error?
+			return Err(ErrorType::NotFound);
 		}
 		let mut member_left = member_left.unwrap();
 
@@ -726,7 +726,7 @@ impl<'a> GuiRoomManager {
 	}
 
 	pub fn get_room_and_check_ownership(&mut self, room_id: &GuiRoomId, req_user_id: i64) -> Result<&mut GuiRoom, ErrorType> {
-		let room = self.rooms.get_mut(room_id).ok_or(ErrorType::NotFound)?;
+		let room = self.rooms.get_mut(room_id).ok_or(ErrorType::RoomMissing)?;
 
 		if !room.members.get(&req_user_id).ok_or(ErrorType::NotFound)?.owner {
 			return Err(ErrorType::Unauthorized);
@@ -767,7 +767,7 @@ impl<'a> GuiRoomManager {
 	}
 
 	pub fn get_room_info_gui(&self, room_id: &GuiRoomId, attrs: flatbuffers::Vector<flatbuffers::ForwardsUOffset<MatchingAttr>>) -> Result<Vec<u8>, ErrorType> {
-		let room = self.rooms.get(room_id).ok_or(ErrorType::NotFound)?;
+		let room = self.rooms.get(room_id).ok_or(ErrorType::RoomMissing)?;
 
 		let attrs_vec = &attrs.iter().map(|attr| (attr.attr_type(), attr.attr_id())).collect();
 

@@ -35,7 +35,7 @@ impl Client {
 
 		for (notif_type, notif_data) in &notifs {
 			let mut n_msg: Vec<u8> = Vec::with_capacity(notif_data.len() + size_of::<u32>());
-			Client::add_data_packet(&mut n_msg, &notif_data);
+			Client::add_data_packet(&mut n_msg, notif_data);
 			let notif_vec = Client::create_notification(*notif_type, &n_msg);
 			self.send_notification(&notif_vec, &notif_ids).await;
 		}
