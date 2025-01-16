@@ -9,6 +9,348 @@ use core::cmp::Ordering;
 extern crate flatbuffers;
 use self::flatbuffers::{EndianScalar, Follow};
 
+pub enum SignalingAddrOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct SignalingAddr<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for SignalingAddr<'a> {
+  type Inner = SignalingAddr<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> SignalingAddr<'a> {
+  pub const VT_IP: flatbuffers::VOffsetT = 4;
+  pub const VT_PORT: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    SignalingAddr { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args SignalingAddrArgs<'args>
+  ) -> flatbuffers::WIPOffset<SignalingAddr<'bldr>> {
+    let mut builder = SignalingAddrBuilder::new(_fbb);
+    if let Some(x) = args.ip { builder.add_ip(x); }
+    builder.add_port(args.port);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn ip(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(SignalingAddr::VT_IP, None)}
+  }
+  #[inline]
+  pub fn port(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(SignalingAddr::VT_PORT, Some(0)).unwrap()}
+  }
+}
+
+impl flatbuffers::Verifiable for SignalingAddr<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("ip", Self::VT_IP, false)?
+     .visit_field::<u16>("port", Self::VT_PORT, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct SignalingAddrArgs<'a> {
+    pub ip: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+    pub port: u16,
+}
+impl<'a> Default for SignalingAddrArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    SignalingAddrArgs {
+      ip: None,
+      port: 0,
+    }
+  }
+}
+
+pub struct SignalingAddrBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SignalingAddrBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_ip(&mut self, ip: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SignalingAddr::VT_IP, ip);
+  }
+  #[inline]
+  pub fn add_port(&mut self, port: u16) {
+    self.fbb_.push_slot::<u16>(SignalingAddr::VT_PORT, port, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> SignalingAddrBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    SignalingAddrBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<SignalingAddr<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for SignalingAddr<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("SignalingAddr");
+      ds.field("ip", &self.ip());
+      ds.field("port", &self.port());
+      ds.finish()
+  }
+}
+pub enum MatchingSignalingInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct MatchingSignalingInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for MatchingSignalingInfo<'a> {
+  type Inner = MatchingSignalingInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> MatchingSignalingInfo<'a> {
+  pub const VT_NPID: flatbuffers::VOffsetT = 4;
+  pub const VT_ADDR: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    MatchingSignalingInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args MatchingSignalingInfoArgs<'args>
+  ) -> flatbuffers::WIPOffset<MatchingSignalingInfo<'bldr>> {
+    let mut builder = MatchingSignalingInfoBuilder::new(_fbb);
+    if let Some(x) = args.addr { builder.add_addr(x); }
+    if let Some(x) = args.npid { builder.add_npid(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn npid(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(MatchingSignalingInfo::VT_NPID, None)}
+  }
+  #[inline]
+  pub fn addr(&self) -> Option<SignalingAddr<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<SignalingAddr>>(MatchingSignalingInfo::VT_ADDR, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for MatchingSignalingInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("npid", Self::VT_NPID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<SignalingAddr>>("addr", Self::VT_ADDR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct MatchingSignalingInfoArgs<'a> {
+    pub npid: Option<flatbuffers::WIPOffset<&'a str>>,
+    pub addr: Option<flatbuffers::WIPOffset<SignalingAddr<'a>>>,
+}
+impl<'a> Default for MatchingSignalingInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    MatchingSignalingInfoArgs {
+      npid: None,
+      addr: None,
+    }
+  }
+}
+
+pub struct MatchingSignalingInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> MatchingSignalingInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_npid(&mut self, npid: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(MatchingSignalingInfo::VT_NPID, npid);
+  }
+  #[inline]
+  pub fn add_addr(&mut self, addr: flatbuffers::WIPOffset<SignalingAddr<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<SignalingAddr>>(MatchingSignalingInfo::VT_ADDR, addr);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> MatchingSignalingInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    MatchingSignalingInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<MatchingSignalingInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for MatchingSignalingInfo<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("MatchingSignalingInfo");
+      ds.field("npid", &self.npid());
+      ds.field("addr", &self.addr());
+      ds.finish()
+  }
+}
+pub enum Matching2SignalingInfoOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct Matching2SignalingInfo<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for Matching2SignalingInfo<'a> {
+  type Inner = Matching2SignalingInfo<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> Matching2SignalingInfo<'a> {
+  pub const VT_MEMBER_ID: flatbuffers::VOffsetT = 4;
+  pub const VT_ADDR: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    Matching2SignalingInfo { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args Matching2SignalingInfoArgs<'args>
+  ) -> flatbuffers::WIPOffset<Matching2SignalingInfo<'bldr>> {
+    let mut builder = Matching2SignalingInfoBuilder::new(_fbb);
+    if let Some(x) = args.addr { builder.add_addr(x); }
+    builder.add_member_id(args.member_id);
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn member_id(&self) -> u16 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u16>(Matching2SignalingInfo::VT_MEMBER_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn addr(&self) -> Option<SignalingAddr<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<SignalingAddr>>(Matching2SignalingInfo::VT_ADDR, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for Matching2SignalingInfo<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u16>("member_id", Self::VT_MEMBER_ID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<SignalingAddr>>("addr", Self::VT_ADDR, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct Matching2SignalingInfoArgs<'a> {
+    pub member_id: u16,
+    pub addr: Option<flatbuffers::WIPOffset<SignalingAddr<'a>>>,
+}
+impl<'a> Default for Matching2SignalingInfoArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    Matching2SignalingInfoArgs {
+      member_id: 0,
+      addr: None,
+    }
+  }
+}
+
+pub struct Matching2SignalingInfoBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> Matching2SignalingInfoBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_member_id(&mut self, member_id: u16) {
+    self.fbb_.push_slot::<u16>(Matching2SignalingInfo::VT_MEMBER_ID, member_id, 0);
+  }
+  #[inline]
+  pub fn add_addr(&mut self, addr: flatbuffers::WIPOffset<SignalingAddr<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<SignalingAddr>>(Matching2SignalingInfo::VT_ADDR, addr);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> Matching2SignalingInfoBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    Matching2SignalingInfoBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<Matching2SignalingInfo<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for Matching2SignalingInfo<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("Matching2SignalingInfo");
+      ds.field("member_id", &self.member_id());
+      ds.field("addr", &self.addr());
+      ds.finish()
+  }
+}
 pub enum BinAttrOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
@@ -630,9 +972,8 @@ impl<'a> flatbuffers::Follow<'a> for GroupConfig<'a> {
 
 impl<'a> GroupConfig<'a> {
   pub const VT_SLOTNUM: flatbuffers::VOffsetT = 4;
-  pub const VT_WITHLABEL: flatbuffers::VOffsetT = 6;
-  pub const VT_LABEL: flatbuffers::VOffsetT = 8;
-  pub const VT_WITHPASSWORD: flatbuffers::VOffsetT = 10;
+  pub const VT_LABEL: flatbuffers::VOffsetT = 6;
+  pub const VT_WITHPASSWORD: flatbuffers::VOffsetT = 8;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -647,7 +988,6 @@ impl<'a> GroupConfig<'a> {
     if let Some(x) = args.label { builder.add_label(x); }
     builder.add_slotNum(args.slotNum);
     builder.add_withPassword(args.withPassword);
-    builder.add_withLabel(args.withLabel);
     builder.finish()
   }
 
@@ -658,13 +998,6 @@ impl<'a> GroupConfig<'a> {
     // Created from valid Table for this object
     // which contains a valid value in this slot
     unsafe { self._tab.get::<u32>(GroupConfig::VT_SLOTNUM, Some(0)).unwrap()}
-  }
-  #[inline]
-  pub fn withLabel(&self) -> bool {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<bool>(GroupConfig::VT_WITHLABEL, Some(false)).unwrap()}
   }
   #[inline]
   pub fn label(&self) -> Option<flatbuffers::Vector<'a, u8>> {
@@ -690,7 +1023,6 @@ impl flatbuffers::Verifiable for GroupConfig<'_> {
     use self::flatbuffers::Verifiable;
     v.visit_table(pos)?
      .visit_field::<u32>("slotNum", Self::VT_SLOTNUM, false)?
-     .visit_field::<bool>("withLabel", Self::VT_WITHLABEL, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("label", Self::VT_LABEL, false)?
      .visit_field::<bool>("withPassword", Self::VT_WITHPASSWORD, false)?
      .finish();
@@ -699,7 +1031,6 @@ impl flatbuffers::Verifiable for GroupConfig<'_> {
 }
 pub struct GroupConfigArgs<'a> {
     pub slotNum: u32,
-    pub withLabel: bool,
     pub label: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
     pub withPassword: bool,
 }
@@ -708,7 +1039,6 @@ impl<'a> Default for GroupConfigArgs<'a> {
   fn default() -> Self {
     GroupConfigArgs {
       slotNum: 0,
-      withLabel: false,
       label: None,
       withPassword: false,
     }
@@ -723,10 +1053,6 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> GroupConfigBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_slotNum(&mut self, slotNum: u32) {
     self.fbb_.push_slot::<u32>(GroupConfig::VT_SLOTNUM, slotNum, 0);
-  }
-  #[inline]
-  pub fn add_withLabel(&mut self, withLabel: bool) {
-    self.fbb_.push_slot::<bool>(GroupConfig::VT_WITHLABEL, withLabel, false);
   }
   #[inline]
   pub fn add_label(&mut self, label: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
@@ -755,7 +1081,6 @@ impl core::fmt::Debug for GroupConfig<'_> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let mut ds = f.debug_struct("GroupConfig");
       ds.field("slotNum", &self.slotNum());
-      ds.field("withLabel", &self.withLabel());
       ds.field("label", &self.label());
       ds.field("withPassword", &self.withPassword());
       ds.finish()
@@ -1126,10 +1451,9 @@ impl<'a> flatbuffers::Follow<'a> for RoomGroup<'a> {
 impl<'a> RoomGroup<'a> {
   pub const VT_GROUPID: flatbuffers::VOffsetT = 4;
   pub const VT_WITHPASSWORD: flatbuffers::VOffsetT = 6;
-  pub const VT_WITHLABEL: flatbuffers::VOffsetT = 8;
-  pub const VT_LABEL: flatbuffers::VOffsetT = 10;
-  pub const VT_SLOTNUM: flatbuffers::VOffsetT = 12;
-  pub const VT_CURGROUPMEMBERNUM: flatbuffers::VOffsetT = 14;
+  pub const VT_LABEL: flatbuffers::VOffsetT = 8;
+  pub const VT_SLOTNUM: flatbuffers::VOffsetT = 10;
+  pub const VT_CURGROUPMEMBERNUM: flatbuffers::VOffsetT = 12;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
@@ -1144,7 +1468,6 @@ impl<'a> RoomGroup<'a> {
     builder.add_curGroupMemberNum(args.curGroupMemberNum);
     builder.add_slotNum(args.slotNum);
     if let Some(x) = args.label { builder.add_label(x); }
-    builder.add_withLabel(args.withLabel);
     builder.add_withPassword(args.withPassword);
     builder.add_groupId(args.groupId);
     builder.finish()
@@ -1164,13 +1487,6 @@ impl<'a> RoomGroup<'a> {
     // Created from valid Table for this object
     // which contains a valid value in this slot
     unsafe { self._tab.get::<bool>(RoomGroup::VT_WITHPASSWORD, Some(false)).unwrap()}
-  }
-  #[inline]
-  pub fn withLabel(&self) -> bool {
-    // Safety:
-    // Created from valid Table for this object
-    // which contains a valid value in this slot
-    unsafe { self._tab.get::<bool>(RoomGroup::VT_WITHLABEL, Some(false)).unwrap()}
   }
   #[inline]
   pub fn label(&self) -> Option<flatbuffers::Vector<'a, u8>> {
@@ -1204,7 +1520,6 @@ impl flatbuffers::Verifiable for RoomGroup<'_> {
     v.visit_table(pos)?
      .visit_field::<u8>("groupId", Self::VT_GROUPID, false)?
      .visit_field::<bool>("withPassword", Self::VT_WITHPASSWORD, false)?
-     .visit_field::<bool>("withLabel", Self::VT_WITHLABEL, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("label", Self::VT_LABEL, false)?
      .visit_field::<u32>("slotNum", Self::VT_SLOTNUM, false)?
      .visit_field::<u32>("curGroupMemberNum", Self::VT_CURGROUPMEMBERNUM, false)?
@@ -1215,7 +1530,6 @@ impl flatbuffers::Verifiable for RoomGroup<'_> {
 pub struct RoomGroupArgs<'a> {
     pub groupId: u8,
     pub withPassword: bool,
-    pub withLabel: bool,
     pub label: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
     pub slotNum: u32,
     pub curGroupMemberNum: u32,
@@ -1226,7 +1540,6 @@ impl<'a> Default for RoomGroupArgs<'a> {
     RoomGroupArgs {
       groupId: 0,
       withPassword: false,
-      withLabel: false,
       label: None,
       slotNum: 0,
       curGroupMemberNum: 0,
@@ -1246,10 +1559,6 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomGroupBuilder<'a, 'b, A> {
   #[inline]
   pub fn add_withPassword(&mut self, withPassword: bool) {
     self.fbb_.push_slot::<bool>(RoomGroup::VT_WITHPASSWORD, withPassword, false);
-  }
-  #[inline]
-  pub fn add_withLabel(&mut self, withLabel: bool) {
-    self.fbb_.push_slot::<bool>(RoomGroup::VT_WITHLABEL, withLabel, false);
   }
   #[inline]
   pub fn add_label(&mut self, label: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
@@ -1283,7 +1592,6 @@ impl core::fmt::Debug for RoomGroup<'_> {
     let mut ds = f.debug_struct("RoomGroup");
       ds.field("groupId", &self.groupId());
       ds.field("withPassword", &self.withPassword());
-      ds.field("withLabel", &self.withLabel());
       ds.field("label", &self.label());
       ds.field("slotNum", &self.slotNum());
       ds.field("curGroupMemberNum", &self.curGroupMemberNum());
@@ -2294,21 +2602,21 @@ impl<'a> RoomGroupPasswordConfig<'a> {
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
     _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
-    args: &'args RoomGroupPasswordConfigArgs<'args>
+    args: &'args RoomGroupPasswordConfigArgs
   ) -> flatbuffers::WIPOffset<RoomGroupPasswordConfig<'bldr>> {
     let mut builder = RoomGroupPasswordConfigBuilder::new(_fbb);
-    if let Some(x) = args.groupId { builder.add_groupId(x); }
     builder.add_withPassword(args.withPassword);
+    builder.add_groupId(args.groupId);
     builder.finish()
   }
 
 
   #[inline]
-  pub fn groupId(&self) -> Option<flatbuffers::Vector<'a, u8>> {
+  pub fn groupId(&self) -> u8 {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u8>>>(RoomGroupPasswordConfig::VT_GROUPID, None)}
+    unsafe { self._tab.get::<u8>(RoomGroupPasswordConfig::VT_GROUPID, Some(0)).unwrap()}
   }
   #[inline]
   pub fn withPassword(&self) -> bool {
@@ -2326,21 +2634,21 @@ impl flatbuffers::Verifiable for RoomGroupPasswordConfig<'_> {
   ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
     use self::flatbuffers::Verifiable;
     v.visit_table(pos)?
-     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u8>>>("groupId", Self::VT_GROUPID, false)?
+     .visit_field::<u8>("groupId", Self::VT_GROUPID, false)?
      .visit_field::<bool>("withPassword", Self::VT_WITHPASSWORD, false)?
      .finish();
     Ok(())
   }
 }
-pub struct RoomGroupPasswordConfigArgs<'a> {
-    pub groupId: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u8>>>,
+pub struct RoomGroupPasswordConfigArgs {
+    pub groupId: u8,
     pub withPassword: bool,
 }
-impl<'a> Default for RoomGroupPasswordConfigArgs<'a> {
+impl<'a> Default for RoomGroupPasswordConfigArgs {
   #[inline]
   fn default() -> Self {
     RoomGroupPasswordConfigArgs {
-      groupId: None,
+      groupId: 0,
       withPassword: false,
     }
   }
@@ -2352,8 +2660,8 @@ pub struct RoomGroupPasswordConfigBuilder<'a: 'b, 'b, A: flatbuffers::Allocator 
 }
 impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> RoomGroupPasswordConfigBuilder<'a, 'b, A> {
   #[inline]
-  pub fn add_groupId(&mut self, groupId: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u8>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(RoomGroupPasswordConfig::VT_GROUPID, groupId);
+  pub fn add_groupId(&mut self, groupId: u8) {
+    self.fbb_.push_slot::<u8>(RoomGroupPasswordConfig::VT_GROUPID, groupId, 0);
   }
   #[inline]
   pub fn add_withPassword(&mut self, withPassword: bool) {
@@ -3311,6 +3619,120 @@ impl core::fmt::Debug for JoinRoomRequest<'_> {
       ds.field("roomMemberBinAttrInternal", &self.roomMemberBinAttrInternal());
       ds.field("optData", &self.optData());
       ds.field("teamId", &self.teamId());
+      ds.finish()
+  }
+}
+pub enum JoinRoomResponseOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct JoinRoomResponse<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for JoinRoomResponse<'a> {
+  type Inner = JoinRoomResponse<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> JoinRoomResponse<'a> {
+  pub const VT_ROOM_DATA: flatbuffers::VOffsetT = 4;
+  pub const VT_SIGNALING_DATA: flatbuffers::VOffsetT = 6;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    JoinRoomResponse { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args JoinRoomResponseArgs<'args>
+  ) -> flatbuffers::WIPOffset<JoinRoomResponse<'bldr>> {
+    let mut builder = JoinRoomResponseBuilder::new(_fbb);
+    if let Some(x) = args.signaling_data { builder.add_signaling_data(x); }
+    if let Some(x) = args.room_data { builder.add_room_data(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn room_data(&self) -> Option<RoomDataInternal<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<RoomDataInternal>>(JoinRoomResponse::VT_ROOM_DATA, None)}
+  }
+  #[inline]
+  pub fn signaling_data(&self) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Matching2SignalingInfo<'a>>>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Matching2SignalingInfo>>>>(JoinRoomResponse::VT_SIGNALING_DATA, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for JoinRoomResponse<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<RoomDataInternal>>("room_data", Self::VT_ROOM_DATA, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<Matching2SignalingInfo>>>>("signaling_data", Self::VT_SIGNALING_DATA, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct JoinRoomResponseArgs<'a> {
+    pub room_data: Option<flatbuffers::WIPOffset<RoomDataInternal<'a>>>,
+    pub signaling_data: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Matching2SignalingInfo<'a>>>>>,
+}
+impl<'a> Default for JoinRoomResponseArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    JoinRoomResponseArgs {
+      room_data: None,
+      signaling_data: None,
+    }
+  }
+}
+
+pub struct JoinRoomResponseBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> JoinRoomResponseBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_room_data(&mut self, room_data: flatbuffers::WIPOffset<RoomDataInternal<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<RoomDataInternal>>(JoinRoomResponse::VT_ROOM_DATA, room_data);
+  }
+  #[inline]
+  pub fn add_signaling_data(&mut self, signaling_data: flatbuffers::WIPOffset<flatbuffers::Vector<'b , flatbuffers::ForwardsUOffset<Matching2SignalingInfo<'b >>>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(JoinRoomResponse::VT_SIGNALING_DATA, signaling_data);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> JoinRoomResponseBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    JoinRoomResponseBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<JoinRoomResponse<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for JoinRoomResponse<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("JoinRoomResponse");
+      ds.field("room_data", &self.room_data());
+      ds.field("signaling_data", &self.signaling_data());
       ds.finish()
   }
 }
@@ -4621,6 +5043,137 @@ impl core::fmt::Debug for RoomMemberUpdateInfo<'_> {
       ds.field("roomMemberDataInternal", &self.roomMemberDataInternal());
       ds.field("eventCause", &self.eventCause());
       ds.field("optData", &self.optData());
+      ds.finish()
+  }
+}
+pub enum NotificationUserJoinedRoomOffset {}
+#[derive(Copy, Clone, PartialEq)]
+
+pub struct NotificationUserJoinedRoom<'a> {
+  pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for NotificationUserJoinedRoom<'a> {
+  type Inner = NotificationUserJoinedRoom<'a>;
+  #[inline]
+  unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+    Self { _tab: flatbuffers::Table::new(buf, loc) }
+  }
+}
+
+impl<'a> NotificationUserJoinedRoom<'a> {
+  pub const VT_ROOM_ID: flatbuffers::VOffsetT = 4;
+  pub const VT_UPDATE_INFO: flatbuffers::VOffsetT = 6;
+  pub const VT_SIGNALING: flatbuffers::VOffsetT = 8;
+
+  #[inline]
+  pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+    NotificationUserJoinedRoom { _tab: table }
+  }
+  #[allow(unused_mut)]
+  pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr, A: flatbuffers::Allocator + 'bldr>(
+    _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr, A>,
+    args: &'args NotificationUserJoinedRoomArgs<'args>
+  ) -> flatbuffers::WIPOffset<NotificationUserJoinedRoom<'bldr>> {
+    let mut builder = NotificationUserJoinedRoomBuilder::new(_fbb);
+    builder.add_room_id(args.room_id);
+    if let Some(x) = args.signaling { builder.add_signaling(x); }
+    if let Some(x) = args.update_info { builder.add_update_info(x); }
+    builder.finish()
+  }
+
+
+  #[inline]
+  pub fn room_id(&self) -> u64 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u64>(NotificationUserJoinedRoom::VT_ROOM_ID, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn update_info(&self) -> Option<RoomMemberUpdateInfo<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<RoomMemberUpdateInfo>>(NotificationUserJoinedRoom::VT_UPDATE_INFO, None)}
+  }
+  #[inline]
+  pub fn signaling(&self) -> Option<SignalingAddr<'a>> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<SignalingAddr>>(NotificationUserJoinedRoom::VT_SIGNALING, None)}
+  }
+}
+
+impl flatbuffers::Verifiable for NotificationUserJoinedRoom<'_> {
+  #[inline]
+  fn run_verifier(
+    v: &mut flatbuffers::Verifier, pos: usize
+  ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<u64>("room_id", Self::VT_ROOM_ID, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<RoomMemberUpdateInfo>>("update_info", Self::VT_UPDATE_INFO, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<SignalingAddr>>("signaling", Self::VT_SIGNALING, false)?
+     .finish();
+    Ok(())
+  }
+}
+pub struct NotificationUserJoinedRoomArgs<'a> {
+    pub room_id: u64,
+    pub update_info: Option<flatbuffers::WIPOffset<RoomMemberUpdateInfo<'a>>>,
+    pub signaling: Option<flatbuffers::WIPOffset<SignalingAddr<'a>>>,
+}
+impl<'a> Default for NotificationUserJoinedRoomArgs<'a> {
+  #[inline]
+  fn default() -> Self {
+    NotificationUserJoinedRoomArgs {
+      room_id: 0,
+      update_info: None,
+      signaling: None,
+    }
+  }
+}
+
+pub struct NotificationUserJoinedRoomBuilder<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> {
+  fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a, A>,
+  start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> NotificationUserJoinedRoomBuilder<'a, 'b, A> {
+  #[inline]
+  pub fn add_room_id(&mut self, room_id: u64) {
+    self.fbb_.push_slot::<u64>(NotificationUserJoinedRoom::VT_ROOM_ID, room_id, 0);
+  }
+  #[inline]
+  pub fn add_update_info(&mut self, update_info: flatbuffers::WIPOffset<RoomMemberUpdateInfo<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<RoomMemberUpdateInfo>>(NotificationUserJoinedRoom::VT_UPDATE_INFO, update_info);
+  }
+  #[inline]
+  pub fn add_signaling(&mut self, signaling: flatbuffers::WIPOffset<SignalingAddr<'b >>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<SignalingAddr>>(NotificationUserJoinedRoom::VT_SIGNALING, signaling);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a, A>) -> NotificationUserJoinedRoomBuilder<'a, 'b, A> {
+    let start = _fbb.start_table();
+    NotificationUserJoinedRoomBuilder {
+      fbb_: _fbb,
+      start_: start,
+    }
+  }
+  #[inline]
+  pub fn finish(self) -> flatbuffers::WIPOffset<NotificationUserJoinedRoom<'a>> {
+    let o = self.fbb_.end_table(self.start_);
+    flatbuffers::WIPOffset::new(o.value())
+  }
+}
+
+impl core::fmt::Debug for NotificationUserJoinedRoom<'_> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    let mut ds = f.debug_struct("NotificationUserJoinedRoom");
+      ds.field("room_id", &self.room_id());
+      ds.field("update_info", &self.update_info());
+      ds.field("signaling", &self.signaling());
       ds.finish()
   }
 }

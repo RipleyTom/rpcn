@@ -347,7 +347,7 @@ fn ridge_racer_7_fixup(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnecti
 }
 
 impl Server {
-	pub fn initialize_database(admin_list: &Vec<String>) -> Result<r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, String> {
+	pub fn initialize_database(admin_list: &[String]) -> Result<r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, String> {
 		match fs::create_dir("db") {
 			Ok(_) => {}
 			Err(e) => match e.kind() {
@@ -656,7 +656,7 @@ impl Database {
 			return Err(DbError::WrongToken);
 		}
 
-		let config = argon2::Config::default();
+		let config = argon2::Config::original();
 		let hash = argon2::hash_raw(password.as_bytes(), &res.salt, &config).expect("Password hashing failed!");
 
 		if hash != res.hash {

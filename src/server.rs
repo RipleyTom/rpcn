@@ -9,8 +9,8 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio::sync::watch;
+use tokio_rustls::rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use tokio_rustls::rustls::server::ServerConfig;
-use tokio_rustls::rustls::{Certificate, PrivateKey};
 use tokio_rustls::TlsAcceptor;
 use tracing::{error, info, warn};
 
@@ -36,7 +36,7 @@ use crate::Config;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 25;
+const PROTOCOL_VERSION: u32 = 26;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
@@ -109,7 +109,7 @@ impl Server {
 
 	pub fn start(&mut self) -> io::Result<()> {
 		// Parse host address
-		let str_addr = self.config.read().get_host().clone() + ":" + self.config.read().get_port();
+		let str_addr = self.config.read().get_host_ipv4().clone() + ":" + self.config.read().get_port();
 		let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("{} is not a valid address", &str_addr)))?;
 		let addr = addr
 			.next()
@@ -118,16 +118,20 @@ impl Server {
 		// Setup TLS
 		let f_cert = File::open("cert.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open certificate cert.pem"))?;
 		let f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
-		let mut certif = certs(&mut BufReader::new(&f_cert)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
-		let mut private_key = pkcs8_private_keys(&mut BufReader::new(&f_key)).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "key.pem is invalid"))?;
+		let certif = certs(&mut BufReader::new(&f_cert))
+			.collect::<Result<Vec<CertificateDer<'static>>, io::Error>>()
+			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
+		let mut private_key = pkcs8_private_keys(&mut BufReader::new(&f_key))
+			.collect::<Result<Vec<PrivatePkcs8KeyDer<'static>>, io::Error>>()
+			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "key.pem is invalid"))?;
 		if certif.is_empty() || private_key.is_empty() {
 			return Err(io::Error::new(io::ErrorKind::InvalidInput, "key.pem doesn't contain a PKCS8 encoded private key!"));
 		}
 
 		let server_config = ServerConfig::builder()
-			.with_safe_defaults()
+			//.with_safe_default_protocol_versions()
 			.with_no_client_auth()
-			.with_single_cert(vec![Certificate(certif.remove(0))], PrivateKey(private_key.remove(0)))
+			.with_single_cert(certif, private_key.remove(0).into())
 			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))?;
 
 		// Setup Tokio
@@ -135,8 +139,6 @@ impl Server {
 		let handle = runtime.handle().clone();
 		let acceptor = TlsAcceptor::from(Arc::new(server_config));
 
-		// TODO: A static assert here would be nice for HEADER_SIZE
-		// or a refactor of packets generation
 		let mut servinfo_vec = vec![PacketType::ServerInfo as u8];
 		servinfo_vec.extend(&0u16.to_le_bytes());
 		servinfo_vec.extend(&(4 + HEADER_SIZE).to_le_bytes());

@@ -29,41 +29,65 @@ impl Client {
 		}
 		let user_id = user_id.unwrap();
 
-		let caller_ip;
-		let caller_port;
+		let (caller_sig_infos, op_sig_infos);
 		{
 			let client_infos = self.shared.client_infos.read();
-			{
-				let si = client_infos.get(&self.client_info.user_id).unwrap().signaling_info.read();
-				caller_ip = si.addr_p2p;
-				caller_port = si.port_p2p;
-			}
 
-			if let Some(client_info) = client_infos.get(&user_id) {
-				let client_si = client_info.signaling_info.read();
-				if caller_ip == client_si.addr_p2p {
-					reply.extend(&client_si.local_addr_p2p);
-					reply.extend(&3658u16.to_le_bytes());
-					info!("Requesting signaling infos for {} => (local) {:?}:{}", &npid, &client_si.local_addr_p2p, 3658);
-					// Don't send notification for local addresses as connectivity shouldn't be an issue
-					return Ok(ErrorType::NoError);
-				} else {
-					reply.extend(&client_si.addr_p2p);
-					reply.extend(&((client_si.port_p2p).to_le_bytes()));
-					info!("Requesting signaling infos for {} => (extern) {:?}:{}", &npid, &client_si.addr_p2p, client_si.port_p2p);
-				}
-			} else {
+			caller_sig_infos = client_infos.get(&self.client_info.user_id).unwrap().signaling_info.read().clone();
+
+			let client_info = client_infos.get(&user_id);
+			if client_info.is_none() {
 				return Ok(ErrorType::NotFound);
+			}
+			let client_info = client_info.unwrap();
+
+			op_sig_infos = client_info.signaling_info.read().clone();
+			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+
+			if caller_sig_infos.addr_p2p_ipv4.0 == op_sig_infos.addr_p2p_ipv4.0 {
+				Client::add_data_packet(reply, &Client::build_signaling_addr(&mut builder, &op_sig_infos.local_addr_p2p, 3658));
+				info!("Requesting signaling infos for {} => (local) {:?}:{}", &npid, &op_sig_infos.local_addr_p2p, 3658);
+				// Don't send notification for local addresses as connectivity shouldn't be an issue
+				return Ok(ErrorType::NoError);
+			} else {
+				match (caller_sig_infos.addr_p2p_ipv6, op_sig_infos.addr_p2p_ipv6) {
+					(Some(_), Some((op_ipv6, port_ipv6))) => {
+						Client::add_data_packet(reply, &Client::build_signaling_addr(&mut builder, &op_ipv6, port_ipv6));
+						info!("Requesting signaling infos for {} => (extern ipv6) {:?}:{}", &npid, &op_ipv6, port_ipv6);
+					}
+					_ => {
+						Client::add_data_packet(reply, &Client::build_signaling_addr(&mut builder, &op_sig_infos.addr_p2p_ipv4.0, op_sig_infos.addr_p2p_ipv4.1));
+						info!(
+							"Requesting signaling infos for {} => (extern ipv4) {:?}:{}",
+							&npid, &op_sig_infos.addr_p2p_ipv4.0, op_sig_infos.addr_p2p_ipv4.1
+						);
+					}
+				}
 			}
 		}
 
 		// Send a notification to the target to help with connectivity
-		let mut n_msg: Vec<u8> = Vec::with_capacity(std::mem::size_of::<u16>() + std::mem::size_of::<u32>());
-		n_msg.extend(&caller_ip);
-		n_msg.extend(&caller_port.to_le_bytes());
-		n_msg.extend(self.client_info.npid.as_bytes());
-		n_msg.push(0);
-		let friend_n = Client::create_notification(NotificationType::SignalingInfo, &n_msg);
+		let mut notif_builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+		let npid_str = notif_builder.create_string(&self.client_info.npid);
+		let addr = match (caller_sig_infos.addr_p2p_ipv6, op_sig_infos.addr_p2p_ipv6) {
+			(Some(_), Some((op_ipv6, port_ipv6))) => Client::make_signaling_addr(&mut notif_builder, &op_ipv6, port_ipv6),
+			_ => Client::make_signaling_addr(&mut notif_builder, &op_sig_infos.addr_p2p_ipv4.0, op_sig_infos.addr_p2p_ipv4.1),
+		};
+
+		let matching_addr = MatchingSignalingInfo::create(
+			&mut notif_builder,
+			&MatchingSignalingInfoArgs {
+				npid: Some(npid_str),
+				addr: Some(addr),
+			},
+		);
+
+		notif_builder.finish(matching_addr, None);
+		let vec_notif = notif_builder.finished_data().to_vec();
+
+		let mut n_msg: Vec<u8> = Vec::with_capacity(size_of::<u32>() + vec_notif.len());
+		Client::add_data_packet(&mut n_msg, &vec_notif);
+		let friend_n = Client::create_notification(NotificationType::SignalingHelper, &n_msg);
 		self.send_single_notification(&friend_n, user_id).await;
 		Ok(ErrorType::NoError)
 	}
@@ -168,31 +192,6 @@ impl Client {
 		Ok(ErrorType::NoError)
 	}
 
-	pub async fn clear_presence(&self) -> Result<ErrorType, ErrorType> {
-		let notify: Option<HashSet<i64>>;
-		{
-			let client_infos = self.shared.client_infos.read();
-			let mut friend_info = client_infos.get(&self.client_info.user_id).unwrap().friend_info.write();
-			if friend_info.presence.is_some() {
-				notify = Some(friend_info.friends.keys().copied().collect());
-				friend_info.presence = None;
-			} else {
-				notify = None;
-			}
-		}
-
-		if let Some(user_ids) = notify {
-			let mut n_msg: Vec<u8> = Vec::new();
-			n_msg.extend(self.client_info.npid.as_bytes());
-			n_msg.push(0);
-			ClientSharedPresence::dump_empty(&mut n_msg);
-			let notif = Client::create_notification(NotificationType::FriendPresenceChanged, &n_msg);
-			self.send_notification(&notif, &user_ids).await;
-		}
-
-		Ok(ErrorType::NoError)
-	}
-
 	pub async fn set_presence(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let (com_id, pr_req) = self.get_com_and_fb::<SetPresenceRequest>(data)?;
 		let title = Client::validate_and_unwrap(pr_req.title())?;
@@ -214,6 +213,8 @@ impl Client {
 					presence_info.title = title.to_string();
 					presence_info.title.truncate(SCE_NP_BASIC_PRESENCE_TITLE_SIZE_MAX - 1);
 
+					self.shared.game_tracker.add_gamename_hint(&com_id, title);
+
 					if let Some(status) = pr_req.status() {
 						presence_info.status = status.to_string();
 						presence_info.status.truncate(SCE_NP_BASIC_PRESENCE_EXTENDED_STATUS_SIZE_MAX - 1);
@@ -234,8 +235,9 @@ impl Client {
 					notify = None;
 				}
 			} else {
-				friend_info.presence = Some(ClientSharedPresence::new(com_id, title, pr_req.status(), pr_req.comment(), pr_req.data().map(|v| v.bytes())));
-				notify = None;
+				let new_presence = ClientSharedPresence::new(com_id, title, pr_req.status(), pr_req.comment(), pr_req.data().map(|v| v.bytes()));
+				friend_info.presence = Some(new_presence.clone());
+				notify = Some((new_presence, friend_info.friends.keys().copied().collect()));
 			}
 		}
 
@@ -248,6 +250,11 @@ impl Client {
 			self.send_notification(&notif, &user_ids).await;
 		}
 
+		Ok(ErrorType::NoError)
+	}
+
+	pub async fn reset_state(&mut self) -> Result<ErrorType, ErrorType> {
+		Client::clean_user_state(self).await;
 		Ok(ErrorType::NoError)
 	}
 }

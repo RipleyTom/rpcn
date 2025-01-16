@@ -5,12 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-02-11
+
+### Added
+
+- Implemented support for private slots and room passwords
+- Added hint for game name in game tracker
+- Added a cache to game tracker
+- Added support for IPv6 for signaling
+- Added support for groups
+- Added a command to reset client's state without disconnecting
+
+### Changed
+
+- Removed target from logging
+- Stopped printing error if connection stops because of TCP connection termination
+- Got rid of unnecessary Arcs around atomics in game tracker
+- Cleaned up logging
+
+### Fixed
+
+- Signaling information is now given out to the person joining a room in the room response and in the notification that a user has joined instead of separately
+- Fixed Presence not being announced to friends when first set
+
+### Misc
+
+- Updated dependencies to all latest major versions
+
+
 ## [1.3.0] - 2024-09-19
 
 ### Added
 
 - Added a configuration setting letting you set admins rights for specific usernames(set on launch or at account creation)
-- Added commands to support old GUI API (CreateRoomGUI, JoinRoomGUI, LeaveRoomGUI, GetRoomListGUI, SetRoomSearchFlagGUI, GetRoomSearchFlagGUI, SetRoomInfoGUI, GetRoomInfoGUI, QuickMatchGUI, SearchJoinGUI)
+- Added commands to support old GUI API (CreateRoomGUI, JoinRoomGUI, LeaveRoomGUI, GetRoomListGUI, SetRoomSearchFlagGUI, GetRoomSearchFlagGUI, SetRoomInfoGUI, GetRoomInfoGUI, QuickMatchGUI, SearchJoinRoomGUI)
 
 ### Changed
 

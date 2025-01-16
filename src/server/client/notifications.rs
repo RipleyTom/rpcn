@@ -8,8 +8,6 @@ pub enum NotificationType {
 	RoomDestroyed,
 	UpdatedRoomDataInternal,
 	UpdatedRoomMemberDataInternal,
-	SignalP2PConnect,
-	_SignalP2PDisconnect,
 	FriendQuery,  // Other user sent a friend request
 	FriendNew,    // Add a friend to the friendlist(either accepted a friend request or friend accepted it)
 	FriendLost,   // Remove friend from the friendlist(user removed friend or friend removed friend)
@@ -17,7 +15,7 @@ pub enum NotificationType {
 	RoomMessageReceived,
 	MessageReceived,
 	FriendPresenceChanged,
-	SignalingInfo,
+	SignalingHelper,
 	MemberJoinedRoomGUI,
 	MemberLeftRoomGUI,
 	RoomDisappearedGUI,
@@ -27,6 +25,7 @@ pub enum NotificationType {
 }
 
 impl Client {
+	#[must_use]
 	pub fn create_notification(n_type: NotificationType, data: &[u8]) -> Vec<u8> {
 		let final_size = data.len() + HEADER_SIZE as usize;
 

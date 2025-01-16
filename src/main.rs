@@ -21,7 +21,8 @@ pub struct TicketSignInfo {
 pub struct Config {
 	create_missing: bool, // Creates servers/worlds/lobbies if the client queries for ones but there are none or specific id queries
 	verbosity: tracing::Level,
-	host: String,
+	host_ipv4: String,
+	host_ipv6: String,
 	port: String,
 	email_validated: bool, // Requires email validation
 	email_host: String,
@@ -31,6 +32,7 @@ pub struct Config {
 	server_redirs: HashMap<ComId, ComId>,
 	ticket_signature_info: Option<TicketSignInfo>,
 	stat_server_host_and_port: Option<(String, String)>,
+	stat_server_timeout: u32,
 	admins_list: Vec<String>,
 }
 
@@ -39,7 +41,8 @@ impl Config {
 		Config {
 			create_missing: true,
 			verbosity: tracing::Level::INFO,
-			host: "0.0.0.0".to_string(),
+			host_ipv4: "0.0.0.0".to_string(),
+			host_ipv6: "0:0:0:0:0:0:0:0".to_string(),
 			port: "31313".to_string(),
 			email_validated: false,
 			email_host: String::new(),
@@ -49,6 +52,7 @@ impl Config {
 			server_redirs: HashMap::new(),
 			ticket_signature_info: None,
 			stat_server_host_and_port: None,
+			stat_server_timeout: 0,
 			admins_list: Vec::new(),
 		}
 	}
@@ -90,6 +94,17 @@ impl Config {
 				*d_str = String::from(*data);
 			} else {
 				println!("Configuration entry for <{}> was not found, defaulting to <{}>", name, d_str);
+			}
+		};
+
+		let set_u32 = |name: &str, d_u32: &mut u32| {
+			if let Some(data) = config_data.get(name) {
+				match data.parse::<u32>() {
+					Ok(v) => *d_u32 = v,
+					Err(_) => println!("Invalid value(<{}>) for configuration entry <{}>, defaulting to <{}>", data, name, *d_u32),
+				}
+			} else {
+				println!("Configuration entry for <{}> was not found, defaulting to <{}>", name, d_u32);
 			}
 		};
 
@@ -141,7 +156,8 @@ impl Config {
 		set_string("EmailHost", &mut self.email_host);
 		set_string("EmailLogin", &mut self.email_login);
 		set_string("EmailPassword", &mut self.email_password);
-		set_string("Host", &mut self.host);
+		set_string("Host", &mut self.host_ipv4);
+		set_string("HostIPv6", &mut self.host_ipv6);
 		set_string("Port", &mut self.port);
 		set_string("EmailHost", &mut self.email_host);
 		set_string("EmailLogin", &mut self.email_login);
@@ -180,9 +196,10 @@ impl Config {
 		if run_stat_server {
 			let mut stat_server_host = String::new();
 			let mut stat_server_port = String::new();
-
 			set_string("StatServerHost", &mut stat_server_host);
 			set_string("StatServerPort", &mut stat_server_port);
+
+			set_u32("StatServerCacheLife", &mut self.stat_server_timeout);
 
 			if stat_server_host.is_empty() || stat_server_port.is_empty() {
 				println!("Stat server is enabled but it's missing host/port information, disabling it!");
@@ -208,8 +225,12 @@ impl Config {
 		&self.verbosity
 	}
 
-	pub fn get_host(&self) -> &String {
-		&self.host
+	pub fn get_host_ipv4(&self) -> &String {
+		&self.host_ipv4
+	}
+
+	pub fn get_host_ipv6(&self) -> &String {
+		&self.host_ipv6
 	}
 
 	pub fn get_port(&self) -> &String {
@@ -264,6 +285,10 @@ impl Config {
 		&self.stat_server_host_and_port
 	}
 
+	pub fn get_stat_server_timeout(&self) -> u32 {
+		self.stat_server_timeout
+	}
+
 	pub fn get_admins_list(&self) -> &Vec<String> {
 		&self.admins_list
 	}
@@ -291,7 +316,7 @@ fn main() {
 	let subscriber = tracing_subscriber::FmtSubscriber::builder()
 		.with_max_level(*config.get_verbosity())
 		.without_time()
-		.with_target(true)
+		.with_target(false)
 		.with_ansi(true)
 		.finish();
 	tracing::subscriber::set_global_default(subscriber).expect("Setting default subscriber failed!");

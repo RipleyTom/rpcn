@@ -35,7 +35,7 @@ use crate::server::client::ticket::Ticket;
 use crate::server::database::Database;
 use crate::server::game_tracker::GameTracker;
 use crate::server::gui_room_manager::GuiRoomManager;
-use crate::server::room_manager::{RoomManager, SignalParam, SignalingType};
+use crate::server::room_manager::RoomManager;
 use crate::server::score_cache::ScoresCache;
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
@@ -60,17 +60,18 @@ pub struct ClientInfo {
 	pub banned: bool,
 }
 
+#[derive(Clone)]
 pub struct ClientSharedSignalingInfo {
-	pub addr_p2p: [u8; 4],
-	pub port_p2p: u16,
+	pub addr_p2p_ipv4: ([u8; 4], u16),
+	pub addr_p2p_ipv6: Option<([u8; 16], u16)>,
 	pub local_addr_p2p: [u8; 4],
 }
 
 impl ClientSharedSignalingInfo {
 	fn new() -> ClientSharedSignalingInfo {
 		ClientSharedSignalingInfo {
-			addr_p2p: [0; 4],
-			port_p2p: 0,
+			addr_p2p_ipv4: ([0; 4], 0),
+			addr_p2p_ipv6: None,
 			local_addr_p2p: [0; 4],
 		}
 	}
@@ -202,6 +203,7 @@ enum CommandType {
 	SendToken,
 	SendResetToken,
 	ResetPassword,
+	ResetState,
 	AddFriend,
 	RemoveFriend,
 	AddBlock,
@@ -245,7 +247,6 @@ enum CommandType {
 	TusGetMultiUserDataStatus,
 	TusGetFriendsDataStatus,
 	TusDeleteMultiSlotData,
-	ClearPresence,
 	SetPresence,
 	CreateRoomGUI,
 	JoinRoomGUI,
@@ -296,13 +297,19 @@ pub enum ErrorType {
 	CreationExistingUsername,    // Specific to Account Creation: username exists already
 	CreationBannedEmailProvider, // Specific to Account Creation: the email provider is banned
 	CreationExistingEmail,       // Specific to Account Creation: that email is already registered to an account
-	RoomMissing,                 // User tried to join a non existing room
+	RoomMissing,                 // User tried to interact with a non existing room
 	RoomAlreadyJoined,           // User tried to join a room he's already part of
 	RoomFull,                    // User tried to join a full room
+	RoomPasswordMismatch,        // Room password didn't match
+	RoomPasswordMissing,         // A password was missing during room creation
+	RoomGroupNoJoinLabel,        // Tried to join a group room without a label
+	RoomGroupFull,               // Room group is full
+	RoomGroupJoinLabelNotFound,  // Join label was invalid in some way
+	RoomGroupMaxSlotMismatch,    // Mismatch between max_slot and the listed slots in groups
 	Unauthorized,                // User attempted an unauthorized operation
 	DbFail,                      // Generic failure on db side
 	EmailFail,                   // Generic failure related to email
-	NotFound,                    // Object of the query was not found(room, user, etc)
+	NotFound,                    // Object of the query was not found(user, etc), use RoomMissing for rooms instead
 	Blocked,                     // The operation can't complete because you've been blocked
 	AlreadyFriend,               // Can't add friend because already friend
 	ScoreNotBest,                // A better score is already registered for that user/character_id
@@ -343,22 +350,10 @@ impl Drop for Client {
 			self.shared.cleanup_duty.write().insert(self.client_info.user_id);
 			let mut self_clone = Box::new(self.clone()); // We box the clone in order to avoid stack issues when a lot of users drop(shutdown)
 			task::spawn(async move {
-				// leave all rooms user is still in
-				let rooms = self_clone.shared.room_manager.read().get_rooms_by_user(self_clone.client_info.user_id);
+				Client::clean_user_state(&mut self_clone).await;
 
-				if let Some(rooms) = rooms {
-					for (com_id, room_id) in rooms {
-						self_clone.leave_room(&com_id, room_id, None, EventCause::MemberDisappeared).await;
-					}
-				}
-
-				let rooms = self_clone.shared.gui_room_manager.read().get_rooms_by_user(self_clone.client_info.user_id);
-
-				if let Some(rooms) = rooms {
-					for room in rooms {
-						let _ = self_clone.leave_room_gui(&room).await;
-					}
-				}
+				// Remove user from game stats
+				self_clone.shared.game_tracker.decrease_num_users();
 
 				// Notify friends that the user went offline and remove him from signaling infos
 				let mut to_notif: HashSet<i64> = HashSet::new();
@@ -374,17 +369,6 @@ impl Drop for Client {
 
 				let notif = Client::create_friend_status_notification(&self_clone.client_info.npid, timestamp, false);
 				self_clone.send_notification(&notif, &to_notif).await;
-
-				// Remove user from game stats
-				self_clone.shared.game_tracker.decrease_num_users();
-
-				if let Some(ref cur_com_id) = self_clone.current_game.0 {
-					self_clone.shared.game_tracker.decrease_count_psn(cur_com_id);
-				}
-
-				if let Some(ref cur_service_id) = self_clone.current_game.1 {
-					self_clone.shared.game_tracker.decrease_count_ticket(cur_service_id);
-				}
 
 				// Needed to make sure this is not called recursively!
 				self_clone.authentified = false;
@@ -440,6 +424,34 @@ impl Client {
 			},
 			tls_reader,
 		)
+	}
+
+	pub async fn clean_user_state(client: &mut Client) {
+		let rooms = client.shared.room_manager.read().get_rooms_by_user(client.client_info.user_id);
+
+		if let Some(rooms) = rooms {
+			for (com_id, room_id) in rooms {
+				client.leave_room(&com_id, room_id, None, EventCause::MemberDisappeared).await;
+			}
+		}
+
+		let rooms = client.shared.gui_room_manager.read().get_rooms_by_user(client.client_info.user_id);
+
+		if let Some(rooms) = rooms {
+			for room in rooms {
+				let _ = client.leave_room_gui(&room).await;
+			}
+		}
+
+		if let Some(ref cur_com_id) = client.current_game.0 {
+			client.shared.game_tracker.decrease_count_psn(cur_com_id);
+			client.current_game.0 = None;
+		}
+
+		if let Some(ref cur_service_id) = client.current_game.1 {
+			client.shared.game_tracker.decrease_count_ticket(cur_service_id);
+			client.current_game.1 = None;
+		}
 	}
 
 	// Logging Functions
@@ -510,7 +522,15 @@ impl Client {
 						header_data[13],
 						header_data[14],
 					]);
-					let npid_span = info_span!("", npid = %self.client_info.npid);
+
+					let npid_span = if let Some(com_id) = &self.current_game.0 {
+						let com_id_str = com_id_to_string(com_id);
+						info_span!("", npid = %self.client_info.npid, commid = %com_id_str)
+					} else if !self.client_info.npid.is_empty() {
+						info_span!("", npid = %self.client_info.npid)
+					} else {
+						info_span!("")
+					};
 
 					// Max packet size of 8MiB
 					if packet_size > MAX_PACKET_SIZE {
@@ -524,7 +544,10 @@ impl Client {
 					}
 				}
 				Err(e) => {
-					info!("Client({}) disconnected: {}", self.client_info.npid, &e);
+					match e.kind() {
+						std::io::ErrorKind::UnexpectedEof => info!("Client ({}) disconnected", self.client_info.npid),
+						_ => info!("Client({}) disconnected: {}", self.client_info.npid, &e),
+					}
 					break 'main_client_loop;
 				}
 			}
@@ -624,6 +647,7 @@ impl Client {
 		}
 
 		match command {
+			CommandType::ResetState => self.reset_state().await,
 			CommandType::AddFriend => self.add_friend(data).await,
 			CommandType::RemoveFriend => self.remove_friend(data).await,
 			CommandType::AddBlock => self.add_block(data, reply),
@@ -667,7 +691,6 @@ impl Client {
 			CommandType::TusGetMultiUserDataStatus => self.tus_get_multiuser_data_status(data, reply).await,
 			CommandType::TusGetFriendsDataStatus => self.tus_get_friends_data_status(data, reply).await,
 			CommandType::TusDeleteMultiSlotData => self.tus_delete_multislot_data(data).await,
-			CommandType::ClearPresence => self.clear_presence().await,
 			CommandType::SetPresence => self.set_presence(data).await,
 			CommandType::CreateRoomGUI => self.req_create_room_gui(data, reply),
 			CommandType::JoinRoomGUI => self.req_join_room_gui(data, reply).await,
@@ -730,122 +753,6 @@ impl Client {
 		final_com_id
 	}
 
-	async fn signal_connections(&mut self, room_id: u64, from: (u16, i64), to: HashMap<u16, i64>, sig_param: Option<SignalParam>, owner: u16) {
-		if sig_param.is_none() {
-			return;
-		}
-		let sig_param = sig_param.unwrap();
-		if !sig_param.should_signal() {
-			return;
-		}
-
-		// Get user signaling
-		let mut addr_p2p = [0; 4];
-		let mut port_p2p = 0;
-		let mut local_ip = [0; 4];
-		{
-			let client_infos = self.shared.client_infos.read();
-			if let Some(client_entry) = client_infos.get(&from.1) {
-				let client_si = client_entry.signaling_info.read();
-				addr_p2p = client_si.addr_p2p;
-				port_p2p = client_si.port_p2p;
-				local_ip = client_si.local_addr_p2p;
-			}
-		}
-
-		// Create a notification to send to other user(s)
-		let mut s_msg: Vec<u8> = Vec::new();
-		s_msg.extend(&room_id.to_le_bytes()); // +0..+8 room ID
-		s_msg.extend(&from.0.to_le_bytes()); // +8..+10 member ID
-		s_msg.extend(&port_p2p.to_le_bytes()); // +10..+12 port
-		s_msg.extend(&addr_p2p); // +12..+16 addr
-		let s_notif_extern = Client::create_notification(NotificationType::SignalP2PConnect, &s_msg);
-
-		// Create a local IP version for users behind the same IP
-		let mut s_notif_local = s_notif_extern.clone();
-		s_notif_local[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_le_bytes());
-		s_notif_local[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&local_ip);
-
-		let mut s_self_notif = s_notif_extern.clone();
-
-		let mut user_ids_extern: HashSet<i64> = HashSet::new();
-		let mut user_ids_local: HashSet<i64> = HashSet::new();
-
-		match sig_param.get_type() {
-			SignalingType::SignalingMesh => {
-				// Notifies user that connection needs to be established with all other occupants
-				{
-					for user in &to {
-						let mut tosend = false; // tosend is there to avoid double locking on signaling_infos
-						{
-							let client_infos = self.shared.client_infos.read();
-							let client_entry = client_infos.get(user.1);
-
-							if let Some(client_entry) = client_entry {
-								let client_si = client_entry.signaling_info.read();
-								s_self_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&user.0.to_le_bytes());
-
-								if client_si.addr_p2p == addr_p2p {
-									user_ids_local.insert(*user.1);
-									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&client_si.local_addr_p2p);
-									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_le_bytes());
-								} else {
-									user_ids_extern.insert(*user.1);
-									s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&client_si.addr_p2p);
-									s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&client_si.port_p2p.to_le_bytes());
-								}
-
-								tosend = true;
-							}
-						}
-						if tosend {
-							self.self_notification(&s_self_notif); // Special function that will post the notification after the reply
-						}
-					}
-				}
-			}
-			SignalingType::SignalingStar => {
-				let mut hub = sig_param.get_hub();
-				if hub == 0 {
-					hub = owner;
-				}
-
-				// Send notification to user to connect to hub
-				let mut tosend = false;
-				{
-					let client_infos = self.shared.client_infos.read();
-					let hub_user_id = *to.get(&hub).unwrap();
-					let client_entry = client_infos.get(&hub_user_id);
-
-					if let Some(client_entry) = client_entry {
-						let client_si = client_entry.signaling_info.read();
-						s_self_notif[(HEADER_SIZE as usize + 8)..(HEADER_SIZE as usize + 10)].clone_from_slice(&hub.to_le_bytes());
-
-						if client_si.addr_p2p == addr_p2p {
-							user_ids_local.insert(hub_user_id);
-							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&client_si.local_addr_p2p);
-							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&3658u16.to_le_bytes());
-						} else {
-							user_ids_extern.insert(hub_user_id);
-							s_self_notif[(HEADER_SIZE as usize + 12)..(HEADER_SIZE as usize + 16)].clone_from_slice(&client_si.addr_p2p);
-							s_self_notif[(HEADER_SIZE as usize + 10)..(HEADER_SIZE as usize + 12)].clone_from_slice(&client_si.port_p2p.to_le_bytes());
-						}
-
-						tosend = true;
-					}
-				}
-				if tosend {
-					self.self_notification(&s_self_notif); // Special function that will post the notification after the reply
-				}
-			}
-			_ => panic!("Unimplemented SignalingType({:?})", sig_param.get_type()),
-		}
-
-		// Notify other members of connections needing to be established
-		self.send_notification(&s_notif_extern, &user_ids_extern).await;
-		self.send_notification(&s_notif_local, &user_ids_local).await;
-	}
-
 	//Helper for avoiding potentially pointless queries to database
 	pub fn get_username_with_helper(&self, user_id: i64, helper_list: &HashMap<i64, String>, db: &Database) -> Result<String, ErrorType> {
 		if let Some(npid) = helper_list.get(&user_id) {
@@ -881,6 +788,17 @@ impl Client {
 		}
 
 		Ok(opt.unwrap())
+	}
+
+	pub fn make_signaling_addr<'a>(builder: &mut flatbuffers::FlatBufferBuilder<'a>, addr: &[u8], port: u16) -> flatbuffers::WIPOffset<SignalingAddr<'a>> {
+		let vec_ip = builder.create_vector(addr);
+		SignalingAddr::create(builder, &SignalingAddrArgs { ip: Some(vec_ip), port })
+	}
+
+	pub fn build_signaling_addr(builder: &mut flatbuffers::FlatBufferBuilder, addr: &[u8], port: u16) -> Vec<u8> {
+		let sig_addr = Client::make_signaling_addr(builder, addr, port);
+		builder.finish(sig_addr, None);
+		builder.finished_data().to_vec()
 	}
 }
 

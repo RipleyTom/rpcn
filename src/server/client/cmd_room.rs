@@ -18,60 +18,72 @@ impl Client {
 				ErrorType::InvalidInput
 			})?;
 
-		let resp = self.shared.room_manager.write().create_room(&com_id, &create_req, &self.client_info, server_id);
-		Client::add_data_packet(reply, &resp);
-		Ok(ErrorType::NoError)
+		let signaling_info = if let Some(sig_info) = self.shared.client_infos.read().get(&self.client_info.user_id) {
+			sig_info.signaling_info.read().clone()
+		} else {
+			warn!("User created a room with no signaling info!");
+			ClientSharedSignalingInfo::new()
+		};
+
+		let resp = self.shared.room_manager.write().create_room(&com_id, &create_req, &self.client_info, server_id, signaling_info);
+
+		match resp {
+			Err(ErrorType::Malformed) => Err(ErrorType::Malformed),
+			Err(e) => Ok(e),
+			Ok(resp) => {
+				Client::add_data_packet(reply, &resp);
+				Ok(ErrorType::NoError)
+			}
+		}
 	}
 
 	pub async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let (com_id, join_req) = self.get_com_and_fb::<JoinRoomRequest>(data)?;
-
 		let room_id = join_req.roomId();
-		let user_ids: HashSet<i64>;
-		let (notif, member_id, users, siginfo, owner);
+
+		let (response, notifications);
 		{
 			let mut room_manager = self.shared.room_manager.write();
 			if !room_manager.room_exists(&com_id, room_id) {
 				warn!("User requested to join a room that doesn't exist!");
 				return Ok(ErrorType::RoomMissing);
 			}
-			{
+
+			let users = {
 				let room = room_manager.get_room(&com_id, room_id);
-				users = room.get_room_users();
-				siginfo = room.get_signaling_info();
-				owner = room.get_owner();
-			}
+				room.get_room_users()
+			};
 
 			if users.iter().any(|x| *x.1 == self.client_info.user_id) {
 				warn!("User tried to join a room he was already a member of!");
 				return Ok(ErrorType::RoomAlreadyJoined);
 			}
 
-			let resp = room_manager.join_room(&com_id, &join_req, &self.client_info);
-			if let Err(e) = resp {
-				warn!("User failed to join the room!");
-				return Ok(e);
+			let signaling_info = if let Some(sig_info) = self.shared.client_infos.read().get(&self.client_info.user_id) {
+				sig_info.signaling_info.read().clone()
+			} else {
+				warn!("User joined a room with no signaling info!");
+				ClientSharedSignalingInfo::new()
+			};
+
+			let resp = room_manager.join_room(&com_id, &join_req, &self.client_info, signaling_info);
+			match resp {
+				Err(ErrorType::Malformed) => return Err(ErrorType::Malformed),
+				Err(e) => return Ok(e),
+				Ok((resp, noti)) => {
+					(response, notifications) = (resp, noti);
+				}
 			}
-
-			let (member_id_ta, resp) = resp.unwrap();
-			member_id = member_id_ta;
-			Client::add_data_packet(reply, &resp);
-
-			user_ids = users.iter().map(|x| *x.1).collect();
-
-			// Notif other room users a new user has joined
-			let mut n_msg: Vec<u8> = Vec::new();
-			n_msg.extend(&room_id.to_le_bytes());
-			let up_info = room_manager
-				.get_room(&com_id, room_id)
-				.get_room_member_update_info(member_id, EventCause::None, Some(&join_req.optData().unwrap()));
-			Client::add_data_packet(&mut n_msg, &up_info);
-			notif = Client::create_notification(NotificationType::UserJoinedRoom, &n_msg);
 		}
-		self.send_notification(&notif, &user_ids).await;
 
-		// Send signaling stuff if any
-		self.signal_connections(room_id, (member_id, self.client_info.user_id), users, siginfo, owner).await;
+		Client::add_data_packet(reply, &response);
+
+		for (notification_data, user_ids) in notifications.into_iter().flatten() {
+			let mut n_msg = Vec::with_capacity(notification_data.len() + size_of::<u32>());
+			Client::add_data_packet(&mut n_msg, &notification_data);
+			let notif = Client::create_notification(NotificationType::UserJoinedRoom, &n_msg);
+			self.send_notification(&notif, &user_ids).await;
+		}
 
 		Ok(ErrorType::NoError)
 	}
@@ -81,7 +93,7 @@ impl Client {
 		{
 			let mut room_manager = self.shared.room_manager.write();
 			if !room_manager.room_exists(com_id, room_id) {
-				return ErrorType::NotFound;
+				return ErrorType::RoomMissing;
 			}
 
 			let room = room_manager.get_room(com_id, room_id);
@@ -91,7 +103,10 @@ impl Client {
 			}
 
 			// We get this in advance in case the room is not destroyed
-			user_data = room.get_room_member_update_info(member_id.unwrap(), event_cause.clone(), opt_data);
+			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+			let wip_user_data = room.get_room_member_update_info(&mut builder, member_id.unwrap(), event_cause.clone(), opt_data);
+			builder.finish(wip_user_data, None);
+			user_data = builder.finished_data().to_vec();
 
 			let res = room_manager.leave_room(com_id, room_id, self.client_info.user_id);
 			if let Err(e) = res {
@@ -174,11 +189,11 @@ impl Client {
 
 		let resp = self.shared.room_manager.read().get_roomdata_internal(&com_id, &getdata_req);
 		if let Err(e) = resp {
-			reply.push(e);
-		} else {
-			let resp = resp.unwrap();
-			Client::add_data_packet(reply, &resp);
+			return Ok(e);
 		}
+
+		let resp = resp.unwrap();
+		Client::add_data_packet(reply, &resp);
 		Ok(ErrorType::NoError)
 	}
 	pub async fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
@@ -278,14 +293,14 @@ impl Client {
 			let room_manager = self.shared.room_manager.read();
 			if !room_manager.room_exists(&com_id, room_id) {
 				warn!("User requested to send a message to a room that doesn't exist!");
-				return Ok(ErrorType::InvalidInput);
+				return Ok(ErrorType::RoomMissing);
 			}
 			{
 				let room = room_manager.get_room(&com_id, room_id);
 				let m_id = room.get_member_id(self.client_info.user_id);
 				if m_id.is_err() {
 					warn!("User requested to send a message to a room that he's not a member of!");
-					return Ok(ErrorType::InvalidInput);
+					return Ok(ErrorType::Unauthorized);
 				}
 				member_id = m_id.unwrap();
 				users = room.get_room_users();
