@@ -506,7 +506,7 @@ fn hash_password(rng_gen: &mut StdRng, password: &str) -> (Vec<u8>, [u8; 64]) {
 	let mut salt = [0; 64];
 	rng_gen.fill_bytes(&mut salt);
 
-	let config = argon2::Config::default();
+	let config = argon2::Config::original();
 	let hash = argon2::hash_raw(password.as_bytes(), &salt, &config).expect("Password hashing failed!");
 
 	(hash, salt)
