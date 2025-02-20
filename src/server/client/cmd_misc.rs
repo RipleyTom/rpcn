@@ -51,9 +51,9 @@ impl Client {
 				return Ok(ErrorType::NoError);
 			} else {
 				match (caller_sig_infos.addr_p2p_ipv6, op_sig_infos.addr_p2p_ipv6) {
-					(Some(_), Some((op_ipv6, port_ipv6))) => {
-						Client::add_data_packet(reply, &Client::build_signaling_addr(&mut builder, &op_ipv6, port_ipv6));
-						info!("Requesting signaling infos for {} => (extern ipv6) {:?}:{}", &npid, &op_ipv6, port_ipv6);
+					(Some(_), Some((op_ipv6, op_port_ipv6))) => {
+						Client::add_data_packet(reply, &Client::build_signaling_addr(&mut builder, &op_ipv6, op_port_ipv6));
+						info!("Requesting signaling infos for {} => (extern ipv6) {:?}:{}", &npid, &op_ipv6, op_port_ipv6);
 					}
 					_ => {
 						Client::add_data_packet(reply, &Client::build_signaling_addr(&mut builder, &op_sig_infos.addr_p2p_ipv4.0, op_sig_infos.addr_p2p_ipv4.1));
@@ -70,8 +70,8 @@ impl Client {
 		let mut notif_builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 		let npid_str = notif_builder.create_string(&self.client_info.npid);
 		let addr = match (caller_sig_infos.addr_p2p_ipv6, op_sig_infos.addr_p2p_ipv6) {
-			(Some(_), Some((op_ipv6, port_ipv6))) => Client::make_signaling_addr(&mut notif_builder, &op_ipv6, port_ipv6),
-			_ => Client::make_signaling_addr(&mut notif_builder, &op_sig_infos.addr_p2p_ipv4.0, op_sig_infos.addr_p2p_ipv4.1),
+			(Some((caller_ipv6, caller_port_ipv6)), Some(_)) => Client::make_signaling_addr(&mut notif_builder, &caller_ipv6, caller_port_ipv6),
+			_ => Client::make_signaling_addr(&mut notif_builder, &caller_sig_infos.addr_p2p_ipv4.0, caller_sig_infos.addr_p2p_ipv4.1),
 		};
 
 		let matching_addr = MatchingSignalingInfo::create(
