@@ -79,6 +79,15 @@ impl Client {
 		)
 	}
 
+	fn send_recover_account_mail(&self, email_addr: &str, npid: &str) -> Result<(), String>{
+		self.send_email_template(
+			email_addr,
+			npid,
+			"RPCN Account Recovery",
+			format!("Your account details are the following:\nEmail Address: {}\nUsername: {}\n", email_addr, npid),
+		)
+	}
+
 	pub async fn login(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let login = data.get_string(false);
 		let password = data.get_string(false);
@@ -387,6 +396,52 @@ impl Client {
 			} else {
 				Err(ErrorType::LoginError)
 			}
+		}
+	}
+
+	pub fn recover_account(&self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
+		let email = data.get_string(false);
+
+		if data.error() {
+			warn!("Error while extracting data from RecoverAccount command");
+			return Err(ErrorType::Malformed);
+		}
+		
+		let db = Database::new(self.get_database_connection()?);
+		let email_check = strip_email(&email);
+
+		if let Ok(user_data) = db.check_email_valid(&email_check) {
+			let user_email = user_data.email;
+			let username = user_data.online_name;
+			let user_id = user_data.user_id;
+
+			// Let's check that the account hasn't been recovered in the last 24 hours - To Do
+			let last_account_recover_timestamp = db.get_account_recovery_time(user_id).map_err(|_| {
+				error!("Unexpected error querying account recovery timestamp");
+				ErrorType::DbFail
+			})?;
+
+			// check that an account recovery email hasn't been sent in the last 24 hours - To Do
+			if let Some(last_account_recover_timestamp) = last_account_recover_timestamp{
+				if (Client::get_timestamp_seconds() - last_account_recover_timestamp) < (24 * 60 * 60) {
+					warn!("Email {} attempted to recover account again too soon!", user_email);
+					return Err(ErrorType::TooSoon);
+				}
+			}
+
+			if let Err(e) = self.send_recover_account_mail(&user_email, &username) {
+				error!("Error sending email: {}", e);
+				Err(ErrorType::EmailFail)
+			} else {
+				// Update last account recovery time
+				db.set_account_recovery_sent_time(user_id).map_err(|_| {
+					error!("Unexpected error setting new account recovery timestamp");
+					ErrorType::DbFail
+				})?;
+				Err(ErrorType::NoError)
+			}
+		} else{	
+			Err(ErrorType::NoError)
 		}
 	}
 }

@@ -61,6 +61,10 @@ pub struct UserQueryResult {
 	pub stat_agent: bool,
 }
 
+// pub struct AccountTimestampQueryResult{
+// 	pub recovery_last_sent: Option<u32>,
+// }
+
 #[repr(u8)]
 pub enum FriendStatus {
 	Friend = (1 << 0),
@@ -100,7 +104,7 @@ struct MigrationData {
 
 static DATABASE_PATH: &str = "db/rpcn.db";
 
-static DATABASE_MIGRATIONS: [MigrationData; 8] = [
+static DATABASE_MIGRATIONS: [MigrationData; 9] = [
 	MigrationData {
 		version: 1,
 		text: "Initial setup",
@@ -140,6 +144,11 @@ static DATABASE_MIGRATIONS: [MigrationData; 8] = [
 		version: 8,
 		text: "Fixup for RR7 tables",
 		function: ridge_racer_7_fixup,
+	},
+	MigrationData {
+		version: 9,
+		text: "Update account_timestamp table",
+		function: add_recover_last_sent_to_account_timestamp_table,
 	},
 ];
 
@@ -253,6 +262,17 @@ fn alter_table(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManage
 	Ok(())
 }
 
+fn alter_acct_tmsm_table(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>, table_name: &str, creation_query: &str) -> Result<(), String> {
+	let alter_query = format!("ALTER TABLE {} RENAME TO _old_{}", table_name, table_name);
+	conn.execute(&alter_query, []).map_err(|e| format!("Failed to rename {}: {}", table_name, e))?;
+	conn.execute(creation_query, []).map_err(|e| format!("Failed to create new {} table: {}", table_name, e))?;
+	let insert_query = format!("INSERT INTO {} SELECT *, NULL from _old_{}", table_name, table_name);
+	conn.execute(&insert_query, []).map_err(|e| format!("Failed to copy {} data to new table: {}", table_name, e))?;
+	let drop_query = format!("DROP TABLE _old_{}", table_name);
+	conn.execute(&drop_query, []).map_err(|e| format!("Failed to drop old {} table: {}", table_name, e))?;
+	Ok(())
+}
+
 fn add_foreign_key_to_tus_tables(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
 	alter_table(conn, "tus_var", 
 		"CREATE TABLE IF NOT EXISTS tus_var ( owner_id UNSIGNED BIGINT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, var_value BIGINT NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (owner_id, communication_id, slot_id), FOREIGN KEY(owner_id) REFERENCES account(user_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )")?;
@@ -345,6 +365,13 @@ fn ridge_racer_7_fixup(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnecti
 
 	Ok(())
 }
+
+fn add_recover_last_sent_to_account_timestamp_table(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	alter_acct_tmsm_table(conn, "account_timestamp", 
+	"CREATE TABLE IF NOT EXISTS account_timestamp ( user_id UNSIGNED BIGINT NOT NULL, creation UNSIGNED INTEGER NOT NULL, last_login UNSIGNED INTEGER, token_last_sent UNSIGNED INTEGER, reset_emit UNSIGNED INTEGER, recovery_last_sent UNSIGNED INTEGER, PRIMARY KEY(user_id), FOREIGN KEY(user_id) REFERENCES account(user_id) )")?;
+	Ok(())
+}
+
 
 impl Server {
 	pub fn initialize_database(admin_list: &[String]) -> Result<r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, String> {
@@ -678,6 +705,38 @@ impl Database {
 				return Err(DbError::Empty);
 			}
 			error!("Unexpected error querying username row: {}", e);
+			return Err(DbError::Internal);
+		}
+
+		Ok(res.unwrap())
+	}
+	pub fn check_email_valid(&self, email: &str)-> Result<UserQueryResult, DbError> {
+		let res: rusqlite::Result<UserQueryResult> = self.conn.query_row(
+			"SELECT user_id, hash, salt, online_name, avatar_url, email, token, admin, stat_agent, banned FROM account WHERE email=?1",
+			rusqlite::params![email],
+			|r| {
+				Ok(UserQueryResult {
+					user_id: r.get(0).unwrap(),
+					hash: r.get(1).unwrap(),
+					salt: r.get(2).unwrap(),
+					online_name: r.get(3).unwrap(),
+					avatar_url: r.get(4).unwrap(),
+					email: r.get(5).unwrap(),
+					token: r.get(6).unwrap(),
+					admin: r.get(7).unwrap(),
+					stat_agent: r.get(8).unwrap(),
+					banned: r.get(9).unwrap(),
+				})
+			},
+		);
+
+		if let Err(e) = res {
+			if e == rusqlite::Error::QueryReturnedNoRows {
+				warn!("No row for email {} found", email);
+				return Err(DbError::Empty);
+			}
+
+			error!("Unexpected error querying email row: {}", e);
 			return Err(DbError::Internal);
 		}
 
@@ -1040,6 +1099,26 @@ impl Database {
 				error!("Unexpected error getting token sent time: {}", e);
 				DbError::Internal
 			})
+	}
+
+	pub fn get_account_recovery_time(&self, user_id: i64) -> Result<Option<u32>, DbError> {
+		self.conn
+			.query_row("SELECT recovery_last_sent FROM account_timestamp WHERE user_id = ?1",rusqlite::params![user_id], |r| r.get(0))
+			.map_err(|e| {
+				error!("Unexpected error getting account recovery sent time: {}", e);
+				DbError::Internal
+			})
+	}
+
+	pub fn set_account_recovery_sent_time(&self, user_id: i64) -> Result<(), DbError> {
+		let timestamp = Client::get_timestamp_seconds();
+		self.conn
+			.execute("UPDATE account_timestamp SET recovery_last_sent = ?1 WHERE user_id = ?2", rusqlite::params![timestamp, user_id])
+			.map_err(|e| {
+				error!("Unexpected error updating recovery last sent time: {}", e);
+				DbError::Internal
+			})?;
+		Ok(())
 	}
 
 	pub fn set_token_sent_time(&self, user_id: i64) -> Result<(), DbError> {

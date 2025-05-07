@@ -203,6 +203,7 @@ enum CommandType {
 	SendToken,
 	SendResetToken,
 	ResetPassword,
+	RecoverAccount,
 	ResetState,
 	AddFriend,
 	RemoveFriend,
@@ -639,6 +640,7 @@ impl Client {
 				CommandType::SendToken => return self.resend_token(data),
 				CommandType::SendResetToken => return self.send_reset_token(data),
 				CommandType::ResetPassword => return self.reset_password(data),
+				CommandType::RecoverAccount => return self.recover_account(data),
 				_ => {
 					warn!("User attempted an invalid command at this stage");
 					return Err(ErrorType::Invalid);
