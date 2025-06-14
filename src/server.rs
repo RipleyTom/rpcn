@@ -132,7 +132,7 @@ impl Server {
 			//.with_safe_default_protocol_versions()
 			.with_no_client_auth()
 			.with_single_cert(certif, private_key.remove(0).into())
-			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))?;
+			.map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("Failed to setup certificate: {}", e)))?;
 
 		// Setup Tokio
 		let runtime = runtime::Builder::new_multi_thread().enable_all().build()?;
