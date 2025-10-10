@@ -27,7 +27,7 @@ use tokio::sync::{mpsc, watch};
 use tokio::task;
 use tokio::time::timeout;
 use tokio_rustls::server::TlsStream;
-use tracing::{error, info, info_span, trace, warn, Instrument};
+use tracing::{error, info, error_span, trace, warn, Instrument};
 
 use crate::server::client::cmd_session::ClientSharedSessionInfo;
 use crate::server::client::notifications::NotificationType;
@@ -525,11 +525,11 @@ impl Client {
 
 					let npid_span = if let Some(com_id) = &self.current_game.0 {
 						let com_id_str = com_id_to_string(com_id);
-						info_span!("", npid = %self.client_info.npid, commid = %com_id_str)
+						error_span!("", npid = %self.client_info.npid, commid = %com_id_str)
 					} else if !self.client_info.npid.is_empty() {
-						info_span!("", npid = %self.client_info.npid)
+						error_span!("", npid = %self.client_info.npid)
 					} else {
-						info_span!("")
+						error_span!("")
 					};
 
 					// Max packet size of 8MiB
