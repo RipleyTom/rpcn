@@ -100,7 +100,7 @@ struct MigrationData {
 
 static DATABASE_PATH: &str = "db/rpcn.db";
 
-static DATABASE_MIGRATIONS: [MigrationData; 9] = [
+static DATABASE_MIGRATIONS: [MigrationData; 10] = [
 	MigrationData {
 		version: 1,
 		text: "Initial setup",
@@ -145,6 +145,11 @@ static DATABASE_MIGRATIONS: [MigrationData; 9] = [
 		version: 9,
 		text: "Fixes WorldIDs",
 		function: world_ids_fixup,
+	},
+	MigrationData {
+		version: 10,
+		text: "Cleanup server IDs",
+		function: cleanup_server_ids,
 	},
 ];
 
@@ -356,6 +361,20 @@ fn world_ids_fixup(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionMa
 
 	if let Err(e) = res {
 		return Err(format!("Unexpected error updating world table to fixup ids: {}", e));
+	}
+
+	Ok(())
+}
+
+fn cleanup_server_ids(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	let res = conn.execute("DELETE FROM world WHERE server_id != 1", []);
+	if let Err(e) = res {
+		return Err(format!("Unexpected error removing servers != 1 from world table: {}", e));
+	}
+
+	let res = conn.execute("DELETE FROM server WHERE server_id != 1", []);
+	if let Err(e) = res {
+		return Err(format!("Unexpected error removing servers != 1 from server table: {}", e));
 	}
 
 	Ok(())
@@ -766,8 +785,8 @@ impl Database {
 	pub fn create_server(&self, com_id: &ComId, server_id: u16) -> Result<(), DbError> {
 		let com_id_str = com_id_to_string(com_id);
 
-		if server_id == 0 {
-			warn!("Attempted to create an invalid server(0) for {}", com_id_str);
+		if server_id != 1 {
+			warn!("Attempted to create an invalid server({}) for {}", server_id, com_id_str);
 			return Err(DbError::Internal);
 		}
 
@@ -818,14 +837,20 @@ impl Database {
 			}
 
 			if count.unwrap() == 0 {
-				// Some games request a specifically hardcoded server, just create it for them
-				if create_missing {
-					self.create_server(com_id, server_id)?;
-					return self.get_world_list(com_id, server_id, false);
-				} else {
-					warn!("Attempted to query world list on an unexisting server({}:{})", &com_id_str, server_id);
-					return Err(DbError::Empty);
-				}
+				warn!("Attempted to query world list on a non-existing server({}:{})", &com_id_str, server_id);
+				return Err(DbError::Empty);
+
+				// This was initially assumed that some games would hardcode those but this doesn't seem to be the case
+				// The few cases where it has happened seems to mostly have been client sending an uninitialized value
+
+				// // Some games request a specifically hardcoded server, just create it for them
+				// if create_missing {
+				// 	self.create_server(com_id, server_id)?;
+				// 	return self.get_world_list(com_id, server_id, false);
+				// } else {
+				// 	warn!("Attempted to query world list on an unexisting server({}:{})", &com_id_str, server_id);
+				// 	return Err(DbError::Empty);
+				// }
 			}
 		}
 
