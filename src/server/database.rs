@@ -100,7 +100,7 @@ struct MigrationData {
 
 static DATABASE_PATH: &str = "db/rpcn.db";
 
-static DATABASE_MIGRATIONS: [MigrationData; 8] = [
+static DATABASE_MIGRATIONS: [MigrationData; 9] = [
 	MigrationData {
 		version: 1,
 		text: "Initial setup",
@@ -140,6 +140,11 @@ static DATABASE_MIGRATIONS: [MigrationData; 8] = [
 		version: 8,
 		text: "Fixup for RR7 tables",
 		function: ridge_racer_7_fixup,
+	},
+	MigrationData {
+		version: 9,
+		text: "Fixes WorldIDs",
+		function: world_ids_fixup,
 	},
 ];
 
@@ -341,6 +346,16 @@ fn ridge_racer_7_fixup(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnecti
 		if let Err(e) = res {
 			return Err(format!("Unexpected error updating RR7 scores: {}", e));
 		}
+	}
+
+	Ok(())
+}
+
+fn world_ids_fixup(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	let res = conn.execute("UPDATE OR REPLACE world SET world_id = world_id + 65536 WHERE world_id < 65537", []);
+
+	if let Err(e) = res {
+		return Err(format!("Unexpected error updating world table to fixup ids: {}", e));
 	}
 
 	Ok(())
@@ -830,10 +845,7 @@ impl Database {
 				.conn
 				.query_row("SELECT MAX(world_id) FROM world WHERE communication_id = ?1", rusqlite::params![com_id_str], |r| r.get(0));
 
-			let mut new_wid = 1;
-			if let Ok(cur_max_res) = cur_max_res {
-				new_wid = cur_max_res + 1;
-			}
+			let new_wid = if let Ok(cur_max_res) = cur_max_res { cur_max_res + 1 } else { 65537 };
 
 			info!("Creating world {} for server {}:{}", new_wid, &com_id_str, server_id);
 			if let Err(e) = self.conn.execute(
