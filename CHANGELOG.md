@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] - 2025-10-17
+### Added
+
+- FlexBy420: Added WorldIDs for many games(see #115)
+
+### Fixed
+
+- Limited ServerIDs to 1, assumption that some games would hardcode those and request specifics seems to have been wrong
+- WorldIDs now start at 65537, a few games have been found to hardcode those
+
+### Misc
+
+- Updated dependencies
+
+
 ## [1.4.3] - 2025-10-10
 ### Fixed
 
