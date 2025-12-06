@@ -2,9 +2,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use tokio::fs;
 
+use crate::server::Server;
 use crate::server::client::*;
 use crate::server::database::DbError;
-use crate::server::Server;
 
 const TUS_DATA_DIRECTORY: &str = "tus_data";
 const TUS_FILE_EXTENSION: &str = "tdt";
@@ -603,16 +603,16 @@ impl Client {
 				Err(_) => unreachable!(),
 				Ok(None) => return None,
 				Ok(Some((db_timestamp, db_author_id))) => {
-					if let Some(compare_timestamp) = compare_timestamp {
-						if db_timestamp > *compare_timestamp {
-							return Some(Ok(ErrorType::CondFail));
-						}
+					if let Some(compare_timestamp) = compare_timestamp
+						&& db_timestamp > *compare_timestamp
+					{
+						return Some(Ok(ErrorType::CondFail));
 					}
 
-					if let Some(compare_author_id) = *compare_author_id {
-						if compare_author_id != db_author_id {
-							return Some(Ok(ErrorType::CondFail));
-						}
+					if let Some(compare_author_id) = *compare_author_id
+						&& compare_author_id != db_author_id
+					{
+						return Some(Ok(ErrorType::CondFail));
 					}
 				}
 			}
@@ -625,11 +625,11 @@ impl Client {
 		let (user, data) = validate_all!(tus_req.user(), tus_req.data());
 		let npid = Client::validate_and_unwrap(user.npid())?;
 
-		if let Some(info) = &tus_req.info() {
-			if info.len() > SCE_NP_TUS_DATA_INFO_MAX_SIZE {
-				warn!("info len > SCE_NP_TUS_DATA_INFO_MAX_SIZE");
-				return Err(ErrorType::Malformed);
-			}
+		if let Some(info) = &tus_req.info()
+			&& info.len() > SCE_NP_TUS_DATA_INFO_MAX_SIZE
+		{
+			warn!("info len > SCE_NP_TUS_DATA_INFO_MAX_SIZE");
+			return Err(ErrorType::Malformed);
 		}
 
 		if data.len() > UNDOCUMENTED_TUS_DATA_MAX_SIZE {
@@ -805,12 +805,7 @@ impl Client {
 		let db = Database::new(self.get_database_connection()?);
 
 		let vec_status: Vec<_> = if user.vuser() {
-			(0..slots.len())
-				.map(|i| match db.tus_get_vuser_data(&com_id, npid, slots.get(i)) {
-					Ok(status) => Some(status),
-					Err(_) => None,
-				})
-				.collect()
+			(0..slots.len()).map(|i| db.tus_get_vuser_data(&com_id, npid, slots.get(i)).ok()).collect()
 		} else {
 			let user_id = match db.get_user_id(npid) {
 				Err(DbError::Empty) => return Ok(ErrorType::NotFound),
@@ -818,12 +813,7 @@ impl Client {
 				Ok(id) => id,
 			};
 
-			(0..slots.len())
-				.map(|i| match db.tus_get_user_data(&com_id, user_id, slots.get(i)) {
-					Ok(status) => Some(status),
-					Err(_) => None,
-				})
-				.collect()
+			(0..slots.len()).map(|i| db.tus_get_user_data(&com_id, user_id, slots.get(i)).ok()).collect()
 		};
 
 		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
@@ -887,10 +877,7 @@ impl Client {
 			vec_npids.push(npid);
 
 			vec_status.push(if user.vuser() {
-				match db.tus_get_vuser_data(&com_id, npid, slot) {
-					Ok(status) => Some(status),
-					Err(_) => None,
-				}
+				db.tus_get_vuser_data(&com_id, npid, slot).ok()
 			} else {
 				let user_id = match db.get_user_id(npid) {
 					Err(DbError::Empty) => return Ok(ErrorType::NotFound),
@@ -898,10 +885,7 @@ impl Client {
 					Ok(id) => id,
 				};
 
-				match db.tus_get_user_data(&com_id, user_id, slot) {
-					Ok(status) => Some(status),
-					Err(_) => None,
-				}
+				db.tus_get_user_data(&com_id, user_id, slot).ok()
 			});
 		}
 

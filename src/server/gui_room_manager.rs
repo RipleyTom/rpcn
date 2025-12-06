@@ -8,7 +8,7 @@ use rand::Rng;
 use tracing::{error, warn};
 
 use crate::server::client::notifications::NotificationType;
-use crate::server::client::{com_id_to_string, ClientInfo, ComId, ErrorType};
+use crate::server::client::{ClientInfo, ComId, ErrorType, com_id_to_string};
 use crate::server::stream_extractor::np2_structs_generated::*;
 
 // We store room id as communication_id + room number as hexadecimal (12 + 16)
@@ -228,11 +228,11 @@ impl GuiRoom {
 
 		let mut tmp_vec_members = Vec::new();
 
-		if let Some(user_id) = member_filter {
-			if user_id != 0 {
-				if let Some(member) = self.members.get(&user_id) {
-					tmp_vec_members.push(member.to_flatbuffer(builder));
-				}
+		if let Some(user_id) = member_filter
+			&& user_id != 0
+		{
+			if let Some(member) = self.members.get(&user_id) {
+				tmp_vec_members.push(member.to_flatbuffer(builder));
 			}
 		} else {
 			for member in self.members.values() {
@@ -442,10 +442,10 @@ impl<'a> GuiRoomManager {
 	}
 
 	pub fn fb_vec_to_room_id(fb_vec: Option<flatbuffers::Vector<u8>>) -> Result<GuiRoomId, ErrorType> {
-		if let Some(fb_vec) = fb_vec {
-			if fb_vec.len() == GUI_ROOM_ID_SIZE {
-				return Ok(fb_vec.iter().collect::<Vec<u8>>().try_into().unwrap());
-			}
+		if let Some(fb_vec) = fb_vec
+			&& fb_vec.len() == GUI_ROOM_ID_SIZE
+		{
+			return Ok(fb_vec.iter().collect::<Vec<u8>>().try_into().unwrap());
 		}
 
 		Err(ErrorType::Malformed)

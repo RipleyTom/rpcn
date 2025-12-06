@@ -7,8 +7,8 @@ use std::{fs, io};
 use rand::prelude::*;
 use tracing::{error, info, warn};
 
-use crate::server::client::*;
 use crate::server::Server;
+use crate::server::client::*;
 
 pub mod db_score;
 pub mod db_tus;
@@ -239,7 +239,10 @@ fn unify_score_tables(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectio
 
 	for (com_id, board_id) in &score_tables {
 		let table_name = format!("{}_{}", com_id, board_id);
-		let transfer_query = format!("INSERT INTO score ( communication_id, board_id, user_id, character_id, score, comment, game_info, data_id, timestamp ) SELECT '{}', {}, user_id, character_id, score, comment, game_info, data_id, timestamp FROM {}", com_id, board_id, table_name);
+		let transfer_query = format!(
+			"INSERT INTO score ( communication_id, board_id, user_id, character_id, score, comment, game_info, data_id, timestamp ) SELECT '{}', {}, user_id, character_id, score, comment, game_info, data_id, timestamp FROM {}",
+			com_id, board_id, table_name
+		);
 		conn.execute(&transfer_query, []).map_err(|e| format!("Failed to transfer scores from table: {}", e))?;
 		let delete_query = format!("DROP TABLE {}", table_name);
 		conn.execute(&delete_query, []).map_err(|e| format!("Failed to delete table: {}", e))?;
@@ -264,14 +267,26 @@ fn alter_table(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManage
 }
 
 fn add_foreign_key_to_tus_tables(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
-	alter_table(conn, "tus_var", 
-		"CREATE TABLE IF NOT EXISTS tus_var ( owner_id UNSIGNED BIGINT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, var_value BIGINT NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (owner_id, communication_id, slot_id), FOREIGN KEY(owner_id) REFERENCES account(user_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )")?;
-	alter_table(conn, "tus_data",
-		"CREATE TABLE IF NOT EXISTS tus_data ( owner_id UNSIGNED BIGINT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, data_id UNSIGNED BIGINT NOT NULL, data_info BLOB NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (owner_id, communication_id, slot_id), FOREIGN KEY(owner_id) REFERENCES account(user_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )")?;
-	alter_table(conn, "tus_var_vuser",
-		"CREATE TABLE IF NOT EXISTS tus_var_vuser ( vuser TEXT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, var_value BIGINT NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (vuser, communication_id, slot_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )")?;
-	alter_table(conn, "tus_data_vuser",
-		"CREATE TABLE IF NOT EXISTS tus_data_vuser ( vuser TEXT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, data_id UNSIGNED BIGINT NOT NULL, data_info BLOB NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (vuser, communication_id, slot_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )")?;
+	alter_table(
+		conn,
+		"tus_var",
+		"CREATE TABLE IF NOT EXISTS tus_var ( owner_id UNSIGNED BIGINT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, var_value BIGINT NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (owner_id, communication_id, slot_id), FOREIGN KEY(owner_id) REFERENCES account(user_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )",
+	)?;
+	alter_table(
+		conn,
+		"tus_data",
+		"CREATE TABLE IF NOT EXISTS tus_data ( owner_id UNSIGNED BIGINT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, data_id UNSIGNED BIGINT NOT NULL, data_info BLOB NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (owner_id, communication_id, slot_id), FOREIGN KEY(owner_id) REFERENCES account(user_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )",
+	)?;
+	alter_table(
+		conn,
+		"tus_var_vuser",
+		"CREATE TABLE IF NOT EXISTS tus_var_vuser ( vuser TEXT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, var_value BIGINT NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (vuser, communication_id, slot_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )",
+	)?;
+	alter_table(
+		conn,
+		"tus_data_vuser",
+		"CREATE TABLE IF NOT EXISTS tus_data_vuser ( vuser TEXT NOT NULL, communication_id TEXT NOT NULL, slot_id INTEGER NOT NULL, data_id UNSIGNED BIGINT NOT NULL, data_info BLOB NOT NULL, timestamp UNSIGNED BIGINT NOT NULL, author_id UNSIGNED BIGINT NOT NULL, PRIMARY KEY (vuser, communication_id, slot_id), FOREIGN KEY(author_id) REFERENCES account(user_id) )",
+	)?;
 
 	Ok(())
 }
@@ -594,18 +609,17 @@ impl Database {
 			"INSERT INTO account ( username, hash, salt, online_name, avatar_url, email, email_check, token, admin, stat_agent, banned ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11 )",
 			rusqlite::params![username, hash, salt_slice, online_name, avatar_url, email, email_check, token_str, is_admin, stat_agent, banned],
 		) {
-			if let rusqlite::Error::SqliteFailure(error, ref msg) = e {
-				if error.code == rusqlite::ErrorCode::ConstraintViolation {
-					if let Some(msg) = msg {
-						if msg.contains("account.username") {
-							warn!("Attempted to create an already existing user({})", username);
-							return Err(DbError::ExistingUsername);
-						}
-						if msg.contains("account.email_check") {
-							warn!("Attempted to create an account with an already existing email({})", email);
-							return Err(DbError::ExistingEmail);
-						}
-					}
+			if let rusqlite::Error::SqliteFailure(error, ref msg) = e
+				&& error.code == rusqlite::ErrorCode::ConstraintViolation
+				&& let Some(msg) = msg
+			{
+				if msg.contains("account.username") {
+					warn!("Attempted to create an already existing user({})", username);
+					return Err(DbError::ExistingUsername);
+				}
+				if msg.contains("account.email_check") {
+					warn!("Attempted to create an account with an already existing email({})", email);
+					return Err(DbError::ExistingEmail);
 				}
 			}
 			error!("Unexpected error inserting a new user: {:?}", e);
@@ -912,11 +926,7 @@ impl Database {
 		serv
 	}
 	fn get_ordered_userids(user_id_1: i64, user_id_2: i64) -> (i64, i64, bool) {
-		if user_id_1 < user_id_2 {
-			(user_id_1, user_id_2, false)
-		} else {
-			(user_id_2, user_id_1, true)
-		}
+		if user_id_1 < user_id_2 { (user_id_1, user_id_2, false) } else { (user_id_2, user_id_1, true) }
 	}
 	pub fn get_rel_status(&self, user_id: i64, friend_user_id: i64) -> Result<(u8, u8), DbError> {
 		if user_id == friend_user_id {

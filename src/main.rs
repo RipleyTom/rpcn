@@ -6,8 +6,8 @@ use std::io::Read;
 use std::str::FromStr;
 
 mod server;
-use server::client::{Client, ComId, COMMUNICATION_ID_SIZE};
 use server::Server;
+use server::client::{COMMUNICATION_ID_SIZE, Client, ComId};
 
 use openssl::ec::EcKey;
 use openssl::hash::MessageDigest;
@@ -180,13 +180,15 @@ impl Config {
 				println!("SignTicketsDigest value <{}> is invalid!", ticket_digest_str);
 			}
 
-			if ticket_key.is_none() || ticket_digest.is_none() {
-				println!("Ticket signing is enabled but it's missing digest/key, disabling ticket signing!");
-			} else {
+			if let Some(ticket_digest) = ticket_digest
+				&& let Some(ticket_key) = ticket_key
+			{
 				self.ticket_signature_info = Some(TicketSignInfo {
-					digest: ticket_digest.unwrap(),
-					key: ticket_key.unwrap(),
+					digest: ticket_digest,
+					key: ticket_key,
 				});
+			} else {
+				println!("Ticket signing is enabled but it's missing digest/key, disabling ticket signing!");
 			}
 		}
 
