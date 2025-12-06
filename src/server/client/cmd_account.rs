@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use crate::server::client::*;
 use crate::server::database::DbError;
 
-use lettre::{message::Mailbox, Message, SmtpTransport, Transport};
+use lettre::{Message, SmtpTransport, Transport, message::Mailbox};
 
 fn strip_email(email: &str) -> String {
 	let check_email = email.to_ascii_lowercase();
@@ -242,10 +242,10 @@ impl Client {
 		match Database::new(self.get_database_connection()?).add_user(&npid, &password, &online_name, &avatar_url, &email, &check_email, is_admin) {
 			Ok(token) => {
 				info!("Successfully created account {}", &npid);
-				if self.config.read().is_email_validated() {
-					if let Err(e) = self.send_token_mail(&email, &npid, &token) {
-						error!("Error sending email: {}", e);
-					}
+				if self.config.read().is_email_validated()
+					&& let Err(e) = self.send_token_mail(&email, &npid, &token)
+				{
+					error!("Error sending email: {}", e);
 				}
 
 				// this is not an error, we disconnect the client after account creation, successful or not
@@ -286,11 +286,11 @@ impl Client {
 				})?;
 
 				// check that a token email hasn't been sent in the last 24 hours
-				if let Some(last_token_sent_timestamp) = last_token_sent_timestamp {
-					if (Client::get_timestamp_seconds() - last_token_sent_timestamp) < (24 * 60 * 60) {
-						warn!("User {} attempted to get token again too soon!", login);
-						return Err(ErrorType::TooSoon);
-					}
+				if let Some(last_token_sent_timestamp) = last_token_sent_timestamp
+					&& (Client::get_timestamp_seconds() - last_token_sent_timestamp) < (24 * 60 * 60)
+				{
+					warn!("User {} attempted to get token again too soon!", login);
+					return Err(ErrorType::TooSoon);
 				}
 
 				if let Err(e) = self.send_token_mail(&user_data.email, &login, &user_data.token) {
@@ -331,11 +331,11 @@ impl Client {
 			})?;
 
 			// check that a reset token email hasn't been sent in the last 24 hours
-			if let Some(last_pass_token_sent_timestamp) = last_pass_token_sent_timestamp {
-				if (Client::get_timestamp_seconds() - last_pass_token_sent_timestamp) < (24 * 60 * 60) {
-					warn!("User {} attempted to get password reset token again too soon!", username);
-					return Err(ErrorType::TooSoon);
-				}
+			if let Some(last_pass_token_sent_timestamp) = last_pass_token_sent_timestamp
+				&& (Client::get_timestamp_seconds() - last_pass_token_sent_timestamp) < (24 * 60 * 60)
+			{
+				warn!("User {} attempted to get password reset token again too soon!", username);
+				return Err(ErrorType::TooSoon);
 			}
 
 			// Generate a new token and update the user entry

@@ -20,7 +20,7 @@ impl<'a> flatbuffers::Follow<'a> for SignalingAddr<'a> {
   type Inner = SignalingAddr<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -134,7 +134,7 @@ impl<'a> flatbuffers::Follow<'a> for MatchingSignalingInfo<'a> {
   type Inner = MatchingSignalingInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -248,7 +248,7 @@ impl<'a> flatbuffers::Follow<'a> for Matching2SignalingInfo<'a> {
   type Inner = Matching2SignalingInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -362,7 +362,7 @@ impl<'a> flatbuffers::Follow<'a> for BinAttr<'a> {
   type Inner = BinAttr<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -476,7 +476,7 @@ impl<'a> flatbuffers::Follow<'a> for IntAttr<'a> {
   type Inner = IntAttr<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -590,7 +590,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomMemberBinAttrInternal<'a> {
   type Inner = RoomMemberBinAttrInternal<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -704,7 +704,7 @@ impl<'a> flatbuffers::Follow<'a> for BinAttrInternal<'a> {
   type Inner = BinAttrInternal<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -835,7 +835,7 @@ impl<'a> flatbuffers::Follow<'a> for OptParam<'a> {
   type Inner = OptParam<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -966,7 +966,7 @@ impl<'a> flatbuffers::Follow<'a> for GroupConfig<'a> {
   type Inner = GroupConfig<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -1097,7 +1097,7 @@ impl<'a> flatbuffers::Follow<'a> for UserInfo<'a> {
   type Inner = UserInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -1228,7 +1228,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomMemberDataInternal<'a> {
   type Inner = RoomMemberDataInternal<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -1444,7 +1444,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomGroup<'a> {
   type Inner = RoomGroup<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -1609,7 +1609,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomDataInternal<'a> {
   type Inner = RoomDataInternal<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -1876,7 +1876,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomDataExternal<'a> {
   type Inner = RoomDataExternal<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -2245,7 +2245,7 @@ impl<'a> flatbuffers::Follow<'a> for IntSearchFilter<'a> {
   type Inner = IntSearchFilter<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -2359,7 +2359,7 @@ impl<'a> flatbuffers::Follow<'a> for BinSearchFilter<'a> {
   type Inner = BinSearchFilter<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -2473,7 +2473,7 @@ impl<'a> flatbuffers::Follow<'a> for PresenceOptionData<'a> {
   type Inner = PresenceOptionData<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -2587,7 +2587,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomGroupPasswordConfig<'a> {
   type Inner = RoomGroupPasswordConfig<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -2701,7 +2701,7 @@ impl<'a> flatbuffers::Follow<'a> for SearchRoomRequest<'a> {
   type Inner = SearchRoomRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -2951,7 +2951,7 @@ impl<'a> flatbuffers::Follow<'a> for SearchRoomResponse<'a> {
   type Inner = SearchRoomResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -3082,7 +3082,7 @@ impl<'a> flatbuffers::Follow<'a> for CreateJoinRoomRequest<'a> {
   type Inner = CreateJoinRoomRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -3451,7 +3451,7 @@ impl<'a> flatbuffers::Follow<'a> for JoinRoomRequest<'a> {
   type Inner = JoinRoomRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -3633,7 +3633,7 @@ impl<'a> flatbuffers::Follow<'a> for JoinRoomResponse<'a> {
   type Inner = JoinRoomResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -3747,7 +3747,7 @@ impl<'a> flatbuffers::Follow<'a> for LeaveRoomRequest<'a> {
   type Inner = LeaveRoomRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -3861,7 +3861,7 @@ impl<'a> flatbuffers::Follow<'a> for GetRoomDataExternalListRequest<'a> {
   type Inner = GetRoomDataExternalListRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -3975,7 +3975,7 @@ impl<'a> flatbuffers::Follow<'a> for GetRoomDataExternalListResponse<'a> {
   type Inner = GetRoomDataExternalListResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -4072,7 +4072,7 @@ impl<'a> flatbuffers::Follow<'a> for SetRoomDataExternalRequest<'a> {
   type Inner = SetRoomDataExternalRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -4220,7 +4220,7 @@ impl<'a> flatbuffers::Follow<'a> for SetRoomDataInternalRequest<'a> {
   type Inner = SetRoomDataInternalRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -4243,9 +4243,9 @@ impl<'a> SetRoomDataInternalRequest<'a> {
     args: &'args SetRoomDataInternalRequestArgs<'args>
   ) -> flatbuffers::WIPOffset<SetRoomDataInternalRequest<'bldr>> {
     let mut builder = SetRoomDataInternalRequestBuilder::new(_fbb);
-    builder.add_passwordSlotMask(args.passwordSlotMask);
     builder.add_roomId(args.roomId);
     if let Some(x) = args.ownerPrivilegeRank { builder.add_ownerPrivilegeRank(x); }
+    if let Some(x) = args.passwordSlotMask { builder.add_passwordSlotMask(x); }
     if let Some(x) = args.passwordConfig { builder.add_passwordConfig(x); }
     if let Some(x) = args.roomBinAttrInternal { builder.add_roomBinAttrInternal(x); }
     builder.add_flagAttr(args.flagAttr);
@@ -4290,11 +4290,11 @@ impl<'a> SetRoomDataInternalRequest<'a> {
     unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroupPasswordConfig>>>>(SetRoomDataInternalRequest::VT_PASSWORDCONFIG, None)}
   }
   #[inline]
-  pub fn passwordSlotMask(&self) -> u64 {
+  pub fn passwordSlotMask(&self) -> Option<flatbuffers::Vector<'a, u64>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<u64>(SetRoomDataInternalRequest::VT_PASSWORDSLOTMASK, Some(0)).unwrap()}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, u64>>>(SetRoomDataInternalRequest::VT_PASSWORDSLOTMASK, None)}
   }
   #[inline]
   pub fn ownerPrivilegeRank(&self) -> Option<flatbuffers::Vector<'a, u16>> {
@@ -4317,7 +4317,7 @@ impl flatbuffers::Verifiable for SetRoomDataInternalRequest<'_> {
      .visit_field::<u32>("flagAttr", Self::VT_FLAGATTR, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<BinAttr>>>>("roomBinAttrInternal", Self::VT_ROOMBINATTRINTERNAL, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<RoomGroupPasswordConfig>>>>("passwordConfig", Self::VT_PASSWORDCONFIG, false)?
-     .visit_field::<u64>("passwordSlotMask", Self::VT_PASSWORDSLOTMASK, false)?
+     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u64>>>("passwordSlotMask", Self::VT_PASSWORDSLOTMASK, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, u16>>>("ownerPrivilegeRank", Self::VT_OWNERPRIVILEGERANK, false)?
      .finish();
     Ok(())
@@ -4329,7 +4329,7 @@ pub struct SetRoomDataInternalRequestArgs<'a> {
     pub flagAttr: u32,
     pub roomBinAttrInternal: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<BinAttr<'a>>>>>,
     pub passwordConfig: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<RoomGroupPasswordConfig<'a>>>>>,
-    pub passwordSlotMask: u64,
+    pub passwordSlotMask: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u64>>>,
     pub ownerPrivilegeRank: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, u16>>>,
 }
 impl<'a> Default for SetRoomDataInternalRequestArgs<'a> {
@@ -4341,7 +4341,7 @@ impl<'a> Default for SetRoomDataInternalRequestArgs<'a> {
       flagAttr: 0,
       roomBinAttrInternal: None,
       passwordConfig: None,
-      passwordSlotMask: 0,
+      passwordSlotMask: None,
       ownerPrivilegeRank: None,
     }
   }
@@ -4373,8 +4373,8 @@ impl<'a: 'b, 'b, A: flatbuffers::Allocator + 'a> SetRoomDataInternalRequestBuild
     self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetRoomDataInternalRequest::VT_PASSWORDCONFIG, passwordConfig);
   }
   #[inline]
-  pub fn add_passwordSlotMask(&mut self, passwordSlotMask: u64) {
-    self.fbb_.push_slot::<u64>(SetRoomDataInternalRequest::VT_PASSWORDSLOTMASK, passwordSlotMask, 0);
+  pub fn add_passwordSlotMask(&mut self, passwordSlotMask: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(SetRoomDataInternalRequest::VT_PASSWORDSLOTMASK, passwordSlotMask);
   }
   #[inline]
   pub fn add_ownerPrivilegeRank(&mut self, ownerPrivilegeRank: flatbuffers::WIPOffset<flatbuffers::Vector<'b , u16>>) {
@@ -4419,7 +4419,7 @@ impl<'a> flatbuffers::Follow<'a> for GetRoomMemberDataInternalRequest<'a> {
   type Inner = GetRoomMemberDataInternalRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -4550,7 +4550,7 @@ impl<'a> flatbuffers::Follow<'a> for SetRoomMemberDataInternalRequest<'a> {
   type Inner = SetRoomMemberDataInternalRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -4698,7 +4698,7 @@ impl<'a> flatbuffers::Follow<'a> for SetUserInfo<'a> {
   type Inner = SetUserInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -4812,7 +4812,7 @@ impl<'a> flatbuffers::Follow<'a> for GetRoomDataInternalRequest<'a> {
   type Inner = GetRoomDataInternalRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -4926,7 +4926,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomMemberUpdateInfo<'a> {
   type Inner = RoomMemberUpdateInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -5057,7 +5057,7 @@ impl<'a> flatbuffers::Follow<'a> for NotificationUserJoinedRoom<'a> {
   type Inner = NotificationUserJoinedRoom<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -5188,7 +5188,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomUpdateInfo<'a> {
   type Inner = RoomUpdateInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -5319,7 +5319,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomDataInternalUpdateInfo<'a> {
   type Inner = RoomDataInternalUpdateInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -5484,7 +5484,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomMemberDataInternalUpdateInfo<'a> {
   type Inner = RoomMemberDataInternalUpdateInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -5632,7 +5632,7 @@ impl<'a> flatbuffers::Follow<'a> for GetPingInfoResponse<'a> {
   type Inner = GetPingInfoResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -5780,7 +5780,7 @@ impl<'a> flatbuffers::Follow<'a> for SendRoomMessageRequest<'a> {
   type Inner = SendRoomMessageRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -5945,7 +5945,7 @@ impl<'a> flatbuffers::Follow<'a> for RoomMessageInfo<'a> {
   type Inner = RoomMessageInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -6110,7 +6110,7 @@ impl<'a> flatbuffers::Follow<'a> for MessageDetails<'a> {
   type Inner = MessageDetails<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -6326,7 +6326,7 @@ impl<'a> flatbuffers::Follow<'a> for SendMessageRequest<'a> {
   type Inner = SendMessageRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -6449,7 +6449,7 @@ impl<'a> flatbuffers::Follow<'a> for BoardInfo<'a> {
   type Inner = BoardInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -6614,7 +6614,7 @@ impl<'a> flatbuffers::Follow<'a> for RecordScoreRequest<'a> {
   type Inner = RecordScoreRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -6779,7 +6779,7 @@ impl<'a> flatbuffers::Follow<'a> for GetScoreRangeRequest<'a> {
   type Inner = GetScoreRangeRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -6944,7 +6944,7 @@ impl<'a> flatbuffers::Follow<'a> for ScoreNpIdPcId<'a> {
   type Inner = ScoreNpIdPcId<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -7058,7 +7058,7 @@ impl<'a> flatbuffers::Follow<'a> for GetScoreNpIdRequest<'a> {
   type Inner = GetScoreNpIdRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -7206,7 +7206,7 @@ impl<'a> flatbuffers::Follow<'a> for GetScoreFriendsRequest<'a> {
   type Inner = GetScoreFriendsRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -7371,7 +7371,7 @@ impl<'a> flatbuffers::Follow<'a> for ScoreRankData<'a> {
   type Inner = ScoreRankData<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -7570,7 +7570,7 @@ impl<'a> flatbuffers::Follow<'a> for ScoreInfo<'a> {
   type Inner = ScoreInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -7667,7 +7667,7 @@ impl<'a> flatbuffers::Follow<'a> for GetScoreResponse<'a> {
   type Inner = GetScoreResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -7832,7 +7832,7 @@ impl<'a> flatbuffers::Follow<'a> for RecordScoreGameDataRequest<'a> {
   type Inner = RecordScoreGameDataRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -7963,7 +7963,7 @@ impl<'a> flatbuffers::Follow<'a> for GetScoreGameDataRequest<'a> {
   type Inner = GetScoreGameDataRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -8094,7 +8094,7 @@ impl<'a> flatbuffers::Follow<'a> for TusUser<'a> {
   type Inner = TusUser<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -8208,7 +8208,7 @@ impl<'a> flatbuffers::Follow<'a> for TusVariable<'a> {
   type Inner = TusVariable<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -8390,7 +8390,7 @@ impl<'a> flatbuffers::Follow<'a> for TusVarResponse<'a> {
   type Inner = TusVarResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -8487,7 +8487,7 @@ impl<'a> flatbuffers::Follow<'a> for TusSetMultiSlotVariableRequest<'a> {
   type Inner = TusSetMultiSlotVariableRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -8618,7 +8618,7 @@ impl<'a> flatbuffers::Follow<'a> for TusGetMultiSlotVariableRequest<'a> {
   type Inner = TusGetMultiSlotVariableRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -8732,7 +8732,7 @@ impl<'a> flatbuffers::Follow<'a> for TusGetMultiUserVariableRequest<'a> {
   type Inner = TusGetMultiUserVariableRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -8846,7 +8846,7 @@ impl<'a> flatbuffers::Follow<'a> for TusGetFriendsVariableRequest<'a> {
   type Inner = TusGetFriendsVariableRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -8994,7 +8994,7 @@ impl<'a> flatbuffers::Follow<'a> for TusAddAndGetVariableRequest<'a> {
   type Inner = TusAddAndGetVariableRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -9159,7 +9159,7 @@ impl<'a> flatbuffers::Follow<'a> for TusTryAndSetVariableRequest<'a> {
   type Inner = TusTryAndSetVariableRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -9358,7 +9358,7 @@ impl<'a> flatbuffers::Follow<'a> for TusDeleteMultiSlotVariableRequest<'a> {
   type Inner = TusDeleteMultiSlotVariableRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -9472,7 +9472,7 @@ impl<'a> flatbuffers::Follow<'a> for TusSetDataRequest<'a> {
   type Inner = TusSetDataRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -9654,7 +9654,7 @@ impl<'a> flatbuffers::Follow<'a> for TusDataStatus<'a> {
   type Inner = TusDataStatus<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -9819,7 +9819,7 @@ impl<'a> flatbuffers::Follow<'a> for TusData<'a> {
   type Inner = TusData<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -9933,7 +9933,7 @@ impl<'a> flatbuffers::Follow<'a> for TusDataStatusResponse<'a> {
   type Inner = TusDataStatusResponse<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -10030,7 +10030,7 @@ impl<'a> flatbuffers::Follow<'a> for TusGetDataRequest<'a> {
   type Inner = TusGetDataRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -10144,7 +10144,7 @@ impl<'a> flatbuffers::Follow<'a> for TusGetMultiSlotDataStatusRequest<'a> {
   type Inner = TusGetMultiSlotDataStatusRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -10258,7 +10258,7 @@ impl<'a> flatbuffers::Follow<'a> for TusGetMultiUserDataStatusRequest<'a> {
   type Inner = TusGetMultiUserDataStatusRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -10372,7 +10372,7 @@ impl<'a> flatbuffers::Follow<'a> for TusGetFriendsDataStatusRequest<'a> {
   type Inner = TusGetFriendsDataStatusRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -10520,7 +10520,7 @@ impl<'a> flatbuffers::Follow<'a> for TusDeleteMultiSlotDataRequest<'a> {
   type Inner = TusDeleteMultiSlotDataRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -10634,7 +10634,7 @@ impl<'a> flatbuffers::Follow<'a> for SetPresenceRequest<'a> {
   type Inner = SetPresenceRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -10782,7 +10782,7 @@ impl<'a> flatbuffers::Follow<'a> for MatchingSearchCondition<'a> {
   type Inner = MatchingSearchCondition<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -10930,7 +10930,7 @@ impl<'a> flatbuffers::Follow<'a> for MatchingAttr<'a> {
   type Inner = MatchingAttr<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -11078,7 +11078,7 @@ impl<'a> flatbuffers::Follow<'a> for CreateRoomGUIRequest<'a> {
   type Inner = CreateRoomGUIRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -11243,7 +11243,7 @@ impl<'a> flatbuffers::Follow<'a> for GUIUserInfo<'a> {
   type Inner = GUIUserInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -11357,7 +11357,7 @@ impl<'a> flatbuffers::Follow<'a> for MatchingRoomStatus<'a> {
   type Inner = MatchingRoomStatus<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -11505,7 +11505,7 @@ impl<'a> flatbuffers::Follow<'a> for GetRoomListGUIRequest<'a> {
   type Inner = GetRoomListGUIRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -11653,7 +11653,7 @@ impl<'a> flatbuffers::Follow<'a> for MatchingRoom<'a> {
   type Inner = MatchingRoom<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -11767,7 +11767,7 @@ impl<'a> flatbuffers::Follow<'a> for MatchingRoomList<'a> {
   type Inner = MatchingRoomList<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -11898,7 +11898,7 @@ impl<'a> flatbuffers::Follow<'a> for MatchingGuiRoomId<'a> {
   type Inner = MatchingGuiRoomId<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -11995,7 +11995,7 @@ impl<'a> flatbuffers::Follow<'a> for SetRoomSearchFlagGUI<'a> {
   type Inner = SetRoomSearchFlagGUI<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -12109,7 +12109,7 @@ impl<'a> flatbuffers::Follow<'a> for QuickMatchGUIRequest<'a> {
   type Inner = QuickMatchGUIRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -12223,7 +12223,7 @@ impl<'a> flatbuffers::Follow<'a> for SearchJoinRoomGUIRequest<'a> {
   type Inner = SearchJoinRoomGUIRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 
@@ -12337,7 +12337,7 @@ impl<'a> flatbuffers::Follow<'a> for MatchingSearchJoinRoomInfo<'a> {
   type Inner = MatchingSearchJoinRoomInfo<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
-    Self { _tab: flatbuffers::Table::new(buf, loc) }
+    Self { _tab: unsafe { flatbuffers::Table::new(buf, loc) } }
   }
 }
 

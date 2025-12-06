@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-12-08
+### Added
+
+- FlexBy420: Added WorldIDs for more games(Star Trek, The Darkness 2, Duke Nukem 3D, Spelunker HD)
+
+### Fixed
+
+- Fixed passwordSlotMask not being optional in SetRoomDataInternal request which led to it being possibly reset
+
+### Misc
+
+- Updated project to Rust 2024
+- Updated dependencies
+
+
 ## [1.4.4] - 2025-10-17
 ### Added
 
