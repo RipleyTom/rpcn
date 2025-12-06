@@ -1391,7 +1391,7 @@ impl RoomManager {
 			let group = &mut room.group_config[(member.group_id - 1) as usize];
 
 			group.num_members -= 1;
-			if group.num_members == 0 && group.fixed_label == false {
+			if group.num_members == 0 && !group.fixed_label {
 				group.label = None;
 			}
 		}
@@ -1652,9 +1652,12 @@ impl RoomManager {
 				}
 			}
 
-			if old_password_slot_mask != req.passwordSlotMask() {
-				room.password_slot_mask = req.passwordSlotMask();
-				has_changed = true;
+			if let Some(password_slot_mask) = req.passwordSlotMask() && password_slot_mask.len() == 1 {
+				let password_slot_mask = password_slot_mask.get(0);
+				if password_slot_mask != old_password_slot_mask {
+					room.password_slot_mask = password_slot_mask;
+					has_changed = true;
+				}
 			}
 
 			if let Some(vec) = req.ownerPrivilegeRank() {

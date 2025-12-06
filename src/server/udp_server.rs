@@ -60,7 +60,7 @@ impl UdpServer {
 			.parse()
 			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Address is not a valid IPv6 address".to_string()))?;
 		socket.bind(&address.into())?;
-		Ok(UdpSocket::from_std(std::net::UdpSocket::from(socket))?)
+		UdpSocket::from_std(std::net::UdpSocket::from(socket))
 	}
 
 	pub async fn start(&mut self) -> io::Result<()> {

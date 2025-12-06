@@ -9,9 +9,9 @@ use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio::sync::watch;
+use tokio_rustls::TlsAcceptor;
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use tokio_rustls::rustls::server::ServerConfig;
-use tokio_rustls::TlsAcceptor;
 use tracing::{error, info, warn};
 
 use parking_lot::RwLock;
@@ -19,7 +19,7 @@ use parking_lot::RwLock;
 use socket2::{SockRef, TcpKeepalive};
 
 pub mod client;
-use client::{Client, ClientSharedInfo, PacketType, SharedData, TerminateWatch, HEADER_SIZE};
+use client::{Client, ClientSharedInfo, HEADER_SIZE, PacketType, SharedData, TerminateWatch};
 mod database;
 mod game_tracker;
 use game_tracker::GameTracker;
@@ -36,7 +36,7 @@ use crate::Config;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 26;
+const PROTOCOL_VERSION: u32 = 27;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
