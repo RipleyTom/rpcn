@@ -797,9 +797,14 @@ impl Room {
 		self.owner
 	}
 
-	pub fn is_match(&self, req: &SearchRoomRequest) -> bool {
+	pub fn is_match(&self, req: &SearchRoomRequest, searcher_user_id: i64) -> bool {
 		// Hidden rooms never turn up in searches
 		if (self.flag_attr & (SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_HIDDEN as u32)) != 0 {
+			return false;
+		}
+
+		// Don't return rooms where the user is present
+		if self.users.iter().any(|(_, u)| u.user_id == searcher_user_id) {
 			return false;
 		}
 
@@ -1453,7 +1458,7 @@ impl RoomManager {
 
 		Ok((false, user_list))
 	}
-	pub fn search_room(&self, com_id: &ComId, req: &SearchRoomRequest) -> Vec<u8> {
+	pub fn search_room(&self, com_id: &ComId, req: &SearchRoomRequest, searcher_user_id: i64) -> Vec<u8> {
 		let world_id = req.worldId();
 		let lobby_id = req.lobbyId();
 
@@ -1483,7 +1488,7 @@ impl RoomManager {
 		if let Some(room_list) = list {
 			for room_id in room_list.iter() {
 				let room = self.get_room(com_id, *room_id);
-				if room.is_match(req) {
+				if room.is_match(req, searcher_user_id) {
 					matching_rooms.push(room);
 				}
 			}

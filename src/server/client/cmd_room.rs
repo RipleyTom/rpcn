@@ -161,7 +161,7 @@ impl Client {
 	pub fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let (com_id, search_req) = self.get_com_and_fb::<SearchRoomRequest>(data)?;
 
-		let resp = self.shared.room_manager.read().search_room(&com_id, &search_req);
+		let resp = self.shared.room_manager.read().search_room(&com_id, &search_req, self.client_info.user_id);
 		Client::add_data_packet(reply, &resp);
 		Ok(ErrorType::NoError)
 	}
