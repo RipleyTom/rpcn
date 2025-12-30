@@ -2,11 +2,11 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::server::client::{com_id_to_string, Client, ComId, ErrorType};
-use crate::server::database::db_score::{DbBoardInfo, DbScoreInfo};
-use crate::server::database::Database;
-use crate::server::stream_extractor::np2_structs_generated::*;
 use crate::server::Server;
+use crate::server::client::{Client, ComId, ErrorType, com_id_to_string};
+use crate::server::database::Database;
+use crate::server::database::db_score::{DbBoardInfo, DbScoreInfo};
+use crate::server::stream_extractor::np2_structs_generated::*;
 
 use parking_lot::RwLock;
 use tracing::warn;
@@ -446,11 +446,7 @@ impl ScoresCache {
 
 			let rank = table.npid_lookup[&user_id][&character_id];
 			let the_score = &table.sorted_scores[rank];
-			if let Some(data_id) = the_score.data_id {
-				Ok(data_id)
-			} else {
-				Err(ErrorType::NotFound)
-			}
+			if let Some(data_id) = the_score.data_id { Ok(data_id) } else { Err(ErrorType::NotFound) }
 		}
 	}
 }

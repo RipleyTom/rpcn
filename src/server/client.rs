@@ -27,8 +27,9 @@ use tokio::sync::{mpsc, watch};
 use tokio::task;
 use tokio::time::timeout;
 use tokio_rustls::server::TlsStream;
-use tracing::{error, info, error_span, trace, warn, Instrument};
+use tracing::{Instrument, error, error_span, info, trace, warn};
 
+use crate::Config;
 use crate::server::client::cmd_session::ClientSharedSessionInfo;
 use crate::server::client::notifications::NotificationType;
 use crate::server::client::ticket::Ticket;
@@ -37,16 +38,17 @@ use crate::server::game_tracker::GameTracker;
 use crate::server::gui_room_manager::GuiRoomManager;
 use crate::server::room_manager::RoomManager;
 use crate::server::score_cache::ScoresCache;
+use crate::server::stream_extractor::StreamExtractor;
 use crate::server::stream_extractor::fb_helpers::*;
 use crate::server::stream_extractor::np2_structs_generated::*;
-use crate::server::stream_extractor::StreamExtractor;
-use crate::Config;
 
 pub const HEADER_SIZE: u32 = 15;
 pub const MAX_PACKET_SIZE: u32 = 0x800000; // 8MiB
 
 pub const COMMUNICATION_ID_SIZE: usize = 12;
 pub type ComId = [u8; COMMUNICATION_ID_SIZE];
+
+pub const DELETED_USER_USERNAME: &str = "DeletedUser";
 
 #[derive(Clone)]
 pub struct ClientInfo {
@@ -200,6 +202,7 @@ enum CommandType {
 	Login,
 	Terminate,
 	Create,
+	Delete,
 	SendToken,
 	SendResetToken,
 	ResetPassword,
@@ -260,6 +263,9 @@ enum CommandType {
 	SearchJoinRoomGUI,
 	UpdateDomainBans = 0x0100,
 	TerminateServer,
+	UpdateServersCfg,
+	BanUser,
+	DelUser,
 }
 
 #[repr(u8)]
@@ -636,6 +642,7 @@ impl Client {
 			match command {
 				CommandType::Login => return self.login(data, reply).await,
 				CommandType::Create => return self.create_account(data),
+				CommandType::Delete => return self.delete_account(data),
 				CommandType::SendToken => return self.resend_token(data),
 				CommandType::SendResetToken => return self.send_reset_token(data),
 				CommandType::ResetPassword => return self.reset_password(data),
@@ -704,6 +711,9 @@ impl Client {
 			CommandType::SearchJoinRoomGUI => self.req_searchjoin_gui(data, reply).await,
 			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
 			CommandType::TerminateServer => self.req_admin_terminate_server(),
+			CommandType::UpdateServersCfg => self.req_admin_update_servers_cfg(),
+			CommandType::BanUser => self.req_admin_ban_user(data),
+			CommandType::DelUser => self.req_admin_del_user(data),
 			_ => {
 				warn!("Unknown command received");
 				Err(ErrorType::Invalid)
@@ -718,6 +728,9 @@ impl Client {
 	}
 	pub fn get_timestamp_seconds() -> u32 {
 		SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as u32
+	}
+	pub fn get_timestamp_days() -> u32 {
+		Client::get_timestamp_seconds() / (60 * 60 * 24)
 	}
 	pub fn get_psn_timestamp() -> u64 {
 		(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_micros() + (62_135_596_800 * 1000 * 1000)) as u64

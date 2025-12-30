@@ -238,7 +238,7 @@ impl Client {
 		let res = self.shared.room_manager.write().set_roommemberdata_internal(&com_id, &setdata_req, self.client_info.user_id);
 
 		match res {
-			Ok((users, notif_data)) => {
+			Ok(Some((users, notif_data))) => {
 				let mut n_msg: Vec<u8> = Vec::new();
 				n_msg.extend(&room_id.to_le_bytes());
 				Client::add_data_packet(&mut n_msg, &notif_data);
@@ -247,6 +247,7 @@ impl Client {
 				self.self_notification(&notif);
 				Ok(ErrorType::NoError)
 			}
+			Ok(None) => Ok(ErrorType::NoError),
 			Err(e) => Ok(e),
 		}
 	}

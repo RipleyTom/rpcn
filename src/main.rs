@@ -128,7 +128,7 @@ impl Config {
 
 				let admins_list: Vec<String> = data.split(',').map(|a| a.trim().to_string()).collect();
 
-				if admins_list.iter().map(|username| Client::is_valid_username(username)).any(|r| !r) {
+				if admins_list.iter().map(|username| Client::is_valid_client_username(username)).any(|r| !r) {
 					println!("AdminsList contains an invalid username, the setting will be ignored!");
 				} else {
 					*d_list = admins_list;

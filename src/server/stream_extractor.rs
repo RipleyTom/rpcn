@@ -5,7 +5,7 @@ pub mod np2_structs_generated;
 
 pub mod fb_helpers;
 
-use crate::server::client::{ComId, COMMUNICATION_ID_SIZE};
+use crate::server::client::{COMMUNICATION_ID_SIZE, ComId};
 use num_traits::*;
 use std::cell::Cell;
 use std::mem;

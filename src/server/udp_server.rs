@@ -8,8 +8,8 @@ use parking_lot::RwLock;
 use tokio::net::UdpSocket;
 use tracing::{error, info, warn};
 
-use crate::server::client::{ClientSharedInfo, TerminateWatch};
 use crate::server::Server;
+use crate::server::client::{ClientSharedInfo, TerminateWatch};
 
 pub struct UdpServer {
 	host_ipv4: String,
@@ -186,6 +186,10 @@ impl UdpServer {
 		let mut send_buf = Box::new([0u8; 65535]);
 
 		let socket = self.socket.take().unwrap();
+
+		if *self.term_watch.recv.borrow_and_update() {
+			return;
+		}
 
 		'udp_server_loop: loop {
 			tokio::select! {

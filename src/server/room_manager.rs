@@ -597,11 +597,7 @@ impl Room {
 				// }
 			}
 
-			if bin_list.is_empty() {
-				None
-			} else {
-				Some(builder.create_vector(&bin_list))
-			}
+			if bin_list.is_empty() { None } else { Some(builder.create_vector(&bin_list)) }
 		};
 
 		let mut rbuild = RoomDataInternalBuilder::new(builder);
@@ -1652,7 +1648,9 @@ impl RoomManager {
 				}
 			}
 
-			if let Some(password_slot_mask) = req.passwordSlotMask() && password_slot_mask.len() == 1 {
+			if let Some(password_slot_mask) = req.passwordSlotMask()
+				&& password_slot_mask.len() == 1
+			{
 				let password_slot_mask = password_slot_mask.get(0);
 				if password_slot_mask != old_password_slot_mask {
 					room.password_slot_mask = password_slot_mask;
@@ -1734,11 +1732,12 @@ impl RoomManager {
 		Ok(builder.finished_data().to_vec())
 	}
 
-	pub fn set_roommemberdata_internal(&mut self, com_id: &ComId, req: &SetRoomMemberDataInternalRequest, user_id: i64) -> Result<(HashSet<i64>, Vec<u8>), ErrorType> {
+	pub fn set_roommemberdata_internal(&mut self, com_id: &ComId, req: &SetRoomMemberDataInternalRequest, user_id: i64) -> Result<Option<(HashSet<i64>, Vec<u8>)>, ErrorType> {
 		if !self.room_exists(com_id, req.roomId()) {
 			return Err(ErrorType::RoomMissing);
 		}
 
+		let mut has_changed = false;
 		let mut new_binattr = None;
 		let target_member_id;
 		let prev_team_id;
@@ -1761,8 +1760,9 @@ impl RoomManager {
 
 			let team_id = req.teamId();
 			prev_team_id = user.team_id;
-			if team_id != 0 {
+			if team_id != 0 && user.team_id != team_id {
 				user.team_id = team_id;
+				has_changed = true;
 			}
 
 			if let Some(fb_member_binattr) = req.roomMemberBinAttrInternal() {
@@ -1773,6 +1773,7 @@ impl RoomManager {
 						user.member_attr = RoomMemberBinAttr::from_flatbuffer(&fb_member_binattr.get(0));
 						vec_new_binattr.push(user.member_attr.data.id);
 						new_binattr = Some(vec_new_binattr);
+						has_changed = true;
 					} else {
 						error!("SetRoomMemberDataInternal request with unexpected id in room member data: {}", bin_attr.data.id);
 					}
@@ -1782,29 +1783,33 @@ impl RoomManager {
 			}
 		}
 
-		// Build the notification buffer
-		let room = self.get_room(com_id, req.roomId());
-		let user = room.users.get(&target_member_id).unwrap();
+		if has_changed {
+			// Build the notification buffer
+			let room = self.get_room(com_id, req.roomId());
+			let user = room.users.get(&target_member_id).unwrap();
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let member_internal = user.to_RoomMemberDataInternal(&mut builder, room);
-		let fb_new_binattr = new_binattr.map(|vec_new_binattr| builder.create_vector(&vec_new_binattr));
+			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+			let member_internal = user.to_RoomMemberDataInternal(&mut builder, room);
+			let fb_new_binattr = new_binattr.map(|vec_new_binattr| builder.create_vector(&vec_new_binattr));
 
-		let resp = RoomMemberDataInternalUpdateInfo::create(
-			&mut builder,
-			&RoomMemberDataInternalUpdateInfoArgs {
-				newRoomMemberDataInternal: Some(member_internal),
-				prevFlagAttr: user.flag_attr,
-				prevTeamId: prev_team_id,
-				newRoomMemberBinAttrInternal: fb_new_binattr,
-			},
-		);
-		builder.finish(resp, None);
+			let resp = RoomMemberDataInternalUpdateInfo::create(
+				&mut builder,
+				&RoomMemberDataInternalUpdateInfoArgs {
+					newRoomMemberDataInternal: Some(member_internal),
+					prevFlagAttr: user.flag_attr,
+					prevTeamId: prev_team_id,
+					newRoomMemberBinAttrInternal: fb_new_binattr,
+				},
+			);
+			builder.finish(resp, None);
 
-		let mut to_notif = room.get_room_user_ids();
-		to_notif.remove(&user_id);
+			let mut to_notif = room.get_room_user_ids();
+			to_notif.remove(&user_id);
 
-		Ok((to_notif, builder.finished_data().to_vec()))
+			Ok(Some((to_notif, builder.finished_data().to_vec())))
+		} else {
+			Ok(None)
+		}
 	}
 
 	pub fn get_rooms_by_user(&self, user: i64) -> Option<HashSet<(ComId, u64)>> {

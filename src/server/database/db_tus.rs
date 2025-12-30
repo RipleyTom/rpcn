@@ -194,7 +194,10 @@ impl Database {
 		compare_author: Option<i64>,
 	) -> Result<DbTusVarInfo, DbError> {
 		let cond_string = Database::prepare_cond_string(compare_timestamp, compare_author);
-		let full_query = format!("INSERT INTO tus_var( owner_id, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( owner_id, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value", cond_string);
+		let full_query = format!(
+			"INSERT INTO tus_var( owner_id, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( owner_id, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value",
+			cond_string
+		);
 
 		match self.conn.query_row(&full_query, rusqlite::params![user, com_id, slot, value, timestamp, author_id], |r| {
 			Ok(DbTusVarInfo {
@@ -240,7 +243,10 @@ impl Database {
 		compare_author: Option<i64>,
 	) -> Result<DbTusVarInfo, DbError> {
 		let cond_string = Database::prepare_cond_string(compare_timestamp, compare_author);
-		let full_query = format!("INSERT INTO tus_var_vuser( vuser, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( vuser, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value", cond_string);
+		let full_query = format!(
+			"INSERT INTO tus_var_vuser( vuser, communication_id, slot_id, var_value, timestamp, author_id ) VALUES ( ?1, ?2, ?3, ?4, ?5, ?6 ) ON CONFLICT( vuser, communication_id, slot_id ) DO UPDATE SET var_value = var_value + excluded.var_value, timestamp = excluded.timestamp, author_id = excluded.author_id {} RETURNING timestamp, author_id, var_value",
+			cond_string
+		);
 
 		match self.conn.query_row(&full_query, rusqlite::params![vuser, com_id, slot, value, timestamp, author_id], |r| {
 			Ok(DbTusVarInfo {
