@@ -3,8 +3,8 @@ use std::convert::Infallible;
 use std::fmt::Write;
 use std::io;
 use std::net::ToSocketAddrs;
-use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, AtomicU32, Ordering};
 
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
@@ -14,9 +14,9 @@ use parking_lot::{Mutex, RwLock};
 use tokio::net::TcpListener;
 use tracing::{error, info, warn};
 
-use crate::server::client::{com_id_to_string, ComId, TerminateWatch};
-use crate::server::Server;
 use crate::Client;
+use crate::server::Server;
+use crate::server::client::{ComId, TerminateWatch, com_id_to_string};
 
 struct GameInfo {
 	num_users: AtomicI64,
@@ -70,6 +70,10 @@ impl Server {
 
 impl GameTracker {
 	async fn server_proc(listener: TcpListener, mut term_watch: TerminateWatch, game_tracker: Arc<GameTracker>, timeout: u32) {
+		if *term_watch.recv.borrow_and_update() {
+			return;
+		}
+
 		'stat_server_loop: loop {
 			tokio::select! {
 				accept_res = listener.accept() => {
@@ -139,11 +143,7 @@ impl GameTracker {
 			.iter()
 			.filter_map(|(name, num_users)| {
 				let num_users = num_users.load(Ordering::SeqCst);
-				if num_users != 0 {
-					Some((name.clone(), num_users))
-				} else {
-					None
-				}
+				if num_users != 0 { Some((name.clone(), num_users)) } else { None }
 			})
 			.collect();
 

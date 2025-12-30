@@ -96,6 +96,14 @@ impl Client {
 
 			match db.check_user(&login, &password, &token, self.config.read().is_email_validated()) {
 				Ok(user_data) => {
+					// client_infos.write() serves as an exclusive lock to avoid multiple logins
+					let mut client_infos = self.shared.client_infos.write();
+
+					if client_infos.contains_key(&user_data.user_id) {
+						return Err(ErrorType::LoginAlreadyLoggedIn);
+					}
+
+					// Extra check as we can't hold client_infos.write() lock across async functions in Client::drop
 					{
 						let cleanup_duty = self.shared.cleanup_duty.read();
 						if cleanup_duty.contains(&user_data.user_id) {
@@ -103,15 +111,14 @@ impl Client {
 						}
 					}
 
-					let mut client_infos = self.shared.client_infos.write();
-
-					if client_infos.contains_key(&user_data.user_id) {
-						return Err(ErrorType::LoginAlreadyLoggedIn);
+					// Extra simple check in case user was deleted in between check_user and client_infos.write()
+					if db.get_user_id(&login).is_err() {
+						return Err(ErrorType::LoginInvalidUsername);
 					}
 
-					let rels = db.get_relationships(user_data.user_id).map_err(|_| ErrorType::DbFail)?;
-
 					// Authentified beyond this point
+
+					let rels = db.get_relationships(user_data.user_id).map_err(|_| ErrorType::DbFail)?;
 
 					// Update last login time
 					db.update_login_time(user_data.user_id).map_err(|_| ErrorType::DbFail)?;
@@ -194,8 +201,8 @@ impl Client {
 		}
 	}
 
-	pub fn is_valid_username(npid: &str) -> bool {
-		npid.len() >= 3 && npid.len() <= 16 && npid.chars().all(|x| x.is_ascii_alphanumeric() || x == '-' || x == '_')
+	pub fn is_valid_client_username(npid: &str) -> bool {
+		npid.len() >= 3 && npid.len() <= 16 && npid.chars().all(|x| x.is_ascii_alphanumeric() || x == '-' || x == '_') && npid != DELETED_USER_USERNAME
 	}
 
 	pub fn create_account(&self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
@@ -210,12 +217,12 @@ impl Client {
 			return Err(ErrorType::Malformed);
 		}
 
-		if !Client::is_valid_username(&npid) {
+		if !Client::is_valid_client_username(&npid) {
 			warn!("Error validating NpId");
 			return Err(ErrorType::InvalidInput);
 		}
 
-		if !Client::is_valid_username(&online_name) {
+		if !Client::is_valid_client_username(&online_name) {
 			warn!("Error validating Online Name");
 			return Err(ErrorType::InvalidInput);
 		}
@@ -259,6 +266,29 @@ impl Client {
 					_ => ErrorType::CreationError,
 				})
 			}
+		}
+	}
+
+	pub fn delete_account(&self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
+		let login = data.get_string(false);
+		let password = data.get_string(false);
+
+		if data.error() {
+			warn!("Error while extracting data from Delete command");
+			return Err(ErrorType::Malformed);
+		}
+
+		let db = Database::new(self.get_database_connection()?);
+		if let Ok(user_data) = db.check_user(&login, &password, "", false) {
+			let client_infos = self.shared.client_infos.write();
+			if client_infos.contains_key(&user_data.user_id) {
+				return Err(ErrorType::LoginAlreadyLoggedIn);
+			}
+
+			db.delete_user(user_data.user_id, &login, &user_data.email_check).map_err(|_| ErrorType::DbFail)?;
+			Err(ErrorType::NoError)
+		} else {
+			Err(ErrorType::LoginError)
 		}
 	}
 

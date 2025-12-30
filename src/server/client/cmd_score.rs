@@ -6,10 +6,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use tokio::fs;
 
-use crate::server::client::*;
-use crate::server::database::db_score::{DbBoardInfo, DbScoreInfo};
-use crate::server::database::DbError;
 use crate::server::Server;
+use crate::server::client::*;
+use crate::server::database::DbError;
+use crate::server::database::db_score::{DbBoardInfo, DbScoreInfo};
 
 const SCORE_DATA_DIRECTORY: &str = "score_data";
 const SCORE_FILE_EXTENSION: &str = "sdt";

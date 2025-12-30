@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-01-12
+### Added
+
+- Added Delete command to delete a user
+- Added a cleaner task charged with cleaning up the database from expired hashes from deleted users and cleaning up never used accounts periodically
+- Added BanUser and DelUser admin commands
+- Ninetime: Added WorldIDs for Sonic & SEGA All-Stars Racing and Koihime Enbu
+
+### Changed
+
+- Altered tables referencing user_id to have ON CASCADE DELETE for faster deletion
+
+### Fixed
+
+- Fixed check order of client_infos and cleanup_duty in login
+- Fixed INDEX tus_data_vuser_author_id referencing the wrong table
+
+### Misc
+
+- Updated dependencies
+
+
 ## [1.5.0] - 2025-12-08
 ### Added
 

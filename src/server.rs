@@ -29,14 +29,16 @@ mod room_manager;
 use room_manager::RoomManager;
 mod score_cache;
 use score_cache::ScoresCache;
+mod daily_cleaner;
 mod udp_server;
 mod utils;
 use crate::Config;
+use crate::server::database::Database;
 
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 27;
+const PROTOCOL_VERSION: u32 = 28;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
@@ -57,7 +59,8 @@ impl Server {
 		let score_cache = Server::initialize_score(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
 		Server::initialize_tus_data_handler()?;
 
-		Server::cleanup_database(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
+		let db = Database::new(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?);
+		db.cleanup_never_used_accounts().map_err(|e| format!("Failed to clean never used accounts; {}", e))?;
 
 		Server::clean_score_data(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
 		Server::clean_tus_data(db_pool.get().map_err(|e| format!("Failed to get a database connection: {}", e))?)?;
@@ -152,6 +155,7 @@ impl Server {
 
 			self.start_udp_server(term_watch.clone()).await?;
 			self.start_stat_server(term_watch.clone(), self.game_tracker.clone()).await?;
+			self.start_cleaner_task(term_watch.clone(), self.db_pool.clone(), self.client_infos.clone()).await;
 
 			let listener = TcpListener::bind(&addr).await.map_err(|e| io::Error::new(e.kind(), format!("Error binding to <{}>: {}", &addr, e)))?;
 			info!("Now waiting for connections on <{}>", &addr);
