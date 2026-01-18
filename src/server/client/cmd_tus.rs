@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use prost::Message;
 use tokio::fs;
 
 use crate::server::Server;
@@ -114,20 +115,32 @@ impl Client {
 	}
 
 	pub async fn tus_set_multislot_variable(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusSetMultiSlotVariableRequest>(data)?;
-		let (user, slot_array, variable_array) = validate_all!(tus_req.user(), tus_req.slotIdArray(), tus_req.variableArray());
-		let npid = Client::validate_and_unwrap(user.npid())?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusSetMultiSlotVariableRequest>(data)?;
+		let user = tus_req.user.as_ref().ok_or(ErrorType::Malformed)?;
+		let npid = &user.npid;
 
-		if slot_array.len() != variable_array.len() {
-			warn!("Validation inconsistency: slot_array.len() != variable_array.len()");
+		if npid.is_empty() {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
+
+		if tus_req.slot_id_array.len() != tus_req.variable_array.len() {
+			warn!("Validation: slot_array.len() != variable_array.len()");
 			return Err(ErrorType::Malformed);
 		}
 
 		let db = Database::new(self.get_database_connection()?);
 
-		if user.vuser() {
-			for i in 0..slot_array.len() {
-				if let Err(e) = db.tus_set_vuser_variable(&com_id, npid, slot_array.get(i), variable_array.get(i), self.client_info.user_id, Client::get_psn_timestamp()) {
+		if user.vuser {
+			for i in 0..tus_req.slot_id_array.len() {
+				if let Err(e) = db.tus_set_vuser_variable(
+					&com_id,
+					npid,
+					tus_req.slot_id_array[i],
+					tus_req.variable_array[i],
+					self.client_info.user_id,
+					Client::get_psn_timestamp(),
+				) {
 					error!("Error tus_set_vuser_variable: {}", e);
 				}
 			}
@@ -142,8 +155,15 @@ impl Client {
 				return Ok(ErrorType::Unauthorized);
 			}
 
-			for i in 0..slot_array.len() {
-				if let Err(e) = db.tus_set_user_variable(&com_id, user_id, slot_array.get(i), variable_array.get(i), self.client_info.user_id, Client::get_psn_timestamp()) {
+			for i in 0..tus_req.slot_id_array.len() {
+				if let Err(e) = db.tus_set_user_variable(
+					&com_id,
+					user_id,
+					tus_req.slot_id_array[i],
+					tus_req.variable_array[i],
+					self.client_info.user_id,
+					Client::get_psn_timestamp(),
+				) {
 					error!("Error tus_set_user_variable: {}", e);
 				}
 			}
@@ -153,18 +173,22 @@ impl Client {
 	}
 
 	pub async fn tus_get_multislot_variable(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusGetMultiSlotVariableRequest>(data)?;
-		let (user, slot_array) = validate_all!(tus_req.user(), tus_req.slotIdArray());
-		let npid = Client::validate_and_unwrap(user.npid())?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusGetMultiSlotVariableRequest>(data)?;
+		let user = tus_req.user.as_ref().ok_or(ErrorType::Malformed)?;
+		let npid = &user.npid;
+
+		if npid.is_empty() {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
 
 		let db = Database::new(self.get_database_connection()?);
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let mut vec_vars = Vec::with_capacity(slot_array.len());
+		let mut vec_vars = Vec::with_capacity(tus_req.slot_id_array.len());
 
-		if user.vuser() {
-			for i in 0..slot_array.len() {
-				match db.tus_get_vuser_variable(&com_id, npid, slot_array.get(i)) {
+		if user.vuser {
+			for slot in &tus_req.slot_id_array {
+				match db.tus_get_vuser_variable(&com_id, npid, *slot) {
 					Ok(var) => vec_vars.push(Some(var)),
 					Err(DbError::Empty) => vec_vars.push(None),
 					Err(e) => {
@@ -180,8 +204,8 @@ impl Client {
 				Ok(id) => id,
 			};
 
-			for i in 0..slot_array.len() {
-				match db.tus_get_user_variable(&com_id, user_id, slot_array.get(i)) {
+			for slot in &tus_req.slot_id_array {
+				match db.tus_get_user_variable(&com_id, user_id, *slot) {
 					Ok(var) => vec_vars.push(Some(var)),
 					Err(DbError::Empty) => vec_vars.push(None),
 					Err(e) => {
@@ -195,41 +219,31 @@ impl Client {
 		let mut final_vars = Vec::with_capacity(vec_vars.len());
 
 		for var in &vec_vars {
-			let owner_fb = Some(builder.create_string(npid));
 			match var {
 				Some(var) => {
 					let author_id_string = db.get_username(var.author_id).map_err(|_| ErrorType::DbFail)?;
-					let author_id_fb_string = Some(builder.create_string(&author_id_string));
-					final_vars.push(TusVariable::create(
-						&mut builder,
-						&TusVariableArgs {
-							ownerId: owner_fb,
-							hasData: true,
-							lastChangedDate: var.timestamp,
-							lastChangedAuthorId: author_id_fb_string,
-							variable: var.variable,
-							oldVariable: var.variable,
-						},
-					));
+					final_vars.push(TusVariable {
+						owner_id: npid.clone(),
+						has_data: true,
+						last_changed_date: var.timestamp,
+						last_changed_author_id: author_id_string,
+						variable: var.variable,
+						old_variable: var.variable,
+					});
 				}
-				None => final_vars.push(TusVariable::create(
-					&mut builder,
-					&TusVariableArgs {
-						ownerId: owner_fb,
-						hasData: false,
-						lastChangedDate: 0,
-						lastChangedAuthorId: None,
-						variable: 0,
-						oldVariable: 0,
-					},
-				)),
+				None => final_vars.push(TusVariable {
+					owner_id: npid.clone(),
+					has_data: false,
+					last_changed_date: 0,
+					last_changed_author_id: String::new(),
+					variable: 0,
+					old_variable: 0,
+				}),
 			}
 		}
 
-		let vars = Some(builder.create_vector(&final_vars));
-		let tus_var_response = TusVarResponse::create(&mut builder, &TusVarResponseArgs { vars });
-		builder.finish(tus_var_response, None);
-		let finished_data = builder.finished_data().to_vec();
+		let tus_var_response = TusVarResponse { vars: final_vars };
+		let finished_data = tus_var_response.encode_to_vec();
 
 		Client::add_data_packet(reply, &finished_data);
 
@@ -237,28 +251,23 @@ impl Client {
 	}
 
 	pub async fn tus_get_multiuser_variable(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusGetMultiUserVariableRequest>(data)?;
-		let users = Client::validate_and_unwrap(tus_req.users())?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusGetMultiUserVariableRequest>(data)?;
 
-		for i in 0..users.len() {
-			if users.get(i).npid().is_none() {
-				return Err(ErrorType::Malformed);
-			}
+		if tus_req.users.iter().any(|user| user.npid.is_empty()) {
+			return Err(ErrorType::Malformed);
 		}
 
-		let slot = tus_req.slotId();
+		let slot = tus_req.slot_id;
 		let db = Database::new(self.get_database_connection()?);
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let mut vec_vars = Vec::with_capacity(users.len());
+		let mut vec_vars = Vec::with_capacity(tus_req.users.len());
 
-		for i in 0..users.len() {
-			let user = users.get(i);
-			let npid = user.npid().unwrap();
+		for user in &tus_req.users {
+			let npid = &user.npid;
 
-			if user.vuser() {
+			if user.vuser {
 				match db.tus_get_vuser_variable(&com_id, npid, slot) {
-					Ok(var) => vec_vars.push((npid, Some(var))),
-					Err(DbError::Empty) => vec_vars.push((npid, None)),
+					Ok(var) => vec_vars.push((npid.clone(), Some(var))),
+					Err(DbError::Empty) => vec_vars.push((npid.clone(), None)),
 					Err(e) => {
 						error!("Error tus_get_vuser_variable: {}", e);
 						return Err(ErrorType::DbFail);
@@ -272,8 +281,8 @@ impl Client {
 				};
 
 				match db.tus_get_user_variable(&com_id, user_id, slot) {
-					Ok(var) => vec_vars.push((npid, Some(var))),
-					Err(DbError::Empty) => vec_vars.push((npid, None)),
+					Ok(var) => vec_vars.push((npid.clone(), Some(var))),
+					Err(DbError::Empty) => vec_vars.push((npid.clone(), None)),
 					Err(e) => {
 						error!("Error tus_get_user_variable: {}", e);
 						return Err(ErrorType::DbFail);
@@ -285,41 +294,31 @@ impl Client {
 		let mut final_vars = Vec::with_capacity(vec_vars.len());
 
 		for (npid, var) in &vec_vars {
-			let owner_fb = Some(builder.create_string(npid));
 			match var {
 				Some(var) => {
 					let author_id_string = db.get_username(var.author_id).map_err(|_| ErrorType::DbFail)?;
-					let author_id_fb_string = Some(builder.create_string(&author_id_string));
-					final_vars.push(TusVariable::create(
-						&mut builder,
-						&TusVariableArgs {
-							ownerId: owner_fb,
-							hasData: true,
-							lastChangedDate: var.timestamp,
-							lastChangedAuthorId: author_id_fb_string,
-							variable: var.variable,
-							oldVariable: var.variable,
-						},
-					));
+					final_vars.push(TusVariable {
+						owner_id: npid.clone(),
+						has_data: true,
+						last_changed_date: var.timestamp,
+						last_changed_author_id: author_id_string,
+						variable: var.variable,
+						old_variable: var.variable,
+					});
 				}
-				None => final_vars.push(TusVariable::create(
-					&mut builder,
-					&TusVariableArgs {
-						ownerId: owner_fb,
-						hasData: false,
-						lastChangedDate: 0,
-						lastChangedAuthorId: None,
-						variable: 0,
-						oldVariable: 0,
-					},
-				)),
+				None => final_vars.push(TusVariable {
+					owner_id: npid.clone(),
+					has_data: false,
+					last_changed_date: 0,
+					last_changed_author_id: String::new(),
+					variable: 0,
+					old_variable: 0,
+				}),
 			}
 		}
 
-		let vars = Some(builder.create_vector(&final_vars));
-		let tus_var_response = TusVarResponse::create(&mut builder, &TusVarResponseArgs { vars });
-		builder.finish(tus_var_response, None);
-		let finished_data = builder.finished_data().to_vec();
+		let tus_var_response = TusVarResponse { vars: final_vars };
+		let finished_data = tus_var_response.encode_to_vec();
 
 		Client::add_data_packet(reply, &finished_data);
 
@@ -327,52 +326,44 @@ impl Client {
 	}
 
 	pub async fn tus_get_friends_variable(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusGetFriendsVariableRequest>(data)?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusGetFriendsVariableRequest>(data)?;
 
-		let sorting = FromPrimitive::from_i32(tus_req.sortType());
+		let sorting = FromPrimitive::from_i32(tus_req.sort_type);
 		if sorting.is_none() {
-			error!("Unsupported sorting value in TusGetFriendsVariableRequest");
+			warn!("Unsupported sorting value in TusGetFriendsVariableRequest");
 			return Err(ErrorType::Malformed);
 		}
 		let sorting = sorting.unwrap();
 
 		let mut user_list = self.shared.client_infos.read().get(&self.client_info.user_id).unwrap().friend_info.read().friends.clone();
-		if tus_req.includeSelf() {
+		if tus_req.include_self {
 			user_list.insert(self.client_info.user_id, self.client_info.npid.clone());
 		}
 
-		let mut final_vars = Vec::with_capacity(std::cmp::min(user_list.len(), tus_req.arrayNum() as usize));
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+		let mut final_vars = Vec::with_capacity(std::cmp::min(user_list.len(), tus_req.array_num as usize));
 
 		if !user_list.is_empty() {
 			let db = Database::new(self.get_database_connection()?);
 			let vec_vars = db
-				.tus_get_user_variable_from_user_list(&com_id, &user_list.keys().copied().collect::<Vec<i64>>(), tus_req.slotId(), sorting, tus_req.arrayNum())
+				.tus_get_user_variable_from_user_list(&com_id, &user_list.keys().copied().collect::<Vec<i64>>(), tus_req.slot_id, sorting, tus_req.array_num)
 				.map_err(|_| ErrorType::DbFail)?;
 
 			for (user_id, var) in &vec_vars {
 				let author_id_string = self.get_username_with_helper(var.author_id, &user_list, &db)?;
 
-				let owner_fb = Some(builder.create_string(user_list.get(user_id).unwrap()));
-				let author_id_fb_string = Some(builder.create_string(&author_id_string));
-				final_vars.push(TusVariable::create(
-					&mut builder,
-					&TusVariableArgs {
-						ownerId: owner_fb,
-						hasData: true,
-						lastChangedDate: var.timestamp,
-						lastChangedAuthorId: author_id_fb_string,
-						variable: var.variable,
-						oldVariable: var.variable,
-					},
-				));
+				final_vars.push(TusVariable {
+					owner_id: user_list.get(user_id).unwrap().clone(),
+					has_data: true,
+					last_changed_date: var.timestamp,
+					last_changed_author_id: author_id_string,
+					variable: var.variable,
+					old_variable: var.variable,
+				});
 			}
 		}
 
-		let vars = Some(builder.create_vector(&final_vars));
-		let tus_var_response = TusVarResponse::create(&mut builder, &TusVarResponseArgs { vars });
-		builder.finish(tus_var_response, None);
-		let finished_data = builder.finished_data().to_vec();
+		let tus_var_response = TusVarResponse { vars: final_vars };
+		let finished_data = tus_var_response.encode_to_vec();
 
 		Client::add_data_packet(reply, &finished_data);
 
@@ -380,25 +371,33 @@ impl Client {
 	}
 
 	pub async fn tus_add_and_get_variable(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusAddAndGetVariableRequest>(data)?;
-		let user = Client::validate_and_unwrap(tus_req.user())?;
-		let npid = Client::validate_and_unwrap(user.npid())?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusAddAndGetVariableRequest>(data)?;
+		let user = tus_req.user.as_ref().ok_or(ErrorType::Malformed)?;
+		let npid = &user.npid;
 
-		let slot = tus_req.slotId();
-		let to_add = tus_req.inVariable();
+		if npid.is_empty() {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
+
+		let slot = tus_req.slot_id;
+		let to_add = tus_req.in_variable;
 		let timestamp = Client::get_psn_timestamp();
 		let author_id = self.client_info.user_id;
 
-		let compare_author_str = tus_req.isLastChangedAuthorId();
-
-		let compare_timestamp = if let Some(vec_compare_timestamp) = tus_req.isLastChangedDate() {
-			if vec_compare_timestamp.len() != 1 {
-				warn!("vec_compare_timestamp is not len 1");
-				return Err(ErrorType::Malformed);
-			}
-			Some(vec_compare_timestamp.get(0))
-		} else {
+		let compare_author_str = if tus_req.is_last_changed_author_id.is_empty() {
 			None
+		} else {
+			Some(&tus_req.is_last_changed_author_id)
+		};
+
+		let compare_timestamp = if tus_req.is_last_changed_date.len() == 1 {
+			Some(tus_req.is_last_changed_date[0])
+		} else if tus_req.is_last_changed_date.is_empty() {
+			None
+		} else {
+			warn!("vec_compare_timestamp is not len 1");
+			return Err(ErrorType::Malformed);
 		};
 
 		let db = Database::new(self.get_database_connection()?);
@@ -413,7 +412,7 @@ impl Client {
 			None
 		};
 
-		let var = if user.vuser() {
+		let var = if user.vuser {
 			db.tus_add_and_get_vuser_variable(&com_id, npid, slot, to_add, author_id, timestamp, compare_timestamp, compare_author)
 				.map_err(|e| {
 					error!("Error tus_add_and_get_vuser_variable: {}", e);
@@ -439,65 +438,63 @@ impl Client {
 
 		let author_id_string = db.get_username(var.author_id).map_err(|_| ErrorType::DbFail)?;
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+		let tus_var = TusVariable {
+			owner_id: npid.clone(),
+			has_data: true,
+			last_changed_date: var.timestamp,
+			last_changed_author_id: author_id_string,
+			variable: var.variable,
+			old_variable: var.variable,
+		};
 
-		let owner_fb = Some(builder.create_string(npid));
-		let author_id_fb_string = Some(builder.create_string(&author_id_string));
-
-		let tus_var = TusVariable::create(
-			&mut builder,
-			&TusVariableArgs {
-				ownerId: owner_fb,
-				hasData: true,
-				lastChangedDate: var.timestamp,
-				lastChangedAuthorId: author_id_fb_string,
-				variable: var.variable,
-				oldVariable: var.variable,
-			},
-		);
-
-		builder.finish(tus_var, None);
-		let finished_data = builder.finished_data().to_vec();
+		let finished_data = tus_var.encode_to_vec();
 		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
 
 	pub async fn tus_try_and_set_variable(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusTryAndSetVariableRequest>(data)?;
-		let user = Client::validate_and_unwrap(tus_req.user())?;
-		let npid = Client::validate_and_unwrap(user.npid())?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusTryAndSetVariableRequest>(data)?;
+		let user = tus_req.user.as_ref().ok_or(ErrorType::Malformed)?;
+		let npid = &user.npid;
 
-		let slot = tus_req.slotId();
+		if npid.is_empty() {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
 
-		let op_type = FromPrimitive::from_i32(tus_req.opeType());
+		let slot = tus_req.slot_id;
+
+		let op_type = FromPrimitive::from_i32(tus_req.ope_type);
 		if op_type.is_none() {
-			warn!("Unsupported sorting value in TusTryAndSetVariableRequest");
+			warn!("Validation: unsupported sorting value in TusTryAndSetVariableRequest");
 			return Err(ErrorType::Malformed);
 		}
 		let op_type: TusOpeType = op_type.unwrap();
 
-		let to_set = tus_req.variable();
-		let compare_author_str = tus_req.isLastChangedAuthorId();
-
-		let compare_value = if let Some(vec_compare_value) = tus_req.compareValue() {
-			if vec_compare_value.len() != 1 {
-				warn!("vec_compare_value is not len 1");
-				return Err(ErrorType::Malformed);
-			}
-			vec_compare_value.get(0)
+		let to_set = tus_req.variable;
+		let compare_author_str = if tus_req.is_last_changed_author_id.is_empty() {
+			None
 		} else {
-			to_set
+			Some(&tus_req.is_last_changed_author_id)
 		};
 
-		let compare_timestamp = if let Some(vec_compare_timestamp) = tus_req.isLastChangedDate() {
-			if vec_compare_timestamp.len() != 1 {
-				warn!("vec_compare_timestamp is not len 1");
-				return Err(ErrorType::Malformed);
-			}
-			Some(vec_compare_timestamp.get(0))
+		let compare_value = if tus_req.compare_value.len() == 1 {
+			tus_req.compare_value[0]
+		} else if tus_req.compare_value.is_empty() {
+			to_set
 		} else {
+			warn!("Validation: vec_compare_value is not len 1");
+			return Err(ErrorType::Malformed);
+		};
+
+		let compare_timestamp = if tus_req.is_last_changed_date.len() == 1 {
+			Some(tus_req.is_last_changed_date[0])
+		} else if tus_req.is_last_changed_date.is_empty() {
 			None
+		} else {
+			warn!("Validation: vec_compare_timestamp is not len 1");
+			return Err(ErrorType::Malformed);
 		};
 
 		let timestamp = Client::get_psn_timestamp();
@@ -515,7 +512,7 @@ impl Client {
 			None
 		};
 
-		let var = if user.vuser() {
+		let var = if user.vuser {
 			db.tus_try_and_set_vuser_variable(&com_id, npid, slot, to_set, author_id, timestamp, compare_value, op_type, compare_timestamp, compare_author)
 				.map_err(|e| {
 					error!("Error tus_try_and_set_vuser_variable: {}", e);
@@ -541,41 +538,40 @@ impl Client {
 
 		let author_id_string = db.get_username(var.author_id).map_err(|_| ErrorType::DbFail)?;
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+		let tus_var = TusVariable {
+			owner_id: npid.clone(),
+			has_data: true,
+			last_changed_date: var.timestamp,
+			last_changed_author_id: author_id_string,
+			variable: var.variable,
+			old_variable: var.variable,
+		};
 
-		let owner_fb = Some(builder.create_string(npid));
-		let author_id_fb_string = Some(builder.create_string(&author_id_string));
-
-		let tus_var = TusVariable::create(
-			&mut builder,
-			&TusVariableArgs {
-				ownerId: owner_fb,
-				hasData: true,
-				lastChangedDate: var.timestamp,
-				lastChangedAuthorId: author_id_fb_string,
-				variable: var.variable,
-				oldVariable: var.variable,
-			},
-		);
-
-		builder.finish(tus_var, None);
-		let finished_data = builder.finished_data().to_vec();
+		let finished_data = tus_var.encode_to_vec();
 		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
 
 	pub async fn tus_delete_multislot_variable(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusDeleteMultiSlotVariableRequest>(data)?;
-		let (user, slots) = validate_all!(tus_req.user(), tus_req.slotIdArray());
-		let npid = Client::validate_and_unwrap(user.npid())?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusDeleteMultiSlotVariableRequest>(data)?;
+		let user = tus_req.user.as_ref().ok_or(ErrorType::Malformed)?;
+		let npid = &user.npid;
+
+		if tus_req.slot_id_array.is_empty() {
+			warn!("Validation: slot_id_array is empty");
+			return Err(ErrorType::Malformed);
+		}
+
+		if npid.is_empty() {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
 
 		let db = Database::new(self.get_database_connection()?);
 
-		let slots: Vec<i32> = slots.iter().collect();
-
-		if user.vuser() {
-			db.tus_delete_vuser_variable_with_slotlist(&com_id, npid, &slots).map_err(|_| ErrorType::DbFail)?
+		if user.vuser {
+			db.tus_delete_vuser_variable_with_slotlist(&com_id, npid, &tus_req.slot_id_array).map_err(|_| ErrorType::DbFail)?
 		} else {
 			let user_id = match db.get_user_id(npid) {
 				Err(DbError::Empty) => return Ok(ErrorType::NotFound),
@@ -587,7 +583,7 @@ impl Client {
 				return Ok(ErrorType::Unauthorized);
 			}
 
-			db.tus_delete_user_variable_with_slotlist(&com_id, user_id, &slots.to_owned()).map_err(|_| ErrorType::DbFail)?
+			db.tus_delete_user_variable_with_slotlist(&com_id, user_id, &tus_req.slot_id_array).map_err(|_| ErrorType::DbFail)?
 		}
 
 		Ok(ErrorType::NoError)
@@ -621,33 +617,46 @@ impl Client {
 	}
 
 	pub async fn tus_set_data(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusSetDataRequest>(data)?;
-		let (user, data) = validate_all!(tus_req.user(), tus_req.data());
-		let npid = Client::validate_and_unwrap(user.npid())?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusSetDataRequest>(data)?;
+		let user = tus_req.user.as_ref().ok_or(ErrorType::Malformed)?;
+		let npid = &user.npid;
 
-		if let Some(info) = &tus_req.info()
-			&& info.len() > SCE_NP_TUS_DATA_INFO_MAX_SIZE
-		{
+		if npid.is_empty() {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
+
+		if tus_req.data.is_empty() {
+			warn!("Validation: data is empty");
+			return Err(ErrorType::Malformed);
+		}
+
+		if tus_req.info.len() > SCE_NP_TUS_DATA_INFO_MAX_SIZE {
 			warn!("info len > SCE_NP_TUS_DATA_INFO_MAX_SIZE");
 			return Err(ErrorType::Malformed);
 		}
 
-		if data.len() > UNDOCUMENTED_TUS_DATA_MAX_SIZE {
+		if tus_req.data.len() > UNDOCUMENTED_TUS_DATA_MAX_SIZE {
 			warn!("data len > UNDOCUMENTED_TUS_DATA_MAX_SIZE");
 			return Err(ErrorType::Malformed);
 		}
 
-		let mut compare_timestamp = None;
-		if let Some(last_changed_date) = &tus_req.isLastChangedDate() {
-			if last_changed_date.len() != 1 {
-				return Err(ErrorType::Malformed);
-			}
-			compare_timestamp = Some(last_changed_date.get(0));
-		}
+		let compare_timestamp = if tus_req.is_last_changed_date.len() == 1 {
+			Some(tus_req.is_last_changed_date[0])
+		} else if tus_req.is_last_changed_date.is_empty() {
+			None
+		} else {
+			return Err(ErrorType::Malformed);
+		};
 
-		let author_str = tus_req.isLastChangedAuthorId();
-		let slot = tus_req.slotId();
-		let info = tus_req.info();
+		let author_str = if tus_req.is_last_changed_author_id.is_empty() {
+			None
+		} else {
+			Some(&tus_req.is_last_changed_author_id)
+		};
+
+		let slot = tus_req.slot_id;
+		let info = if tus_req.info.is_empty() { None } else { Some(&tus_req.info[..]) };
 
 		let db = Database::new(self.get_database_connection()?);
 
@@ -664,24 +673,14 @@ impl Client {
 
 		let new_timestamp = Client::get_psn_timestamp();
 
-		if user.vuser() {
+		if user.vuser {
 			if let Some(ret_value) = Client::preliminary_set_tus_data_check(|| db.tus_get_vuser_data_timestamp_and_author(&com_id, npid, slot), &compare_timestamp, &compare_author_id) {
 				return ret_value;
 			}
 
-			let data_id = Client::create_tus_data_file(data.bytes()).await;
+			let data_id = Client::create_tus_data_file(&tus_req.data).await;
 
-			let res = db.tus_set_vuser_data(
-				&com_id,
-				npid,
-				slot,
-				data_id,
-				&info.map(|v| v.bytes()),
-				self.client_info.user_id,
-				new_timestamp,
-				compare_timestamp,
-				compare_author_id,
-			);
+			let res = db.tus_set_vuser_data(&com_id, npid, slot, data_id, &info, self.client_info.user_id, new_timestamp, compare_timestamp, compare_author_id);
 			match res {
 				Ok(()) => Ok(ErrorType::NoError),
 				Err(DbError::Empty) => {
@@ -705,9 +704,9 @@ impl Client {
 				return ret_value;
 			}
 
-			let data_id = Client::create_tus_data_file(data.bytes()).await;
+			let data_id = Client::create_tus_data_file(&tus_req.data).await;
 
-			let res = db.tus_set_user_data(&com_id, user_id, slot, data_id, &info.map(|v| v.bytes()), user_id, new_timestamp, compare_timestamp, compare_author_id);
+			let res = db.tus_set_user_data(&com_id, user_id, slot, data_id, &info, user_id, new_timestamp, compare_timestamp, compare_author_id);
 			match res {
 				Ok(()) => Ok(ErrorType::NoError),
 				Err(DbError::Empty) => {
@@ -720,14 +719,20 @@ impl Client {
 	}
 
 	pub async fn tus_get_data(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusGetDataRequest>(data)?;
-		let user = Client::validate_and_unwrap(tus_req.user())?;
-		let npid = Client::validate_and_unwrap(user.npid())?;
-		let slot = tus_req.slotId();
+		let (com_id, tus_req) = self.get_com_and_pb::<TusGetDataRequest>(data)?;
+		let user = tus_req.user.as_ref().ok_or(ErrorType::Malformed)?;
+		let npid = &user.npid;
+
+		if npid.is_empty() {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
+
+		let slot = tus_req.slot_id;
 
 		let db = Database::new(self.get_database_connection()?);
 
-		let res = if user.vuser() {
+		let res = if user.vuser {
 			db.tus_get_vuser_data(&com_id, npid, slot)
 		} else {
 			let user_id = match db.get_user_id(npid) {
@@ -745,67 +750,54 @@ impl Client {
 			Err(_) => return Err(ErrorType::DbFail),
 		};
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-
-		let owner_id = Some(builder.create_string(npid));
-		let has_data;
-		let last_changed_date;
-		let last_changed_author_id;
-		let tus_info;
-		let tus_data;
-
-		if let Some((db_tus_data_status, db_tus_data_info)) = info {
+		let (status, tus_data) = if let Some((db_tus_data_status, db_tus_data_info)) = info {
 			let data = Client::get_tus_data_file(db_tus_data_status.data_id).await.map_err(|_| ErrorType::DbFail)?;
 			let author_id_string = db.get_username(db_tus_data_status.author_id).map_err(|_| ErrorType::DbFail)?;
 
-			has_data = true;
-			last_changed_date = db_tus_data_status.timestamp;
-			last_changed_author_id = Some(builder.create_string(&author_id_string));
-			tus_info = Some(builder.create_vector(&db_tus_data_info));
-			tus_data = Some(builder.create_vector(&data));
+			(
+				Some(TusDataStatus {
+					owner_id: npid.clone(),
+					has_data: true,
+					last_changed_date: db_tus_data_status.timestamp,
+					last_changed_author_id: author_id_string,
+					info: db_tus_data_info,
+				}),
+				data,
+			)
 		} else {
-			has_data = false;
-			last_changed_date = 0;
-			last_changed_author_id = None;
-			tus_info = None;
-			tus_data = None;
-		}
+			(
+				Some(TusDataStatus {
+					owner_id: npid.clone(),
+					has_data: false,
+					last_changed_date: 0,
+					last_changed_author_id: String::new(),
+					info: Vec::new(),
+				}),
+				Vec::new(),
+			)
+		};
 
-		let tus_status = TusDataStatus::create(
-			&mut builder,
-			&TusDataStatusArgs {
-				ownerId: owner_id,
-				hasData: has_data,
-				lastChangedDate: last_changed_date,
-				lastChangedAuthorId: last_changed_author_id,
-				info: tus_info,
-			},
-		);
+		let final_tus_data = TusData { status, data: tus_data };
 
-		let final_tus_data = TusData::create(
-			&mut builder,
-			&TusDataArgs {
-				status: Some(tus_status),
-				data: tus_data,
-			},
-		);
-
-		builder.finish(final_tus_data, None);
-		let finished_data = builder.finished_data().to_vec();
+		let finished_data = final_tus_data.encode_to_vec();
 		Client::add_data_packet(reply, &finished_data);
 		Ok(ErrorType::NoError)
 	}
 
 	pub async fn tus_get_multislot_data_status(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusGetMultiSlotDataStatusRequest>(data)?;
-		let user = Client::validate_and_unwrap(tus_req.user())?;
-		let npid = Client::validate_and_unwrap(user.npid())?;
-		let slots = Client::validate_and_unwrap(tus_req.slotIdArray())?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusGetMultiSlotDataStatusRequest>(data)?;
+		let user = tus_req.user.as_ref().ok_or(ErrorType::Malformed)?;
+		let npid = &user.npid;
+
+		if npid.is_empty() {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
 
 		let db = Database::new(self.get_database_connection()?);
 
-		let vec_status: Vec<_> = if user.vuser() {
-			(0..slots.len()).map(|i| db.tus_get_vuser_data(&com_id, npid, slots.get(i)).ok()).collect()
+		let vec_status: Vec<_> = if user.vuser {
+			tus_req.slot_id_array.iter().map(|slot| db.tus_get_vuser_data(&com_id, npid, *slot).ok()).collect()
 		} else {
 			let user_id = match db.get_user_id(npid) {
 				Err(DbError::Empty) => return Ok(ErrorType::NotFound),
@@ -813,70 +805,63 @@ impl Client {
 				Ok(id) => id,
 			};
 
-			(0..slots.len()).map(|i| db.tus_get_user_data(&com_id, user_id, slots.get(i)).ok()).collect()
+			tus_req.slot_id_array.iter().map(|slot| db.tus_get_user_data(&com_id, user_id, *slot).ok()).collect()
 		};
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-
-		let mut vec_list_fb_status = Vec::new();
+		let mut vec_list_status = Vec::new();
 
 		for status in &vec_status {
-			let owner_id = Some(builder.create_string(npid));
-			let has_data;
-			let last_changed_date;
-			let last_changed_author_id;
-			let tus_info;
-
 			if let Some((db_tus_data_status, db_tus_data_info)) = status {
 				let author_id_string = db.get_username(db_tus_data_status.author_id).map_err(|_| ErrorType::DbFail)?;
 
-				has_data = true;
-				last_changed_date = db_tus_data_status.timestamp;
-				last_changed_author_id = Some(builder.create_string(&author_id_string));
-				tus_info = Some(builder.create_vector(db_tus_data_info));
+				vec_list_status.push(TusDataStatus {
+					owner_id: npid.clone(),
+					has_data: true,
+					last_changed_date: db_tus_data_status.timestamp,
+					last_changed_author_id: author_id_string,
+					info: db_tus_data_info.clone(),
+				});
 			} else {
-				has_data = false;
-				last_changed_date = 0;
-				last_changed_author_id = None;
-				tus_info = None;
+				vec_list_status.push(TusDataStatus {
+					owner_id: npid.clone(),
+					has_data: false,
+					last_changed_date: 0,
+					last_changed_author_id: String::new(),
+					info: Vec::new(),
+				});
 			}
-
-			vec_list_fb_status.push(TusDataStatus::create(
-				&mut builder,
-				&TusDataStatusArgs {
-					ownerId: owner_id,
-					hasData: has_data,
-					lastChangedDate: last_changed_date,
-					lastChangedAuthorId: last_changed_author_id,
-					info: tus_info,
-				},
-			));
 		}
 
-		let final_fb_status_list = Some(builder.create_vector(&vec_list_fb_status));
+		let resp = TusDataStatusResponse { status: vec_list_status };
 
-		let resp = TusDataStatusResponse::create(&mut builder, &TusDataStatusResponseArgs { status: final_fb_status_list });
-
-		builder.finish(resp, None);
-		let finished_data = builder.finished_data().to_vec();
+		let finished_data = resp.encode_to_vec();
 		Client::add_data_packet(reply, &finished_data);
 		Ok(ErrorType::NoError)
 	}
 
 	pub async fn tus_get_multiuser_data_status(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusGetMultiUserDataStatusRequest>(data)?;
-		let users = Client::validate_and_unwrap(tus_req.users())?;
-		let slot = tus_req.slotId();
+		let (com_id, tus_req) = self.get_com_and_pb::<TusGetMultiUserDataStatusRequest>(data)?;
+		let slot = tus_req.slot_id;
+
+		if tus_req.users.is_empty() {
+			warn!("Validation: users is empty");
+			return Err(ErrorType::Malformed);
+		}
+
+		if tus_req.users.iter().any(|user| user.npid.is_empty()) {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
 
 		let db = Database::new(self.get_database_connection()?);
 
-		let mut vec_status = Vec::with_capacity(users.len());
-		let mut vec_npids = Vec::with_capacity(users.len());
-		for user in &users {
-			let npid = Client::validate_and_unwrap(user.npid())?;
-			vec_npids.push(npid);
+		let mut vec_status = Vec::with_capacity(tus_req.users.len());
+		let mut vec_npids = Vec::with_capacity(tus_req.users.len());
+		for user in &tus_req.users {
+			let npid = &user.npid;
+			vec_npids.push(npid.clone());
 
-			vec_status.push(if user.vuser() {
+			vec_status.push(if user.vuser {
 				db.tus_get_vuser_data(&com_id, npid, slot).ok()
 			} else {
 				let user_id = match db.get_user_id(npid) {
@@ -889,57 +874,41 @@ impl Client {
 			});
 		}
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-
-		let mut vec_list_fb_status = Vec::new();
+		let mut vec_list_status = Vec::new();
 
 		for (status, npid) in vec_status.iter().zip(vec_npids.iter()) {
-			let owner_id = Some(builder.create_string(npid));
-			let has_data;
-			let last_changed_date;
-			let last_changed_author_id;
-			let tus_info;
-
 			if let Some((db_tus_data_status, db_tus_data_info)) = status {
 				let author_id_string = db.get_username(db_tus_data_status.author_id).map_err(|_| ErrorType::DbFail)?;
 
-				has_data = true;
-				last_changed_date = db_tus_data_status.timestamp;
-				last_changed_author_id = Some(builder.create_string(&author_id_string));
-				tus_info = Some(builder.create_vector(db_tus_data_info));
+				vec_list_status.push(TusDataStatus {
+					owner_id: npid.clone(),
+					has_data: true,
+					last_changed_date: db_tus_data_status.timestamp,
+					last_changed_author_id: author_id_string,
+					info: db_tus_data_info.clone(),
+				});
 			} else {
-				has_data = false;
-				last_changed_date = 0;
-				last_changed_author_id = None;
-				tus_info = None;
+				vec_list_status.push(TusDataStatus {
+					owner_id: npid.clone(),
+					has_data: false,
+					last_changed_date: 0,
+					last_changed_author_id: String::new(),
+					info: Vec::new(),
+				});
 			}
-
-			vec_list_fb_status.push(TusDataStatus::create(
-				&mut builder,
-				&TusDataStatusArgs {
-					ownerId: owner_id,
-					hasData: has_data,
-					lastChangedDate: last_changed_date,
-					lastChangedAuthorId: last_changed_author_id,
-					info: tus_info,
-				},
-			));
 		}
 
-		let final_fb_status_list = Some(builder.create_vector(&vec_list_fb_status));
+		let resp = TusDataStatusResponse { status: vec_list_status };
 
-		let resp = TusDataStatusResponse::create(&mut builder, &TusDataStatusResponseArgs { status: final_fb_status_list });
-
-		builder.finish(resp, None);
-		let finished_data = builder.finished_data().to_vec();
+		let finished_data = resp.encode_to_vec();
 		Client::add_data_packet(reply, &finished_data);
 		Ok(ErrorType::NoError)
 	}
 
 	pub async fn tus_get_friends_data_status(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusGetFriendsDataStatusRequest>(data)?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusGetFriendsDataStatusRequest>(data)?;
 
-		let sorting = FromPrimitive::from_i32(tus_req.sortType());
+		let sorting = FromPrimitive::from_i32(tus_req.sort_type);
 		if sorting.is_none() {
 			warn!("Unsupported sorting value in TusGetFriendsDataStatusRequest");
 			return Err(ErrorType::Malformed);
@@ -947,44 +916,33 @@ impl Client {
 		let sorting: TusStatusSorting = sorting.unwrap();
 
 		let mut user_list = self.shared.client_infos.read().get(&self.client_info.user_id).unwrap().friend_info.read().friends.clone();
-		if tus_req.includeSelf() {
+		if tus_req.include_self {
 			user_list.insert(self.client_info.user_id, self.client_info.npid.clone());
 		}
 
-		let mut final_infos = Vec::with_capacity(std::cmp::min(user_list.len(), tus_req.arrayNum() as usize));
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
+		let mut final_infos = Vec::with_capacity(std::cmp::min(user_list.len(), tus_req.array_num as usize));
 
 		if !user_list.is_empty() {
 			let db = Database::new(self.get_database_connection()?);
 			let vec_vars = db
-				.tus_get_user_data_from_user_list(&com_id, &user_list.keys().copied().collect::<Vec<i64>>(), tus_req.slotId(), sorting, tus_req.arrayNum())
+				.tus_get_user_data_from_user_list(&com_id, &user_list.keys().copied().collect::<Vec<i64>>(), tus_req.slot_id, sorting, tus_req.array_num)
 				.map_err(|_| ErrorType::DbFail)?;
 
 			for (user_id, var, db_tus_data_info) in &vec_vars {
 				let author_id_string = self.get_username_with_helper(var.author_id, &user_list, &db)?;
 
-				let owner_fb = Some(builder.create_string(user_list.get(user_id).unwrap()));
-				let author_id_fb_string = Some(builder.create_string(&author_id_string));
-
-				let tus_info = Some(builder.create_vector(db_tus_data_info));
-
-				final_infos.push(TusDataStatus::create(
-					&mut builder,
-					&TusDataStatusArgs {
-						ownerId: owner_fb,
-						hasData: true,
-						lastChangedDate: var.timestamp,
-						lastChangedAuthorId: author_id_fb_string,
-						info: tus_info,
-					},
-				));
+				final_infos.push(TusDataStatus {
+					owner_id: user_list.get(user_id).unwrap().clone(),
+					has_data: true,
+					last_changed_date: var.timestamp,
+					last_changed_author_id: author_id_string,
+					info: db_tus_data_info.clone(),
+				});
 			}
 		}
 
-		let status = Some(builder.create_vector(&final_infos));
-		let tus_var_response = TusDataStatusResponse::create(&mut builder, &TusDataStatusResponseArgs { status });
-		builder.finish(tus_var_response, None);
-		let finished_data = builder.finished_data().to_vec();
+		let tus_var_response = TusDataStatusResponse { status: final_infos };
+		let finished_data = tus_var_response.encode_to_vec();
 
 		Client::add_data_packet(reply, &finished_data);
 
@@ -992,16 +950,24 @@ impl Client {
 	}
 
 	pub async fn tus_delete_multislot_data(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let (com_id, tus_req) = self.get_com_and_fb::<TusDeleteMultiSlotDataRequest>(data)?;
-		let (user, slots) = validate_all!(tus_req.user(), tus_req.slotIdArray());
-		let npid = Client::validate_and_unwrap(user.npid())?;
+		let (com_id, tus_req) = self.get_com_and_pb::<TusDeleteMultiSlotDataRequest>(data)?;
+		let user = tus_req.user.as_ref().ok_or(ErrorType::Malformed)?;
+		let npid = &user.npid;
+
+		if npid.is_empty() {
+			warn!("Validation: npid is empty");
+			return Err(ErrorType::Malformed);
+		}
+
+		if tus_req.slot_id_array.is_empty() {
+			warn!("Validation: slot_id_array is empty");
+			return Err(ErrorType::Malformed);
+		}
 
 		let db = Database::new(self.get_database_connection()?);
 
-		let slots: Vec<i32> = slots.iter().collect();
-
-		if user.vuser() {
-			db.tus_delete_vuser_data_with_slotlist(&com_id, npid, &slots).map_err(|_| ErrorType::DbFail)?
+		if user.vuser {
+			db.tus_delete_vuser_data_with_slotlist(&com_id, npid, &tus_req.slot_id_array).map_err(|_| ErrorType::DbFail)?
 		} else {
 			let user_id = match db.get_user_id(npid) {
 				Err(DbError::Empty) => return Ok(ErrorType::NotFound),
@@ -1013,7 +979,7 @@ impl Client {
 				return Ok(ErrorType::Unauthorized);
 			}
 
-			db.tus_delete_user_data_with_slotlist(&com_id, user_id, &slots.to_owned()).map_err(|_| ErrorType::DbFail)?
+			db.tus_delete_user_data_with_slotlist(&com_id, user_id, &tus_req.slot_id_array).map_err(|_| ErrorType::DbFail)?
 		}
 
 		Ok(ErrorType::NoError)

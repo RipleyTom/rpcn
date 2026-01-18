@@ -1,14 +1,19 @@
 #[allow(clippy::all)]
 #[allow(unused_imports)]
 #[rustfmt::skip]
-pub mod np2_structs_generated;
+pub mod np2_structs {
+	include!(concat!(env!("OUT_DIR"), "/np2_structs.rs"));
+}
 
-pub mod fb_helpers;
+pub mod protobuf_helpers;
 
 use crate::server::client::{COMMUNICATION_ID_SIZE, ComId};
 use num_traits::*;
 use std::cell::Cell;
+use std::io::Cursor;
 use std::mem;
+
+use prost::Message;
 
 pub struct StreamExtractor {
 	vec: Vec<u8>,
@@ -99,14 +104,14 @@ impl StreamExtractor {
 
 		com_id
 	}
-	pub fn get_flatbuffer<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&'a self) -> Result<T::Inner, ()> {
+	pub fn get_protobuf<T: Message + Default>(&self) -> Result<T, ()> {
 		let size = self.get::<u32>();
 		if (size as usize + self.i.get()) > self.vec.len() {
 			self.error.set(true);
 			return Err(());
 		}
 
-		let ret = flatbuffers::root::<T>(&self.vec[self.i.get()..]);
+		let ret = T::decode(&mut Cursor::new(&self.vec[self.i.get()..(self.i.get() + size as usize)]));
 		self.i.set(self.i.get() + size as usize);
 
 		ret.map_err(|_| ())

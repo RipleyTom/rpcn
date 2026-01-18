@@ -21,6 +21,7 @@ use lettre::transport::smtp::authentication::{Credentials, Mechanism};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use parking_lot::{Mutex, RwLock};
+use prost::Message;
 use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::{mpsc, watch};
@@ -39,8 +40,8 @@ use crate::server::gui_room_manager::GuiRoomManager;
 use crate::server::room_manager::RoomManager;
 use crate::server::score_cache::ScoresCache;
 use crate::server::stream_extractor::StreamExtractor;
-use crate::server::stream_extractor::fb_helpers::*;
-use crate::server::stream_extractor::np2_structs_generated::*;
+use crate::server::stream_extractor::np2_structs::*;
+use crate::server::stream_extractor::protobuf_helpers::ProtobufMaker;
 
 pub const HEADER_SIZE: u32 = 15;
 pub const MAX_PACKET_SIZE: u32 = 0x800000; // 8MiB
@@ -89,13 +90,13 @@ pub struct ClientSharedPresence {
 }
 
 impl ClientSharedPresence {
-	pub fn new(communication_id: ComId, title: &str, status: Option<&str>, comment: Option<&str>, data: Option<&[u8]>) -> ClientSharedPresence {
+	pub fn new(communication_id: ComId, title: &str, status: &str, comment: &str, data: &[u8]) -> ClientSharedPresence {
 		ClientSharedPresence {
 			communication_id,
 			title: title.to_string(),
-			status: status.map(|s| s.to_string()).unwrap_or_default(),
-			comment: comment.map(|s| s.to_string()).unwrap_or_default(),
-			data: data.map(|d| d.to_vec()).unwrap_or_default(),
+			status: status.to_string(),
+			comment: comment.to_string(),
+			data: data.to_vec(),
 		}
 	}
 
@@ -197,7 +198,7 @@ pub enum PacketType {
 }
 
 #[repr(u16)]
-#[derive(FromPrimitive, Debug)]
+#[derive(Clone, Copy, FromPrimitive, Debug)]
 enum CommandType {
 	Login,
 	Terminate,
@@ -585,7 +586,17 @@ impl Client {
 				reply.push(ErrorType::NoError as u8);
 
 				let mut se_data = StreamExtractor::new(data);
-				let res = self.process_command(command, &mut se_data, &mut reply).await;
+				let parsed_command: Option<CommandType> = FromPrimitive::from_u16(command);
+
+				let res = {
+					match parsed_command {
+						None => {
+							warn!("Unknown command received: {}", command);
+							Err(ErrorType::Malformed)
+						}
+						Some(command) => self.process_command(command, &mut se_data, &mut reply).await,
+					}
+				};
 
 				// update length
 				let len = reply.len() as u32;
@@ -597,7 +608,13 @@ impl Client {
 						reply[HEADER_SIZE as usize] = ok_res as u8;
 					}
 					Err(error) => {
-						info!("Failed with {:?}", error);
+						match error {
+							ErrorType::Malformed => {
+								warn!("Command {:?} was malformed!", parsed_command);
+							}
+							_ => info!("Failed with {:?}", error),
+						}
+
 						reply[HEADER_SIZE as usize] = error as u8;
 					}
 				}
@@ -623,16 +640,8 @@ impl Client {
 		}
 	}
 
-	async fn process_command(&mut self, command: u16, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let command = FromPrimitive::from_u16(command);
-		if command.is_none() {
-			warn!("Unknown command received");
-			return Err(ErrorType::Malformed);
-		}
-
+	async fn process_command(&mut self, command: CommandType, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		info!("Parsing command {:?}", command);
-
-		let command = command.unwrap();
 
 		if let CommandType::Terminate = command {
 			return Err(ErrorType::NoError);
@@ -776,53 +785,32 @@ impl Client {
 	}
 
 	// Various helpers to help with validation
-	pub fn get_fb<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&mut self, data: &'a mut StreamExtractor) -> Result<T::Inner, ErrorType> {
-		let fb_req = data.get_flatbuffer::<T>();
+	pub fn get_pb<T: Message + Default>(&mut self, data: &mut StreamExtractor) -> Result<T, ErrorType> {
+		let pb_req = data.get_protobuf::<T>();
 
-		if data.error() || fb_req.is_err() {
+		if data.error() || pb_req.is_err() {
 			warn!("Validation error while extracting data into {}", std::any::type_name::<T>());
 			return Err(ErrorType::Malformed);
 		}
-		let fb_req = fb_req.unwrap();
+		let pb_req = pb_req.unwrap();
 
-		Ok(fb_req)
+		Ok(pb_req)
 	}
 
-	pub fn get_com_and_fb<'a, T: flatbuffers::Follow<'a> + flatbuffers::Verifiable + 'a>(&mut self, data: &'a mut StreamExtractor) -> Result<(ComId, T::Inner), ErrorType> {
+	pub fn get_com_and_pb<T: Message + Default>(&mut self, data: &mut StreamExtractor) -> Result<(ComId, T), ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
-		let fb_req = self.get_fb::<T>(data)?;
+		let fb_req = self.get_pb::<T>(data)?;
 		Ok((com_id, fb_req))
 	}
 
-	pub fn validate_and_unwrap<T>(opt: Option<T>) -> Result<T, ErrorType> {
-		if opt.is_none() {
-			warn!("Validation error while validating {}", std::any::type_name::<T>());
-			return Err(ErrorType::Malformed);
-		}
-
-		Ok(opt.unwrap())
-	}
-
-	pub fn make_signaling_addr<'a>(builder: &mut flatbuffers::FlatBufferBuilder<'a>, addr: &[u8], port: u16) -> flatbuffers::WIPOffset<SignalingAddr<'a>> {
-		let vec_ip = builder.create_vector(addr);
-		SignalingAddr::create(builder, &SignalingAddrArgs { ip: Some(vec_ip), port })
-	}
-
-	pub fn build_signaling_addr(builder: &mut flatbuffers::FlatBufferBuilder, addr: &[u8], port: u16) -> Vec<u8> {
-		let sig_addr = Client::make_signaling_addr(builder, addr, port);
-		builder.finish(sig_addr, None);
-		builder.finished_data().to_vec()
-	}
-}
-
-macro_rules! validate_all {
-	($($x:expr),*) => {
-		{
-			(
-			$(Client::validate_and_unwrap($x)?,)*
-			)
+	pub fn make_signaling_addr(addr: &[u8], port: u16) -> SignalingAddr {
+		SignalingAddr {
+			ip: addr.to_vec(),
+			port: Uint16::new_from_value(port),
 		}
 	}
-}
 
-pub(crate) use validate_all;
+	pub fn build_signaling_addr(addr: &[u8], port: u16) -> Vec<u8> {
+		Client::make_signaling_addr(addr, port).encode_to_vec()
+	}
+}

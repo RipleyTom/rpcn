@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use crate::server::client::*;
 
 const SCE_NP_BASIC_PRESENCE_TITLE_SIZE_MAX: usize = 128;
@@ -42,21 +44,20 @@ impl Client {
 			let client_info = client_info.unwrap();
 
 			op_sig_infos = client_info.signaling_info.read().clone();
-			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
 
 			if caller_sig_infos.addr_p2p_ipv4.0 == op_sig_infos.addr_p2p_ipv4.0 {
-				Client::add_data_packet(reply, &Client::build_signaling_addr(&mut builder, &op_sig_infos.local_addr_p2p, 3658));
+				Client::add_data_packet(reply, &Client::build_signaling_addr(&op_sig_infos.local_addr_p2p, 3658));
 				info!("Requesting signaling infos for {} => (local) {:?}:{}", &npid, &op_sig_infos.local_addr_p2p, 3658);
 				// Don't send notification for local addresses as connectivity shouldn't be an issue
 				return Ok(ErrorType::NoError);
 			} else {
 				match (caller_sig_infos.addr_p2p_ipv6, op_sig_infos.addr_p2p_ipv6) {
 					(Some(_), Some((op_ipv6, op_port_ipv6))) => {
-						Client::add_data_packet(reply, &Client::build_signaling_addr(&mut builder, &op_ipv6, op_port_ipv6));
+						Client::add_data_packet(reply, &Client::build_signaling_addr(&op_ipv6, op_port_ipv6));
 						info!("Requesting signaling infos for {} => (extern ipv6) {:?}:{}", &npid, &op_ipv6, op_port_ipv6);
 					}
 					_ => {
-						Client::add_data_packet(reply, &Client::build_signaling_addr(&mut builder, &op_sig_infos.addr_p2p_ipv4.0, op_sig_infos.addr_p2p_ipv4.1));
+						Client::add_data_packet(reply, &Client::build_signaling_addr(&op_sig_infos.addr_p2p_ipv4.0, op_sig_infos.addr_p2p_ipv4.1));
 						info!(
 							"Requesting signaling infos for {} => (extern ipv4) {:?}:{}",
 							&npid, &op_sig_infos.addr_p2p_ipv4.0, op_sig_infos.addr_p2p_ipv4.1
@@ -67,23 +68,15 @@ impl Client {
 		}
 
 		// Send a notification to the target to help with connectivity
-		let mut notif_builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let npid_str = notif_builder.create_string(&self.client_info.npid);
+		let npid_str = self.client_info.npid.clone();
 		let addr = match (caller_sig_infos.addr_p2p_ipv6, op_sig_infos.addr_p2p_ipv6) {
-			(Some((caller_ipv6, caller_port_ipv6)), Some(_)) => Client::make_signaling_addr(&mut notif_builder, &caller_ipv6, caller_port_ipv6),
-			_ => Client::make_signaling_addr(&mut notif_builder, &caller_sig_infos.addr_p2p_ipv4.0, caller_sig_infos.addr_p2p_ipv4.1),
+			(Some((caller_ipv6, caller_port_ipv6)), Some(_)) => Client::make_signaling_addr(&caller_ipv6, caller_port_ipv6),
+			_ => Client::make_signaling_addr(&caller_sig_infos.addr_p2p_ipv4.0, caller_sig_infos.addr_p2p_ipv4.1),
 		};
 
-		let matching_addr = MatchingSignalingInfo::create(
-			&mut notif_builder,
-			&MatchingSignalingInfoArgs {
-				npid: Some(npid_str),
-				addr: Some(addr),
-			},
-		);
+		let matching_info = MatchingSignalingInfo { npid: npid_str, addr: Some(addr) };
 
-		notif_builder.finish(matching_addr, None);
-		let vec_notif = notif_builder.finished_data().to_vec();
+		let vec_notif = matching_info.encode_to_vec();
 
 		let mut n_msg: Vec<u8> = Vec::with_capacity(size_of::<u32>() + vec_notif.len());
 		Client::add_data_packet(&mut n_msg, &vec_notif);
@@ -128,21 +121,21 @@ impl Client {
 	}
 
 	pub async fn send_message(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let sendmessage_req = data.get_flatbuffer::<SendMessageRequest>();
+		let sendmessage_req = data.get_protobuf::<SendMessageRequest>();
 		if data.error() || sendmessage_req.is_err() {
 			warn!("Error while extracting data from SendMessage command");
 			return Err(ErrorType::Malformed);
 		}
 		let sendmessage_req = sendmessage_req.unwrap();
 
-		let message = Client::validate_and_unwrap(sendmessage_req.message())?;
-		let npids = Client::validate_and_unwrap(sendmessage_req.npids())?;
+		let message = &sendmessage_req.message;
+		let npids = &sendmessage_req.npids;
 
 		// Get all the IDs
 		let mut ids = HashSet::new();
 		{
 			let db = Database::new(self.get_database_connection()?);
-			for npid in &npids {
+			for npid in npids {
 				match db.get_user_id(npid) {
 					Ok(id) => {
 						ids.insert(id);
@@ -162,11 +155,11 @@ impl Client {
 		}
 
 		// Ensure all recipients are friends for invite messages(is this necessary?)
-		let msg = flatbuffers::root::<MessageDetails>(message.bytes()).map_err(|e| {
+		let msg: MessageDetails = prost::Message::decode(&mut Cursor::new(&message)).map_err(|e| {
 			warn!("MessageDetails was malformed: {}", e);
 			ErrorType::Malformed
 		})?;
-		if msg.mainType() == MessageMainType::SCE_NP_BASIC_MESSAGE_MAIN_TYPE_INVITE as u16 {
+		if msg.main_type.map(|v| v.value).unwrap_or(0) == MessageMainType::SCE_NP_BASIC_MESSAGE_MAIN_TYPE_INVITE as u32 {
 			let client_infos = self.shared.client_infos.read();
 			let client_fi = client_infos.get(&self.client_info.user_id).unwrap().friend_info.read();
 			if !client_fi.friends.keys().copied().collect::<HashSet<i64>>().is_superset(&ids) {
@@ -193,8 +186,8 @@ impl Client {
 	}
 
 	pub async fn set_presence(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let (com_id, pr_req) = self.get_com_and_fb::<SetPresenceRequest>(data)?;
-		let title = Client::validate_and_unwrap(pr_req.title())?;
+		let (com_id, pr_req) = self.get_com_and_pb::<SetPresenceRequest>(data)?;
+		let title = pr_req.title.clone();
 
 		let notify: Option<(ClientSharedPresence, HashSet<i64>)>;
 
@@ -205,37 +198,28 @@ impl Client {
 			if let Some(ref mut presence_info) = friend_info.presence {
 				if presence_info.communication_id != com_id
 					|| presence_info.title != title
-					|| pr_req.status().is_some_and(|status| status != presence_info.status)
-					|| pr_req.comment().is_some_and(|comment| comment != presence_info.comment)
-					|| pr_req.data().is_some_and(|data| data.bytes() != presence_info.data)
+					|| pr_req.status != presence_info.status
+					|| pr_req.comment != presence_info.comment
+					|| pr_req.data != presence_info.data
 				{
 					presence_info.communication_id = com_id;
-					presence_info.title = title.to_string();
+					self.shared.game_tracker.add_gamename_hint(&com_id, &title);
+					presence_info.title = title;
 					presence_info.title.truncate(SCE_NP_BASIC_PRESENCE_TITLE_SIZE_MAX - 1);
 
-					self.shared.game_tracker.add_gamename_hint(&com_id, title);
-
-					if let Some(status) = pr_req.status() {
-						presence_info.status = status.to_string();
-						presence_info.status.truncate(SCE_NP_BASIC_PRESENCE_EXTENDED_STATUS_SIZE_MAX - 1);
-					}
-
-					if let Some(comment) = pr_req.comment() {
-						presence_info.comment = comment.to_string();
-						presence_info.status.truncate(SCE_NP_BASIC_PRESENCE_COMMENT_SIZE_MAX - 1);
-					}
-
-					if let Some(data) = pr_req.data() {
-						presence_info.data = data.bytes().to_vec();
-						presence_info.data.truncate(SCE_NP_BASIC_MAX_PRESENCE_SIZE);
-					}
+					presence_info.status = pr_req.status;
+					presence_info.status.truncate(SCE_NP_BASIC_PRESENCE_EXTENDED_STATUS_SIZE_MAX - 1);
+					presence_info.comment = pr_req.comment;
+					presence_info.status.truncate(SCE_NP_BASIC_PRESENCE_COMMENT_SIZE_MAX - 1);
+					presence_info.data = pr_req.data;
+					presence_info.data.truncate(SCE_NP_BASIC_MAX_PRESENCE_SIZE);
 
 					notify = Some((presence_info.clone(), friend_info.friends.keys().copied().collect()));
 				} else {
 					notify = None;
 				}
 			} else {
-				let new_presence = ClientSharedPresence::new(com_id, title, pr_req.status(), pr_req.comment(), pr_req.data().map(|v| v.bytes()));
+				let new_presence = ClientSharedPresence::new(com_id, &title, &pr_req.status, &pr_req.comment, &pr_req.data);
 				friend_info.presence = Some(new_presence.clone());
 				notify = Some((new_presence, friend_info.friends.keys().copied().collect()));
 			}

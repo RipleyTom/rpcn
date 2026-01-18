@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::Read;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use prost::Message;
 use tokio::fs;
 
 use crate::server::Server;
@@ -174,7 +175,7 @@ impl Client {
 		let path = Client::score_id_to_path(id);
 		if let Err(e) = std::fs::remove_file(&path) {
 			error!("Failed to delete score data {}: {}", &path, e);
-			// Todo: wait in case of usage by another user
+			// TODO: wait in case of usage by another user
 			// or clean it on next server restart?
 		}
 	}
@@ -202,46 +203,41 @@ impl Client {
 		}
 		let res = res.unwrap();
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let board_info = BoardInfo::create(
-			&mut builder,
-			&BoardInfoArgs {
-				rankLimit: res.rank_limit,
-				updateMode: res.update_mode,
-				sortMode: res.sort_mode,
-				uploadNumLimit: res.upload_num_limit,
-				uploadSizeLimit: res.upload_size_limit,
-			},
-		);
-		builder.finish(board_info, None);
-		let finished_data = builder.finished_data().to_vec();
+		let board_info = BoardInfo {
+			rank_limit: res.rank_limit,
+			update_mode: res.update_mode,
+			sort_mode: res.sort_mode,
+			upload_num_limit: res.upload_num_limit,
+			upload_size_limit: res.upload_size_limit,
+		};
+		let finished_data = board_info.encode_to_vec();
 		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
 
 	pub async fn record_score(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, score_req) = self.get_com_and_fb::<RecordScoreRequest>(data)?;
+		let (com_id, score_req) = self.get_com_and_pb::<RecordScoreRequest>(data)?;
 
 		let score_infos = DbScoreInfo {
 			user_id: self.client_info.user_id,
-			character_id: score_req.pcId(),
-			score: score_req.score(),
-			comment: score_req.comment().map(|s| s.to_owned()),
-			game_info: score_req.data().map(|v| v.iter().collect()),
+			character_id: score_req.pc_id,
+			score: score_req.score,
+			comment: if score_req.comment.is_empty() { None } else { Some(score_req.comment.clone()) },
+			game_info: if score_req.data.is_empty() { None } else { Some(score_req.data.clone()) },
 			data_id: None,
 			timestamp: Client::get_psn_timestamp(),
 		};
 
 		let db = Database::new(self.get_database_connection()?);
-		let res = db.record_score(&com_id, score_req.boardId(), &score_infos, self.config.read().is_create_missing());
+		let res = db.record_score(&com_id, score_req.board_id, &score_infos, self.config.read().is_create_missing());
 
 		match res {
 			Ok(board_infos) => {
 				let pos = self
 					.shared
 					.score_cache
-					.insert_score(&board_infos, &com_id, score_req.boardId(), &score_infos, &self.client_info.npid, &self.client_info.online_name);
+					.insert_score(&board_infos, &com_id, score_req.board_id, &score_infos, &self.client_info.npid, &self.client_info.online_name);
 				reply.extend(&pos.to_le_bytes());
 				Ok(ErrorType::NoError)
 			}
@@ -255,7 +251,7 @@ impl Client {
 
 	pub async fn record_score_data(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let com_id = self.get_com_id_with_redir(data);
-		let score_req = data.get_flatbuffer::<RecordScoreGameDataRequest>();
+		let score_req = data.get_protobuf::<RecordScoreGameDataRequest>();
 		let score_data = data.get_rawdata();
 
 		if data.error() || score_req.is_err() {
@@ -268,7 +264,7 @@ impl Client {
 		if let Err(e) = self
 			.shared
 			.score_cache
-			.contains_score_with_no_data(&com_id, self.client_info.user_id, score_req.pcId(), score_req.boardId(), score_req.score())
+			.contains_score_with_no_data(&com_id, self.client_info.user_id, score_req.pc_id, score_req.board_id, score_req.score)
 		{
 			return Ok(e);
 		}
@@ -279,7 +275,7 @@ impl Client {
 		if let Err(e) = self
 			.shared
 			.score_cache
-			.set_game_data(&com_id, self.client_info.user_id, score_req.pcId(), score_req.boardId(), score_data_id)
+			.set_game_data(&com_id, self.client_info.user_id, score_req.pc_id, score_req.board_id, score_data_id)
 		{
 			Client::delete_score_data(score_data_id).await;
 			return Ok(e);
@@ -288,7 +284,7 @@ impl Client {
 		// Update db
 		let db = Database::new(self.get_database_connection()?);
 		if db
-			.set_score_data(&com_id, self.client_info.user_id, score_req.pcId(), score_req.boardId(), score_req.score(), score_data_id)
+			.set_score_data(&com_id, self.client_info.user_id, score_req.pc_id, score_req.board_id, score_req.score, score_data_id)
 			.is_err()
 		{
 			error!("Unexpected error updating score game data in database!");
@@ -298,18 +294,21 @@ impl Client {
 	}
 
 	pub async fn get_score_data(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, score_req) = self.get_com_and_fb::<GetScoreGameDataRequest>(data)?;
-		let npid = Client::validate_and_unwrap(score_req.npId())?;
+		let (com_id, score_req) = self.get_com_and_pb::<GetScoreGameDataRequest>(data)?;
+
+		if score_req.np_id.is_empty() {
+			return Err(ErrorType::Malformed);
+		}
 
 		let db = Database::new(self.get_database_connection()?);
-		let user_id = db.get_user_id(npid);
+		let user_id = db.get_user_id(&score_req.np_id);
 
 		if user_id.is_err() {
 			return Ok(ErrorType::NotFound);
 		}
 		let user_id = user_id.unwrap();
 
-		let data_id = self.shared.score_cache.get_game_data_id(&com_id, user_id, score_req.pcId(), score_req.boardId());
+		let data_id = self.shared.score_cache.get_game_data_id(&com_id, user_id, score_req.pc_id, score_req.board_id);
 		if let Err(e) = data_id {
 			return Ok(e);
 		}
@@ -326,16 +325,12 @@ impl Client {
 	}
 
 	pub async fn get_score_range(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, score_req) = self.get_com_and_fb::<GetScoreRangeRequest>(data)?;
+		let (com_id, score_req) = self.get_com_and_pb::<GetScoreRangeRequest>(data)?;
 
-		let getscore_result = self.shared.score_cache.get_score_range(
-			&com_id,
-			score_req.boardId(),
-			score_req.startRank(),
-			score_req.numRanks(),
-			score_req.withComment(),
-			score_req.withGameInfo(),
-		);
+		let getscore_result = self
+			.shared
+			.score_cache
+			.get_score_range(&com_id, score_req.board_id, score_req.start_rank, score_req.num_ranks, score_req.with_comment, score_req.with_game_info);
 		let finished_data = getscore_result.serialize();
 		Client::add_data_packet(reply, &finished_data);
 
@@ -343,23 +338,23 @@ impl Client {
 	}
 
 	pub async fn get_score_friends(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, score_req) = self.get_com_and_fb::<GetScoreFriendsRequest>(data)?;
+		let (com_id, score_req) = self.get_com_and_pb::<GetScoreFriendsRequest>(data)?;
 
 		let mut id_vec = Vec::new();
 
-		if score_req.include_self() {
+		if score_req.include_self {
 			id_vec.push((self.client_info.user_id, 0));
 		}
 
 		let friends = { self.shared.client_infos.read().get(&self.client_info.user_id).unwrap().friend_info.read().friends.clone() };
 
 		friends.iter().for_each(|(user_id, _)| id_vec.push((*user_id, 0)));
-		id_vec.truncate(score_req.max() as usize);
+		id_vec.truncate(score_req.max as usize);
 
 		let getscore_result = self
 			.shared
 			.score_cache
-			.get_score_ids(&com_id, score_req.boardId(), &id_vec, score_req.withComment(), score_req.withGameInfo());
+			.get_score_ids(&com_id, score_req.board_id, &id_vec, score_req.with_comment, score_req.with_game_info);
 		let finished_data = getscore_result.serialize();
 
 		reply.extend(&(finished_data.len() as u32).to_le_bytes());
@@ -369,23 +364,20 @@ impl Client {
 	}
 
 	pub async fn get_score_npid(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, score_req) = self.get_com_and_fb::<GetScoreNpIdRequest>(data)?;
+		let (com_id, score_req) = self.get_com_and_pb::<GetScoreNpIdRequest>(data)?;
 
 		let db = Database::new(self.get_database_connection()?);
 
 		let mut id_vec: Vec<(i64, i32)> = Vec::new();
-		if let Some(npids) = score_req.npids() {
-			for i in 0..npids.len() {
-				let npid_and_pcid = npids.get(i);
-				let user_id = db.get_user_id(npid_and_pcid.npid().unwrap_or("")).unwrap_or(0);
-				id_vec.push((user_id, npid_and_pcid.pcId()));
-			}
+		for npid_and_pcid in &score_req.npids {
+			let user_id = db.get_user_id(&npid_and_pcid.npid).unwrap_or(0);
+			id_vec.push((user_id, npid_and_pcid.pc_id));
 		}
 
 		let getscore_result = self
 			.shared
 			.score_cache
-			.get_score_ids(&com_id, score_req.boardId(), &id_vec, score_req.withComment(), score_req.withGameInfo());
+			.get_score_ids(&com_id, score_req.board_id, &id_vec, score_req.with_comment, score_req.with_game_info);
 		let finished_data = getscore_result.serialize();
 		Client::add_data_packet(reply, &finished_data);
 

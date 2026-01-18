@@ -6,9 +6,10 @@ use crate::server::Server;
 use crate::server::client::{Client, ComId, ErrorType, com_id_to_string};
 use crate::server::database::Database;
 use crate::server::database::db_score::{DbBoardInfo, DbScoreInfo};
-use crate::server::stream_extractor::np2_structs_generated::*;
+use crate::server::stream_extractor::np2_structs::*;
 
 use parking_lot::RwLock;
+use prost::Message;
 use tracing::warn;
 
 struct ScoreUserCache {
@@ -120,67 +121,49 @@ impl Server {
 }
 
 impl ScoreRankDataCache {
-	pub fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<ScoreRankData<'a>> {
-		let str_npid = builder.create_string(&self.npid);
-		let str_online_name = builder.create_string(&self.online_name);
-		ScoreRankData::create(
-			builder,
-			&ScoreRankDataArgs {
-				npId: Some(str_npid),
-				onlineName: Some(str_online_name),
-				pcId: self.pcid,
-				rank: self.rank + 1,
-				score: self.score,
-				hasGameData: self.has_gamedata,
-				recordDate: self.timestamp,
-			},
-		)
+	pub fn to_protobuf(&self) -> ScoreRankData {
+		ScoreRankData {
+			np_id: self.npid.clone(),
+			online_name: self.online_name.clone(),
+			pc_id: self.pcid,
+			rank: self.rank + 1,
+			score: self.score,
+			has_game_data: self.has_gamedata,
+			record_date: self.timestamp,
+		}
 	}
 }
 
 impl GetScoreResultCache {
 	pub fn serialize(&self) -> Vec<u8> {
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-
-		let mut vec_ranks = Vec::new();
+		let mut rank_array = Vec::new();
 		for s in &self.scores {
-			vec_ranks.push(s.to_flatbuffer(&mut builder));
+			rank_array.push(s.to_protobuf());
 		}
-		let rank_array = Some(builder.create_vector(&vec_ranks));
 
-		let comment_array = if let Some(ref comments) = self.comments {
-			let mut vec_comments = Vec::new();
+		let mut comment_array = Vec::new();
+		if let Some(ref comments) = self.comments {
 			for c in comments {
-				vec_comments.push(builder.create_string(c));
+				comment_array.push(c.clone());
 			}
-			Some(builder.create_vector(&vec_comments))
-		} else {
-			None
-		};
+		}
 
-		let info_array = if let Some(ref game_infos) = self.infos {
-			let mut vec_infos = Vec::new();
+		let mut info_array = Vec::new();
+		if let Some(ref game_infos) = self.infos {
 			for i in game_infos {
-				let data = Some(builder.create_vector(i));
-				vec_infos.push(ScoreInfo::create(&mut builder, &ScoreInfoArgs { data }));
+				info_array.push(ScoreInfo { data: i.clone() });
 			}
-			Some(builder.create_vector(&vec_infos))
-		} else {
-			None
+		}
+
+		let board_info = GetScoreResponse {
+			rank_array: rank_array,
+			comment_array: comment_array,
+			info_array: info_array,
+			last_sort_date: self.timestamp,
+			total_record: self.total_records,
 		};
 
-		let board_info = GetScoreResponse::create(
-			&mut builder,
-			&GetScoreResponseArgs {
-				rankArray: rank_array,
-				commentArray: comment_array,
-				infoArray: info_array,
-				lastSortDate: self.timestamp,
-				totalRecord: self.total_records,
-			},
-		);
-		builder.finish(board_info, None);
-		builder.finished_data().to_vec()
+		board_info.encode_to_vec()
 	}
 }
 

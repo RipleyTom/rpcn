@@ -31,8 +31,6 @@ A special thanks to the various authors of the following libraries that RPCN is 
 Perfect library if you plan to use SQLite with rust. The author has been incredibly helpful in diagnosing SQLite issues, thanks!
 - [Tokio](https://github.com/tokio-rs/tokio)  
 The king of async for Rust.
-- [Flatbuffers](https://github.com/google/flatbuffers)  
-This library has been pretty essential to the development of RPCN. Great serialization library, strict yet flexible!
 
 And all the other libraries I'm forgetting(check Cargo.toml)!
 Also thanks to everyone that contributed directly or indirectly to RPCN!
