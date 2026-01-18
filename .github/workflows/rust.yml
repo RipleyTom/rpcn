@@ -8,6 +8,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - uses: Swatinem/rust-cache@v2
+    - uses: arduino/setup-protoc@v3
     - name: Build
       run: cargo build --release --verbose
     - name: Run tests
@@ -37,6 +38,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - uses: Swatinem/rust-cache@v2
+    - uses: arduino/setup-protoc@v3
     - name: Build
       run: cargo build --release --verbose
     - name: Run tests

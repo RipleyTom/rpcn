@@ -1,19 +1,22 @@
 // Room Commands
 
+use prost::Message;
+
 use crate::server::client::*;
+use crate::server::stream_extractor::protobuf_helpers::{ProtobufMaker, ProtobufVerifier};
 
 impl Client {
 	pub fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, create_req) = self.get_com_and_fb::<CreateJoinRoomRequest>(data)?;
+		let (com_id, create_req) = self.get_com_and_pb::<CreateJoinRoomRequest>(data)?;
 
 		let server_id = Database::new(self.get_database_connection()?)
-			.get_corresponding_server(&com_id, create_req.worldId(), create_req.lobbyId())
+			.get_corresponding_server(&com_id, create_req.world_id, create_req.lobby_id)
 			.map_err(|_| {
 				warn!(
 					"Attempted to use invalid worldId/lobbyId for comId {}: {}/{}",
 					&com_id_to_string(&com_id),
-					create_req.worldId(),
-					create_req.lobbyId()
+					create_req.world_id,
+					create_req.lobby_id
 				);
 				ErrorType::InvalidInput
 			})?;
@@ -38,8 +41,8 @@ impl Client {
 	}
 
 	pub async fn req_join_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, join_req) = self.get_com_and_fb::<JoinRoomRequest>(data)?;
-		let room_id = join_req.roomId();
+		let (com_id, join_req) = self.get_com_and_pb::<JoinRoomRequest>(data)?;
+		let room_id = join_req.room_id;
 
 		let (response, notifications);
 		{
@@ -88,7 +91,7 @@ impl Client {
 		Ok(ErrorType::NoError)
 	}
 
-	pub async fn leave_room(&self, com_id: &ComId, room_id: u64, opt_data: Option<&PresenceOptionData<'_>>, event_cause: EventCause) -> ErrorType {
+	pub async fn leave_room(&self, com_id: &ComId, room_id: u64, opt_data: Option<&PresenceOptionData>, event_cause: EventCause) -> ErrorType {
 		let (destroyed, users, user_data);
 		{
 			let mut room_manager = self.shared.room_manager.write();
@@ -103,10 +106,8 @@ impl Client {
 			}
 
 			// We get this in advance in case the room is not destroyed
-			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-			let wip_user_data = room.get_room_member_update_info(&mut builder, member_id.unwrap(), event_cause.clone(), opt_data);
-			builder.finish(wip_user_data, None);
-			user_data = builder.finished_data().to_vec();
+			let wip_user_data = room.get_room_member_update_info(member_id.unwrap(), event_cause.clone(), opt_data);
+			user_data = wip_user_data.encode_to_vec();
 
 			let res = room_manager.leave_room(com_id, room_id, self.client_info.user_id);
 			if let Err(e) = res {
@@ -119,18 +120,12 @@ impl Client {
 
 		if destroyed {
 			// Notify other room users that the room has been destroyed
-			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-			let opt_data = dc_opt_data(&mut builder, opt_data);
-			let room_update = RoomUpdateInfo::create(
-				&mut builder,
-				&RoomUpdateInfoArgs {
-					eventCause: event_cause as u8,
-					errorCode: 0,
-					optData: Some(opt_data),
-				},
-			);
-			builder.finish(room_update, None);
-			let room_update_data = builder.finished_data().to_vec();
+			let room_update = RoomUpdateInfo {
+				event_cause: Uint8::new_from_value(event_cause as u8),
+				error_code: 0,
+				opt_data: opt_data.cloned(),
+			};
+			let room_update_data = room_update.encode_to_vec();
 
 			let mut n_msg: Vec<u8> = Vec::new();
 			n_msg.extend(&room_id.to_le_bytes());
@@ -152,23 +147,25 @@ impl Client {
 	}
 
 	pub async fn req_leave_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, leave_req) = self.get_com_and_fb::<LeaveRoomRequest>(data)?;
+		let (com_id, leave_req) = self.get_com_and_pb::<LeaveRoomRequest>(data)?;
 
-		let res = self.leave_room(&com_id, leave_req.roomId(), Some(&leave_req.optData().unwrap()), EventCause::LeaveAction).await;
-		reply.extend(&leave_req.roomId().to_le_bytes());
+		let res = self.leave_room(&com_id, leave_req.room_id, leave_req.opt_data.as_ref(), EventCause::LeaveAction).await;
+		reply.extend(&leave_req.room_id.to_le_bytes());
 		Ok(res)
 	}
-	pub fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, search_req) = self.get_com_and_fb::<SearchRoomRequest>(data)?;
 
-		let resp = self.shared.room_manager.read().search_room(&com_id, &search_req);
+	pub fn req_search_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
+		let (com_id, search_req) = self.get_com_and_pb::<SearchRoomRequest>(data)?;
+
+		let resp = self.shared.room_manager.read().search_room(&com_id, &search_req)?;
 		Client::add_data_packet(reply, &resp);
 		Ok(ErrorType::NoError)
 	}
-	pub fn req_get_roomdata_external_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, getdata_req) = self.get_com_and_fb::<GetRoomDataExternalListRequest>(data)?;
 
-		let resp = self.shared.room_manager.read().get_roomdata_external_list(&com_id, &getdata_req);
+	pub fn req_get_roomdata_external_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
+		let (com_id, getdata_req) = self.get_com_and_pb::<GetRoomDataExternalListRequest>(data)?;
+
+		let resp = self.shared.room_manager.read().get_roomdata_external_list(&com_id, &getdata_req)?;
 
 		Client::add_data_packet(reply, &resp);
 
@@ -176,7 +173,7 @@ impl Client {
 	}
 
 	pub fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomDataExternalRequest>(data)?;
+		let (com_id, setdata_req) = self.get_com_and_pb::<SetRoomDataExternalRequest>(data)?;
 
 		if let Err(e) = self.shared.room_manager.write().set_roomdata_external(&com_id, &setdata_req, self.client_info.user_id) {
 			Ok(e)
@@ -184,8 +181,9 @@ impl Client {
 			Ok(ErrorType::NoError)
 		}
 	}
+
 	pub fn req_get_roomdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, getdata_req) = self.get_com_and_fb::<GetRoomDataInternalRequest>(data)?;
+		let (com_id, getdata_req) = self.get_com_and_pb::<GetRoomDataInternalRequest>(data)?;
 
 		let resp = self.shared.room_manager.read().get_roomdata_internal(&com_id, &getdata_req);
 		if let Err(e) = resp {
@@ -196,10 +194,11 @@ impl Client {
 		Client::add_data_packet(reply, &resp);
 		Ok(ErrorType::NoError)
 	}
-	pub async fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomDataInternalRequest>(data)?;
 
-		let room_id = setdata_req.roomId();
+	pub async fn req_set_roomdata_internal(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
+		let (com_id, setdata_req) = self.get_com_and_pb::<SetRoomDataInternalRequest>(data)?;
+
+		let room_id = setdata_req.room_id;
 		let res = self.shared.room_manager.write().set_roomdata_internal(&com_id, &setdata_req, self.client_info.user_id);
 
 		match res {
@@ -218,7 +217,7 @@ impl Client {
 	}
 
 	pub async fn req_get_roommemberdata_internal(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, getdata_req) = self.get_com_and_fb::<GetRoomMemberDataInternalRequest>(data)?;
+		let (com_id, getdata_req) = self.get_com_and_pb::<GetRoomMemberDataInternalRequest>(data)?;
 
 		let resp = self.shared.room_manager.read().get_roommemberdata_internal(&com_id, &getdata_req);
 
@@ -232,9 +231,9 @@ impl Client {
 	}
 
 	pub async fn req_set_roommemberdata_internal(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let (com_id, setdata_req) = self.get_com_and_fb::<SetRoomMemberDataInternalRequest>(data)?;
+		let (com_id, setdata_req) = self.get_com_and_pb::<SetRoomMemberDataInternalRequest>(data)?;
 
-		let room_id = setdata_req.roomId();
+		let room_id = setdata_req.room_id;
 		let res = self.shared.room_manager.write().set_roommemberdata_internal(&com_id, &setdata_req, self.client_info.user_id);
 
 		match res {
@@ -266,30 +265,30 @@ impl Client {
 		}
 		let (server_id, world_id, _) = infos.unwrap();
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let resp = GetPingInfoResponse::create(
-			&mut builder,
-			&GetPingInfoResponseArgs {
-				serverId: server_id,
-				worldId: world_id,
-				roomId: room_id,
-				rtt: 20000,
-			},
-		);
+		let resp = GetPingInfoResponse {
+			server_id: Uint16::new_from_value(server_id),
+			world_id,
+			room_id,
+			rtt: 20000,
+		};
 
-		builder.finish(resp, None);
-		let finished_data = builder.finished_data().to_vec();
+		let finished_data = resp.encode_to_vec();
 		Client::add_data_packet(reply, &finished_data);
 
 		Ok(ErrorType::NoError)
 	}
 
 	pub async fn req_send_room_message(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let (com_id, msg_req) = self.get_com_and_fb::<SendRoomMessageRequest>(data)?;
+		let (com_id, msg_req) = self.get_com_and_pb::<SendRoomMessageRequest>(data)?;
 
-		let room_id = msg_req.roomId();
+		let room_id = msg_req.room_id;
 		let (notif, member_id, users);
-		let mut dst_vec: Vec<u16> = Vec::new();
+
+		let mut dst_vec: Vec<u16> = Vec::with_capacity(msg_req.dst.len());
+		for a in &msg_req.dst {
+			dst_vec.push(a.get_verified()?);
+		}
+
 		{
 			let room_manager = self.shared.room_manager.read();
 			if !room_manager.room_exists(&com_id, room_id) {
@@ -307,57 +306,37 @@ impl Client {
 				users = room.get_room_users();
 			}
 
-			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-
-			if let Some(dst) = msg_req.dst() {
-				for i in 0..dst.len() {
-					dst_vec.push(dst.get(i));
-				}
-			}
-			let dst = Some(builder.create_vector(&dst_vec));
+			let cast_type = msg_req.cast_type.get_verified()?;
+			let option = msg_req.option.get_verified()?;
 
 			let mut npid = None;
-			if (msg_req.option() & 0x01) != 0 {
-				npid = Some(builder.create_string(&self.client_info.npid));
+			if (option & 0x01) != 0 {
+				npid = Some(self.client_info.npid.clone());
 			}
 			let mut online_name = None;
-			if (msg_req.option() & 0x02) != 0 {
-				online_name = Some(builder.create_string(&self.client_info.online_name));
+			if (option & 0x02) != 0 {
+				online_name = Some(self.client_info.online_name.clone());
 			}
 			let mut avatar_url = None;
-			if (msg_req.option() & 0x04) != 0 {
-				avatar_url = Some(builder.create_string(&self.client_info.avatar_url));
+			if (option & 0x04) != 0 {
+				avatar_url = Some(self.client_info.avatar_url.clone());
 			}
 
-			let src_user_info = UserInfo::create(
-				&mut builder,
-				&UserInfoArgs {
-					npId: npid,
-					onlineName: online_name,
-					avatarUrl: avatar_url,
-				},
-			);
+			let src_user_info = UserInfo {
+				np_id: npid.unwrap_or_default(),
+				online_name: online_name.unwrap_or_default(),
+				avatar_url: avatar_url.unwrap_or_default(),
+			};
 
-			let msg_vec: Vec<u8>;
-			if let Some(msg) = msg_req.msg() {
-				msg_vec = msg.iter().collect();
-			} else {
-				msg_vec = Vec::new();
-			}
-			let msg = Some(builder.create_vector(&msg_vec));
+			let resp = RoomMessageInfo {
+				filtered: false,
+				cast_type: Uint8::new_from_value(cast_type),
+				dst: msg_req.dst.clone(),
+				src_member: Some(src_user_info),
+				msg: msg_req.msg.clone(),
+			};
 
-			let resp = RoomMessageInfo::create(
-				&mut builder,
-				&RoomMessageInfoArgs {
-					filtered: false,
-					castType: msg_req.castType(),
-					dst,
-					srcMember: Some(src_user_info),
-					msg,
-				},
-			);
-			builder.finish(resp, None);
-			let finished_data = builder.finished_data().to_vec();
+			let finished_data = resp.encode_to_vec();
 
 			let mut n_msg: Vec<u8> = Vec::new();
 			n_msg.extend(&room_id.to_le_bytes());
@@ -366,7 +345,8 @@ impl Client {
 			notif = Client::create_notification(NotificationType::RoomMessageReceived, &n_msg);
 		}
 
-		match msg_req.castType() {
+		let cast_type = msg_req.cast_type.get_verified()?;
+		match cast_type {
 			1 => {
 				// SCE_NP_MATCHING2_CASTTYPE_BROADCAST
 				let user_ids: HashSet<i64> = users.iter().filter_map(|x| if *x.1 != self.client_info.user_id { Some(*x.1) } else { None }).collect();

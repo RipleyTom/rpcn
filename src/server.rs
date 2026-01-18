@@ -38,7 +38,7 @@ use crate::server::database::Database;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 28;
+const PROTOCOL_VERSION: u32 = 29;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,

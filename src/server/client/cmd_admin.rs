@@ -105,11 +105,11 @@ impl Client {
 
 		match db.delete_user(user_id, &username, &email_check) {
 			Ok(()) => {
-				info!("Successfully banned user {}", username);
+				info!("Successfully deleted user {}", username);
 				Ok(ErrorType::NoError)
 			}
 			Err(e) => {
-				error!("Failed to ban user {}: {:?}", username, e);
+				error!("Failed to delete user {}: {:?}", username, e);
 				Ok(ErrorType::DbFail)
 			}
 		}

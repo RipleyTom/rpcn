@@ -4,7 +4,7 @@ use crate::server::{client::*, gui_room_manager::GuiRoomId};
 
 impl Client {
 	pub fn req_create_room_gui(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, create_req) = self.get_com_and_fb::<CreateRoomGUIRequest>(data)?;
+		let (com_id, create_req) = self.get_com_and_pb::<CreateRoomGuiRequest>(data)?;
 
 		let resp = self.shared.gui_room_manager.write().create_room_gui(&com_id, &create_req, &self.client_info);
 		Client::add_data_packet(reply, &resp);
@@ -12,9 +12,9 @@ impl Client {
 	}
 
 	pub async fn req_join_room_gui(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let join_req = self.get_fb::<MatchingGuiRoomId>(data)?;
+		let join_req = self.get_pb::<MatchingGuiRoomId>(data)?;
 
-		let room_id = GuiRoomManager::fb_vec_to_room_id(join_req.id())?;
+		let room_id = GuiRoomManager::pb_vec_to_room_id(&join_req.id)?;
 		let res = self.shared.gui_room_manager.write().join_room_gui(&room_id, &self.client_info);
 		match res {
 			Ok((resp, notif_users, notif_data)) => {
@@ -44,8 +44,8 @@ impl Client {
 	}
 
 	pub async fn req_leave_room_gui(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let leave_req = self.get_fb::<MatchingGuiRoomId>(data)?;
-		let room_id = GuiRoomManager::fb_vec_to_room_id(leave_req.id())?;
+		let leave_req = self.get_pb::<MatchingGuiRoomId>(data)?;
+		let room_id = GuiRoomManager::pb_vec_to_room_id(&leave_req.id)?;
 
 		match self.leave_room_gui(&room_id).await {
 			Ok(data) => Client::add_data_packet(reply, &data),
@@ -56,7 +56,7 @@ impl Client {
 	}
 
 	pub fn req_get_room_list_gui(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, search_req) = self.get_com_and_fb::<GetRoomListGUIRequest>(data)?;
+		let (com_id, search_req) = self.get_com_and_pb::<GetRoomListGuiRequest>(data)?;
 
 		let resp = self.shared.gui_room_manager.read().get_room_list_gui(&com_id, &search_req);
 		Client::add_data_packet(reply, &resp);
@@ -64,9 +64,9 @@ impl Client {
 	}
 
 	pub fn req_set_room_search_flag_gui(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let set_req = self.get_fb::<SetRoomSearchFlagGUI>(data)?;
-		let room_id = GuiRoomManager::fb_vec_to_room_id(set_req.roomid())?;
-		let stealth = set_req.stealth();
+		let set_req = self.get_pb::<SetRoomSearchFlagGui>(data)?;
+		let room_id = GuiRoomManager::pb_vec_to_room_id(&set_req.roomid)?;
+		let stealth = set_req.stealth;
 
 		match self.shared.gui_room_manager.write().set_search_flag(&room_id, stealth, self.client_info.user_id) {
 			Ok(()) => Ok(ErrorType::NoError),
@@ -75,8 +75,8 @@ impl Client {
 	}
 
 	pub fn req_get_room_search_flag_gui(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let get_req = self.get_fb::<MatchingGuiRoomId>(data)?;
-		let room_id = GuiRoomManager::fb_vec_to_room_id(get_req.id())?;
+		let get_req = self.get_pb::<MatchingGuiRoomId>(data)?;
+		let room_id = GuiRoomManager::pb_vec_to_room_id(&get_req.id)?;
 
 		match self.shared.gui_room_manager.read().get_search_flag(&room_id) {
 			Ok(resp) => {
@@ -88,22 +88,20 @@ impl Client {
 	}
 
 	pub fn req_set_room_info_gui(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
-		let set_req = self.get_fb::<MatchingRoom>(data)?;
-		let room_id = GuiRoomManager::fb_vec_to_room_id(set_req.id())?;
-		let attrs = Client::validate_and_unwrap(set_req.attr())?;
+		let set_req = self.get_pb::<MatchingRoom>(data)?;
+		let room_id = GuiRoomManager::pb_vec_to_room_id(&set_req.id)?;
 
-		match self.shared.gui_room_manager.write().set_room_info_gui(&room_id, attrs, self.client_info.user_id) {
+		match self.shared.gui_room_manager.write().set_room_info_gui(&room_id, &set_req.attr, self.client_info.user_id) {
 			Ok(()) => Ok(ErrorType::NoError),
 			Err(e) => Ok(e),
 		}
 	}
 
 	pub fn req_get_room_info_gui(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let get_req = self.get_fb::<MatchingRoom>(data)?;
-		let room_id = GuiRoomManager::fb_vec_to_room_id(get_req.id())?;
-		let attrs = Client::validate_and_unwrap(get_req.attr())?;
+		let get_req = self.get_pb::<MatchingRoom>(data)?;
+		let room_id = GuiRoomManager::pb_vec_to_room_id(&get_req.id)?;
 
-		match self.shared.gui_room_manager.read().get_room_info_gui(&room_id, attrs) {
+		match self.shared.gui_room_manager.read().get_room_info_gui(&room_id, &get_req.attr) {
 			Ok(resp) => {
 				Client::add_data_packet(reply, &resp);
 				Ok(ErrorType::NoError)
@@ -113,7 +111,7 @@ impl Client {
 	}
 
 	pub async fn req_quickmatch_gui(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, qm_req) = self.get_com_and_fb::<QuickMatchGUIRequest>(data)?;
+		let (com_id, qm_req) = self.get_com_and_pb::<QuickMatchGuiRequest>(data)?;
 
 		let (resp, notif) = self.shared.gui_room_manager.write().quickmatch_gui(&com_id, &qm_req, &self.client_info);
 
@@ -130,7 +128,7 @@ impl Client {
 	}
 
 	pub async fn req_searchjoin_gui(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
-		let (com_id, sj_req) = self.get_com_and_fb::<SearchJoinRoomGUIRequest>(data)?;
+		let (com_id, sj_req) = self.get_com_and_pb::<SearchJoinRoomGuiRequest>(data)?;
 
 		let res = self.shared.gui_room_manager.write().search_join_gui(&com_id, &sj_req, &self.client_info);
 		match res {

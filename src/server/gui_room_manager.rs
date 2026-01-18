@@ -4,12 +4,13 @@
 
 use std::collections::{HashMap, HashSet};
 
+use prost::Message;
 use rand::Rng;
-use tracing::{error, warn};
+use tracing::warn;
 
 use crate::server::client::notifications::NotificationType;
 use crate::server::client::{ClientInfo, ComId, ErrorType, com_id_to_string};
-use crate::server::stream_extractor::np2_structs_generated::*;
+use crate::server::stream_extractor::np2_structs::*;
 
 // We store room id as communication_id + room number as hexadecimal (12 + 16)
 pub const GUI_ROOM_ID_SIZE: usize = 28;
@@ -47,36 +48,26 @@ impl<const N: usize> GuiRoomBinAttr<N> {
 		GuiRoomBinAttr { data: [0; N], cur_size: 0 }
 	}
 
-	fn from_flatbuffer(fb: &MatchingAttr) -> GuiRoomBinAttr<N> {
-		let mut cur_size = 0;
+	fn from_protobuf(pb: &MatchingAttr) -> GuiRoomBinAttr<N> {
 		let mut data = [0; N];
 
-		if let Some(bin_data) = fb.data() {
-			if bin_data.len() > N {
-				error!("BinAttr size > capacity: {} vs {}", bin_data.len(), N);
-			}
-
-			cur_size = std::cmp::min(bin_data.len(), N);
-			for i in 0..cur_size {
-				data[i] = bin_data.get(i);
-			}
+		if pb.data.len() > N {
+			warn!("BinAttr size > capacity: {} vs {}", pb.data.len(), N);
 		}
+
+		let cur_size = std::cmp::min(pb.data.len(), N);
+		data[0..cur_size].copy_from_slice(&pb.data[0..cur_size]);
 
 		GuiRoomBinAttr { data, cur_size }
 	}
 
-	fn gen_MatchingAttr<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>, attr_id: u32) -> flatbuffers::WIPOffset<MatchingAttr<'a>> {
-		let data = Some(builder.create_vector(&self.data[0..self.cur_size]));
-
-		MatchingAttr::create(
-			builder,
-			&MatchingAttrArgs {
-				attr_type: SCE_NP_MATCHING_ATTR_TYPE_GAME_BIN,
-				attr_id,
-				num: 0,
-				data,
-			},
-		)
+	fn gen_MatchingAttr(&self, attr_id: u32) -> MatchingAttr {
+		MatchingAttr {
+			attr_type: SCE_NP_MATCHING_ATTR_TYPE_GAME_BIN,
+			attr_id,
+			num: 0,
+			data: self.data[0..self.cur_size].to_vec(),
+		}
 	}
 }
 
@@ -97,27 +88,17 @@ impl GuiRoomMember {
 		}
 	}
 
-	fn to_flatbuffer<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>) -> flatbuffers::WIPOffset<GUIUserInfo<'a>> {
-		let npid = builder.create_string(&self.npid);
-		let online_name = builder.create_string(&self.online_name);
-		let avatar_url = builder.create_string(&self.avatar_url);
+	fn to_protobuf(&self) -> GuiUserInfo {
+		let user_info = UserInfo {
+			np_id: self.npid.clone(),
+			online_name: self.online_name.clone(),
+			avatar_url: self.avatar_url.clone(),
+		};
 
-		let user_info = UserInfo::create(
-			builder,
-			&UserInfoArgs {
-				npId: Some(npid),
-				onlineName: Some(online_name),
-				avatarUrl: Some(avatar_url),
-			},
-		);
-
-		GUIUserInfo::create(
-			builder,
-			&GUIUserInfoArgs {
-				info: Some(user_info),
-				owner: self.owner,
-			},
-		)
+		GuiUserInfo {
+			info: Some(user_info),
+			owner: self.owner,
+		}
 	}
 }
 
@@ -135,15 +116,15 @@ pub struct GuiRoom {
 }
 
 impl GuiRoom {
-	fn from_flatbuffer(fb: &CreateRoomGUIRequest, com_id: &ComId) -> GuiRoom {
-		let total_slots = std::cmp::min(fb.total_slots(), 64);
-		let private_slots = std::cmp::min(std::cmp::min(fb.private_slots(), 64), total_slots);
+	fn from_protobuf(pb: &CreateRoomGuiRequest, com_id: &ComId) -> GuiRoom {
+		let total_slots = std::cmp::min(pb.total_slots, 64);
+		let private_slots = std::cmp::min(std::cmp::min(pb.private_slots, 64), total_slots);
 
 		let mut room = GuiRoom {
 			total_slots,
 			private_slots,
-			privilege_grant: fb.privilege_grant(),
-			stealth: fb.stealth(),
+			privilege_grant: pb.privilege_grant,
+			stealth: pb.stealth,
 			members: HashMap::new(),
 			num_attrs: [0; 16],
 			big_bin_attrs: [GuiRoomBinAttr::<256>::default(); 2],
@@ -152,17 +133,15 @@ impl GuiRoom {
 			quickmatch_room: false,
 		};
 
-		if let Some(game_attrs) = fb.game_attrs() {
-			for attr in game_attrs {
-				room.set_attr(&attr);
-			}
+		for attr in &pb.game_attrs {
+			room.set_attr(attr);
 		}
 
 		room
 	}
 
-	fn from_quickmatch_flatbuffer(fb: &QuickMatchGUIRequest, com_id: &ComId) -> GuiRoom {
-		let total_slots = std::cmp::min(fb.available_num(), 64);
+	fn from_quickmatch_protobuf(pb: &QuickMatchGuiRequest, com_id: &ComId) -> GuiRoom {
+		let total_slots = std::cmp::min(pb.available_num, 64);
 
 		let mut room = GuiRoom {
 			total_slots,
@@ -177,21 +156,19 @@ impl GuiRoom {
 			quickmatch_room: true,
 		};
 
-		if let Some(conds) = fb.conds() {
-			for cond in conds {
-				match cond.attr_type() {
-					SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM => match cond.attr_id() {
-						1..=16 => {
-							if cond.comp_op() == SCE_NP_MATCHING_CONDITION_SEARCH_EQ {
-								room.num_attrs[(cond.attr_id() - 1) as usize] = cond.comp_value()
-							} else {
-								warn!("Encountered a != condition in QM, id: {}, op: {}, val: {}", cond.attr_id(), cond.comp_op(), cond.comp_value());
-							}
+		for cond in &pb.conds {
+			match cond.attr_type {
+				SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM => match cond.attr_id {
+					1..=16 => {
+						if cond.comp_op == SCE_NP_MATCHING_CONDITION_SEARCH_EQ {
+							room.num_attrs[(cond.attr_id - 1) as usize] = cond.comp_value
+						} else {
+							warn!("Encountered a != condition in QM, id: {}, op: {}, val: {}", cond.attr_id, cond.comp_op, cond.comp_value);
 						}
-						id => error!("Unexpected QM game num id: {}", id),
-					},
-					v => error!("Unexpected QM Cond type: {}", v),
-				}
+					}
+					id => warn!("Unexpected QM game num id: {}", id),
+				},
+				v => warn!("Unexpected QM Cond type: {}", v),
 			}
 		}
 
@@ -199,17 +176,17 @@ impl GuiRoom {
 	}
 
 	fn set_attr(&mut self, attr: &MatchingAttr) {
-		match attr.attr_type() {
-			SCE_NP_MATCHING_ATTR_TYPE_GAME_BIN => match attr.attr_id() {
-				1 | 2 => self.big_bin_attrs[(attr.attr_id() - 1) as usize] = GuiRoomBinAttr::<256>::from_flatbuffer(attr),
-				3..=16 => self.small_bin_attrs[(attr.attr_id() - 3) as usize] = GuiRoomBinAttr::<64>::from_flatbuffer(attr),
-				id => error!("Unexpected game bin id: {}", id),
+		match attr.attr_type {
+			SCE_NP_MATCHING_ATTR_TYPE_GAME_BIN => match attr.attr_id {
+				1 | 2 => self.big_bin_attrs[(attr.attr_id - 1) as usize] = GuiRoomBinAttr::<256>::from_protobuf(attr),
+				3..=16 => self.small_bin_attrs[(attr.attr_id - 3) as usize] = GuiRoomBinAttr::<64>::from_protobuf(attr),
+				id => warn!("Unexpected game bin id: {}", id),
 			},
-			SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM => match attr.attr_id() {
-				1..=16 => self.num_attrs[(attr.attr_id() - 1) as usize] = attr.num(),
-				id => error!("Unexpected game num id: {}", id),
+			SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM => match attr.attr_id {
+				1..=16 => self.num_attrs[(attr.attr_id - 1) as usize] = attr.num,
+				id => warn!("Unexpected game num id: {}", id),
 			},
-			v => error!("Unexpected MatchingAttr type: {}", v),
+			v => warn!("Unexpected MatchingAttr type: {}", v),
 		}
 	}
 
@@ -217,42 +194,34 @@ impl GuiRoom {
 		self.members.insert(cinfo.user_id, GuiRoomMember::from_clientinfo(cinfo, owner));
 	}
 
-	fn gen_MatchingRoomStatus<'a>(
-		&self,
-		builder: &mut flatbuffers::FlatBufferBuilder<'a>,
-		id: &GuiRoomId,
-		member_filter: Option<i64>,
-		extra_member: Option<&GuiRoomMember>,
-	) -> flatbuffers::WIPOffset<MatchingRoomStatus<'a>> {
-		let vec_id = builder.create_vector(id);
-
-		let mut tmp_vec_members = Vec::new();
+	fn gen_MatchingRoomStatus(&self, id: &GuiRoomId, member_filter: Option<i64>, extra_member: Option<&GuiRoomMember>) -> MatchingRoomStatus {
+		let mut members = Vec::new();
 
 		if let Some(user_id) = member_filter
 			&& user_id != 0
 		{
 			if let Some(member) = self.members.get(&user_id) {
-				tmp_vec_members.push(member.to_flatbuffer(builder));
+				members.push(member.to_protobuf());
 			}
 		} else {
 			for member in self.members.values() {
-				tmp_vec_members.push(member.to_flatbuffer(builder));
+				members.push(member.to_protobuf());
 			}
 		}
 
 		if let Some(extra_member) = extra_member {
-			tmp_vec_members.push(extra_member.to_flatbuffer(builder));
+			members.push(extra_member.to_protobuf());
 		}
 
-		let vec_members = builder.create_vector(&tmp_vec_members);
-
-		let mut rbuild = MatchingRoomStatusBuilder::new(builder);
-		rbuild.add_id(vec_id);
-		rbuild.add_members(vec_members);
-		rbuild.finish()
+		MatchingRoomStatus {
+			id: id.to_vec(),
+			members,
+			kick_actor: String::new(),
+			opt: Vec::new(),
+		}
 	}
 
-	fn gen_MatchingAttr<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>, attr_type: u32, attr_id: u32) -> Option<flatbuffers::WIPOffset<MatchingAttr<'a>>> {
+	fn gen_MatchingAttr(&self, attr_type: u32, attr_id: u32) -> Option<MatchingAttr> {
 		match attr_type {
 			SCE_NP_MATCHING_ATTR_TYPE_BASIC_NUM => {
 				let num = match attr_id {
@@ -278,11 +247,16 @@ impl GuiRoom {
 					_ => return None,
 				};
 
-				Some(MatchingAttr::create(builder, &MatchingAttrArgs { attr_type, attr_id, num, data: None }))
+				Some(MatchingAttr {
+					attr_type,
+					attr_id,
+					num,
+					data: Vec::new(),
+				})
 			}
 			SCE_NP_MATCHING_ATTR_TYPE_GAME_BIN => match attr_id {
-				1 | 2 => Some(self.big_bin_attrs[(attr_id - 1) as usize].gen_MatchingAttr(builder, attr_id)),
-				3..=16 => Some(self.small_bin_attrs[(attr_id - 3) as usize].gen_MatchingAttr(builder, attr_id)),
+				1 | 2 => Some(self.big_bin_attrs[(attr_id - 1) as usize].gen_MatchingAttr(attr_id)),
+				3..=16 => Some(self.small_bin_attrs[(attr_id - 3) as usize].gen_MatchingAttr(attr_id)),
 				_ => None,
 			},
 			SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM => {
@@ -291,56 +265,44 @@ impl GuiRoom {
 				}
 
 				let num = self.num_attrs[(attr_id - 1) as usize];
-				Some(MatchingAttr::create(builder, &MatchingAttrArgs { attr_type, attr_id, num, data: None }))
+				Some(MatchingAttr {
+					attr_type,
+					attr_id,
+					num,
+					data: Vec::new(),
+				})
 			}
 			_ => None,
 		}
 	}
 
-	fn gen_MatchingSearchJoinRoomInfo<'a>(
-		&self,
-		builder: &mut flatbuffers::FlatBufferBuilder<'a>,
-		id: &GuiRoomId,
-		member_filter: Option<i64>,
-		extra_member: Option<&GuiRoomMember>,
-		attrs: Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<MatchingAttr>>>,
-	) -> flatbuffers::WIPOffset<MatchingSearchJoinRoomInfo<'a>> {
-		let room_status = self.gen_MatchingRoomStatus(builder, id, member_filter, extra_member);
+	fn gen_MatchingSearchJoinRoomInfo(&self, id: &GuiRoomId, member_filter: Option<i64>, extra_member: Option<&GuiRoomMember>, attrs: &[MatchingAttr]) -> MatchingSearchJoinRoomInfo {
+		let room_status = self.gen_MatchingRoomStatus(id, member_filter, extra_member);
 
-		let inc_attrs = if let Some(attr_ids) = attrs { attr_ids.iter().collect() } else { Vec::new() };
-		let parsed_attrs: Vec<(u32, u32)> = inc_attrs.iter().map(|attr| (attr.attr_type(), attr.attr_id())).collect();
+		let parsed_attrs: Vec<(u32, u32)> = attrs.iter().map(|attr| (attr.attr_type, attr.attr_id)).collect();
 
-		let mut tmp_vec_attrs = Vec::new();
+		let mut result_attrs = Vec::new();
 		for attr in parsed_attrs {
-			if let Some(res_attr) = self.gen_MatchingAttr(builder, attr.0, attr.1) {
-				tmp_vec_attrs.push(res_attr);
+			if let Some(res_attr) = self.gen_MatchingAttr(attr.0, attr.1) {
+				result_attrs.push(res_attr);
 			}
 		}
 
-		let vec_attrs = builder.create_vector(&tmp_vec_attrs);
-
-		let mut rbuild = MatchingSearchJoinRoomInfoBuilder::new(builder);
-		rbuild.add_room(room_status);
-		rbuild.add_attr(vec_attrs);
-		rbuild.finish()
+		MatchingSearchJoinRoomInfo {
+			room: Some(room_status),
+			attr: result_attrs,
+		}
 	}
 
-	fn gen_MatchingRoom<'a>(&self, builder: &mut flatbuffers::FlatBufferBuilder<'a>, id: &GuiRoomId, attrs: &Vec<(u32, u32)>) -> flatbuffers::WIPOffset<MatchingRoom<'a>> {
-		let vec_id = builder.create_vector(id);
-
-		let mut tmp_vec_attrs = Vec::new();
+	fn gen_MatchingRoom(&self, id: &GuiRoomId, attrs: &[(u32, u32)]) -> MatchingRoom {
+		let mut result_attrs = Vec::new();
 		for attr in attrs {
-			if let Some(res_attr) = self.gen_MatchingAttr(builder, attr.0, attr.1) {
-				tmp_vec_attrs.push(res_attr);
+			if let Some(res_attr) = self.gen_MatchingAttr(attr.0, attr.1) {
+				result_attrs.push(res_attr);
 			}
 		}
 
-		let vec_attrs = builder.create_vector(&tmp_vec_attrs);
-
-		let mut rbuild = MatchingRoomBuilder::new(builder);
-		rbuild.add_id(vec_id);
-		rbuild.add_attr(vec_attrs);
-		rbuild.finish()
+		MatchingRoom { id: id.to_vec(), attr: result_attrs }
 	}
 
 	fn match_value(value: u32, cmp_value: u32, cmp_op: u32) -> bool {
@@ -355,7 +317,7 @@ impl GuiRoom {
 		}
 	}
 
-	fn is_match(&self, conds: &Option<flatbuffers::Vector<'_, flatbuffers::ForwardsUOffset<MatchingSearchCondition<'_>>>>, check_full: bool) -> bool {
+	fn is_match(&self, conds: &[MatchingSearchCondition], check_full: bool) -> bool {
 		if self.quickmatch_room || self.stealth {
 			return false;
 		}
@@ -364,33 +326,31 @@ impl GuiRoom {
 			return false;
 		}
 
-		if let Some(conds) = conds {
-			'cond_loop: for cond in conds {
-				match cond.attr_type() {
-					SCE_NP_MATCHING_ATTR_TYPE_BASIC_NUM => {
-						if cond.attr_id() != 1 {
-							error!("Invalid id for SCE_NP_MATCHING_ATTR_TYPE_BASIC_NUM for GetRoomListGUI request: {}", cond.attr_id());
-							continue 'cond_loop;
-						}
-
-						if !GuiRoom::match_value(self.total_slots, cond.comp_value(), cond.comp_op()) {
-							return false;
-						}
-					}
-					SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM => {
-						if cond.attr_id() == 0 || cond.attr_id() > 8 {
-							error!("Invalid id for SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM for GetRoomListGUI request: {}", cond.attr_id());
-							continue 'cond_loop;
-						}
-
-						if !GuiRoom::match_value(self.num_attrs[(cond.attr_id() - 1) as usize], cond.comp_value(), cond.comp_op()) {
-							return false;
-						}
-					}
-					v => {
-						error!("Invalid type in the cond for GetRoomListGUI request: {}", v);
+		'cond_loop: for cond in conds {
+			match cond.attr_type {
+				SCE_NP_MATCHING_ATTR_TYPE_BASIC_NUM => {
+					if cond.attr_id != 1 {
+						warn!("Invalid id for SCE_NP_MATCHING_ATTR_TYPE_BASIC_NUM for GetRoomListGUI request: {}", cond.attr_id);
 						continue 'cond_loop;
 					}
+
+					if !GuiRoom::match_value(self.total_slots, cond.comp_value, cond.comp_op) {
+						return false;
+					}
+				}
+				SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM => {
+					if cond.attr_id == 0 || cond.attr_id > 8 {
+						warn!("Invalid id for SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM for GetRoomListGUI request: {}", cond.attr_id);
+						continue 'cond_loop;
+					}
+
+					if !GuiRoom::match_value(self.num_attrs[(cond.attr_id - 1) as usize], cond.comp_value, cond.comp_op) {
+						return false;
+					}
+				}
+				v => {
+					warn!("Invalid type in the cond for GetRoomListGUI request: {}", v);
+					continue 'cond_loop;
 				}
 			}
 		}
@@ -398,25 +358,23 @@ impl GuiRoom {
 		true
 	}
 
-	fn is_quickmatch(&self, req: &QuickMatchGUIRequest) -> bool {
-		if !self.quickmatch_room || self.stealth || self.total_slots != req.available_num() {
+	fn is_quickmatch(&self, req: &QuickMatchGuiRequest) -> bool {
+		if !self.quickmatch_room || self.stealth || self.total_slots != req.available_num {
 			return false;
 		}
 
-		if let Some(conds) = req.conds() {
-			'cond_loop: for cond in &conds {
-				if cond.attr_type() != SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM
-					|| cond.attr_id() == 0
-					|| cond.attr_id() > 8
-					|| (cond.comp_op() != SCE_NP_MATCHING_CONDITION_SEARCH_EQ && cond.comp_op() != SCE_NP_MATCHING_CONDITION_SEARCH_NE)
-				{
-					error!("Invalid cond in quickmatch: {}:{}", cond.attr_type(), cond.attr_id());
-					continue 'cond_loop;
-				}
+		'cond_loop: for cond in &req.conds {
+			if cond.attr_type != SCE_NP_MATCHING_ATTR_TYPE_GAME_NUM
+				|| cond.attr_id == 0
+				|| cond.attr_id > 8
+				|| (cond.comp_op != SCE_NP_MATCHING_CONDITION_SEARCH_EQ && cond.comp_op != SCE_NP_MATCHING_CONDITION_SEARCH_NE)
+			{
+				warn!("Invalid cond in quickmatch: {}:{}", cond.attr_type, cond.attr_id);
+				continue 'cond_loop;
+			}
 
-				if !GuiRoom::match_value(self.num_attrs[(cond.attr_id() - 1) as usize], cond.comp_value(), cond.comp_op()) {
-					return false;
-				}
+			if !GuiRoom::match_value(self.num_attrs[(cond.attr_id - 1) as usize], cond.comp_value, cond.comp_op) {
+				return false;
 			}
 		}
 
@@ -441,11 +399,9 @@ impl<'a> GuiRoomManager {
 		}
 	}
 
-	pub fn fb_vec_to_room_id(fb_vec: Option<flatbuffers::Vector<u8>>) -> Result<GuiRoomId, ErrorType> {
-		if let Some(fb_vec) = fb_vec
-			&& fb_vec.len() == GUI_ROOM_ID_SIZE
-		{
-			return Ok(fb_vec.iter().collect::<Vec<u8>>().try_into().unwrap());
+	pub fn pb_vec_to_room_id(pb_vec: &[u8]) -> Result<GuiRoomId, ErrorType> {
+		if pb_vec.len() == GUI_ROOM_ID_SIZE {
+			return Ok(pb_vec.try_into().unwrap());
 		}
 
 		Err(ErrorType::Malformed)
@@ -468,7 +424,7 @@ impl<'a> GuiRoomManager {
 		assert!(user_rooms.entry(cinfo.user_id).or_default().insert(*room_id));
 	}
 
-	pub fn quickmatch_gui(&mut self, com_id: &ComId, req: &QuickMatchGUIRequest, cinfo: &ClientInfo) -> (Vec<u8>, Option<(HashSet<i64>, Vec<u8>)>) {
+	pub fn quickmatch_gui(&mut self, com_id: &ComId, req: &QuickMatchGuiRequest, cinfo: &ClientInfo) -> (Vec<u8>, Option<(HashSet<i64>, Vec<u8>)>) {
 		let list = self.comid_rooms.get(com_id);
 
 		let found_room = list.and_then(|list| {
@@ -485,7 +441,7 @@ impl<'a> GuiRoomManager {
 				(*found_room, room)
 			} else {
 				let room_id = GuiRoomManager::generate_room_id(&mut self.cur_room_id, com_id);
-				let room = GuiRoomManager::insert_room(&mut self.rooms, &mut self.comid_rooms, com_id, &room_id, GuiRoom::from_quickmatch_flatbuffer(req, com_id));
+				let room = GuiRoomManager::insert_room(&mut self.rooms, &mut self.comid_rooms, com_id, &room_id, GuiRoom::from_quickmatch_protobuf(req, com_id));
 				GuiRoomManager::add_member_to_room(&mut self.user_rooms, &room_id, cinfo, true, room);
 				(room_id, room)
 			}
@@ -496,33 +452,24 @@ impl<'a> GuiRoomManager {
 			room.stealth = true;
 			// room.privilege_grant = false;
 			let member_ids: HashSet<i64> = room.members.keys().filter_map(|user_id| if *user_id != cinfo.user_id { Some(*user_id) } else { None }).collect();
-			let mut notif_builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-			let status = room.gen_MatchingRoomStatus(&mut notif_builder, &room_id, None, None);
-			notif_builder.finish(status, None);
-			Some((member_ids, notif_builder.finished_data().to_vec()))
+			let status = room.gen_MatchingRoomStatus(&room_id, None, None);
+			Some((member_ids, status.encode_to_vec()))
 		} else {
 			None
 		};
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let vec_id = builder.create_vector(&room_id);
-		let mut rbuild = MatchingGuiRoomIdBuilder::new(&mut builder);
-		rbuild.add_id(vec_id);
-		let fb_room_id = rbuild.finish();
-		builder.finish(fb_room_id, None);
-		(builder.finished_data().to_vec(), notification_infos)
+		let room_id_msg = MatchingGuiRoomId { id: room_id.to_vec() };
+		(room_id_msg.encode_to_vec(), notification_infos)
 	}
 
-	pub fn create_room_gui(&mut self, com_id: &ComId, req: &CreateRoomGUIRequest, cinfo: &ClientInfo) -> Vec<u8> {
+	pub fn create_room_gui(&mut self, com_id: &ComId, req: &CreateRoomGuiRequest, cinfo: &ClientInfo) -> Vec<u8> {
 		let room_id = GuiRoomManager::generate_room_id(&mut self.cur_room_id, com_id);
 
-		let room = GuiRoomManager::insert_room(&mut self.rooms, &mut self.comid_rooms, com_id, &room_id, GuiRoom::from_flatbuffer(req, com_id));
+		let room = GuiRoomManager::insert_room(&mut self.rooms, &mut self.comid_rooms, com_id, &room_id, GuiRoom::from_protobuf(req, com_id));
 		GuiRoomManager::add_member_to_room(&mut self.user_rooms, &room_id, cinfo, true, room);
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let room_data = room.gen_MatchingRoomStatus(&mut builder, &room_id, None, None);
-		builder.finish(room_data, None);
-		builder.finished_data().to_vec()
+		let room_data = room.gen_MatchingRoomStatus(&room_id, None, None);
+		room_data.encode_to_vec()
 	}
 
 	pub fn join_room_gui(&mut self, room_id: &GuiRoomId, cinfo: &ClientInfo) -> Result<(Vec<u8>, HashSet<i64>, Vec<u8>), ErrorType> {
@@ -539,19 +486,8 @@ impl<'a> GuiRoomManager {
 		let member_ids: HashSet<i64> = room.members.keys().copied().collect();
 		GuiRoomManager::add_member_to_room(&mut self.user_rooms, room_id, cinfo, false, room);
 
-		let reply = {
-			let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-			let room_data = room.gen_MatchingRoomStatus(&mut builder, room_id, None, None);
-			builder.finish(room_data, None);
-			builder.finished_data().to_vec()
-		};
-
-		let notif = {
-			let mut notif_builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-			let notif_status = room.gen_MatchingRoomStatus(&mut notif_builder, room_id, Some(cinfo.user_id), None);
-			notif_builder.finish(notif_status, None);
-			notif_builder.finished_data().to_vec()
-		};
+		let reply = room.gen_MatchingRoomStatus(room_id, None, None).encode_to_vec();
+		let notif = room.gen_MatchingRoomStatus(room_id, Some(cinfo.user_id), None).encode_to_vec();
 
 		Ok((reply, member_ids, notif))
 	}
@@ -570,10 +506,7 @@ impl<'a> GuiRoomManager {
 		let set_user_ids = room.members.keys().copied().collect();
 		let mut notifications = Vec::new();
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let reply_status = room.gen_MatchingRoomStatus(&mut builder, room_id, Some(0), None);
-		builder.finish(reply_status, None);
-		let reply = builder.finished_data().to_vec();
+		let reply = room.gen_MatchingRoomStatus(room_id, Some(0), None).encode_to_vec();
 
 		if room.members.is_empty() {
 			assert!(self.comid_rooms.get_mut(&room.communication_id).unwrap().remove(room_id));
@@ -590,11 +523,7 @@ impl<'a> GuiRoomManager {
 				}
 
 				// Room is destroyed(should a notification that user has left be sent before?)
-				let mut notif_builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-				let notif_status = room.gen_MatchingRoomStatus(&mut notif_builder, room_id, Some(0), None);
-				notif_builder.finish(notif_status, None);
-				let notif = notif_builder.finished_data().to_vec();
-
+				let notif = room.gen_MatchingRoomStatus(room_id, Some(0), None).encode_to_vec();
 				notifications.push((NotificationType::RoomDisappearedGUI, notif));
 
 				assert!(self.comid_rooms.get_mut(&room.communication_id).unwrap().remove(room_id));
@@ -608,39 +537,32 @@ impl<'a> GuiRoomManager {
 			let new_owner_user_id = *room.members.iter_mut().nth(random_user).unwrap().0;
 			room.members.get_mut(&new_owner_user_id).unwrap().owner = true;
 
-			let mut notif_builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-			let notif_status = room.gen_MatchingRoomStatus(&mut notif_builder, room_id, Some(new_owner_user_id), Some(&member_left));
-			notif_builder.finish(notif_status, None);
-			let notif = notif_builder.finished_data().to_vec();
-
+			let notif = room.gen_MatchingRoomStatus(room_id, Some(new_owner_user_id), Some(&member_left)).encode_to_vec();
 			notifications.push((NotificationType::RoomOwnerChangedGUI, notif));
 		}
 
 		// Prepare the notification that user has left
-		let mut notif_builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let notif_status = room.gen_MatchingRoomStatus(&mut notif_builder, room_id, Some(0), Some(&member_left));
-		notif_builder.finish(notif_status, None);
-		let notif = notif_builder.finished_data().to_vec();
+		let notif = room.gen_MatchingRoomStatus(room_id, Some(0), Some(&member_left)).encode_to_vec();
 		notifications.push((NotificationType::MemberLeftRoomGUI, notif));
 
 		Ok((reply, set_user_ids, notifications))
 	}
 
-	pub fn get_room_list_gui(&self, com_id: &ComId, req: &GetRoomListGUIRequest) -> Vec<u8> {
+	pub fn get_room_list_gui(&self, com_id: &ComId, req: &GetRoomListGuiRequest) -> Vec<u8> {
 		let list = self.comid_rooms.get(com_id);
 
-		let range_start = if req.range_start() == 0 {
-			error!("GetRoomListGUIRequest.range_start was 0!");
+		let range_start = if req.range_start == 0 {
+			warn!("GetRoomListGUIRequest.range_start was 0!");
 			1
 		} else {
-			req.range_start()
+			req.range_start
 		};
 
-		let range_max = if req.range_max() == 0 || req.range_max() > 20 {
-			error!("GetRoomListGUIRequest.range_max was invalid: {}", req.range_max());
+		let range_max = if req.range_max == 0 || req.range_max > 20 {
+			warn!("GetRoomListGUIRequest.range_max was invalid: {}", req.range_max);
 			20
 		} else {
-			req.range_max()
+			req.range_max
 		};
 
 		let mut matching_rooms = Vec::new();
@@ -648,66 +570,48 @@ impl<'a> GuiRoomManager {
 		if let Some(rooms) = list {
 			for room_id in rooms {
 				let room = self.rooms.get(room_id).unwrap();
-				if room.is_match(&req.conds(), false) {
+				if room.is_match(&req.conds, false) {
 					matching_rooms.push((room_id, room));
 				}
 			}
 		}
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let mut list_rooms = Default::default();
-
-		if matching_rooms.len() >= range_start as usize {
-			let inc_attrs = if let Some(attr_ids) = req.attrs() { attr_ids.iter().collect() } else { Vec::new() };
+		let rooms = if matching_rooms.len() >= range_start as usize {
+			let parsed_attrs: Vec<(u32, u32)> = req.attrs.iter().map(|attr| (attr.attr_type, attr.attr_id)).collect();
 
 			let start = range_start as usize - 1;
 			let num_to_get = std::cmp::min(matching_rooms.len() - start, range_max as usize);
 			let end = start + num_to_get;
 
-			let parsed_attrs: Vec<(u32, u32)> = inc_attrs.iter().map(|attr| (attr.attr_type(), attr.attr_id())).collect();
-
 			let mut room_list = Vec::new();
 			for (room_id, room) in &matching_rooms[start..end] {
-				room_list.push(room.gen_MatchingRoom(&mut builder, room_id, &parsed_attrs));
+				room_list.push(room.gen_MatchingRoom(room_id, &parsed_attrs));
 			}
-			list_rooms = Some(builder.create_vector(&room_list));
-		}
+			room_list
+		} else {
+			Vec::new()
+		};
 
-		let resp = MatchingRoomList::create(
-			&mut builder,
-			&MatchingRoomListArgs {
-				start: range_start,
-				total: matching_rooms.len() as u32,
-				rooms: list_rooms,
-			},
-		);
-		builder.finish(resp, None);
-		builder.finished_data().to_vec()
+		let resp = MatchingRoomList {
+			start: range_start,
+			total: matching_rooms.len() as u32,
+			rooms,
+		};
+		resp.encode_to_vec()
 	}
 
-	pub fn search_join_gui(&mut self, com_id: &ComId, req: &SearchJoinRoomGUIRequest, cinfo: &ClientInfo) -> Result<(Vec<u8>, HashSet<i64>, Vec<u8>), ErrorType> {
+	pub fn search_join_gui(&mut self, com_id: &ComId, req: &SearchJoinRoomGuiRequest, cinfo: &ClientInfo) -> Result<(Vec<u8>, HashSet<i64>, Vec<u8>), ErrorType> {
 		let list = self.comid_rooms.get(com_id);
 
 		if let Some(rooms) = list {
 			for room_id in rooms {
 				let room = self.rooms.get_mut(room_id).unwrap();
-				if room.is_match(&req.conds(), true) {
+				if room.is_match(&req.conds, true) {
 					let member_ids: HashSet<i64> = room.members.keys().copied().collect();
 					GuiRoomManager::add_member_to_room(&mut self.user_rooms, room_id, cinfo, false, room);
 
-					let reply = {
-						let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-						let room_data = room.gen_MatchingSearchJoinRoomInfo(&mut builder, room_id, None, None, req.attrs());
-						builder.finish(room_data, None);
-						builder.finished_data().to_vec()
-					};
-
-					let notif = {
-						let mut notif_builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-						let notif_status = room.gen_MatchingRoomStatus(&mut notif_builder, room_id, Some(cinfo.user_id), None);
-						notif_builder.finish(notif_status, None);
-						notif_builder.finished_data().to_vec()
-					};
+					let reply = room.gen_MatchingSearchJoinRoomInfo(room_id, None, None, &req.attrs).encode_to_vec();
+					let notif = room.gen_MatchingRoomStatus(room_id, Some(cinfo.user_id), None).encode_to_vec();
 
 					return Ok((reply, member_ids, notif));
 				}
@@ -750,30 +654,26 @@ impl<'a> GuiRoomManager {
 	pub fn get_search_flag(&self, room_id: &GuiRoomId) -> Result<Vec<u8>, ErrorType> {
 		let room = self.rooms.get(room_id).ok_or(ErrorType::NotFound)?;
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let fb_matchingroom = room.gen_MatchingRoom(&mut builder, room_id, &vec![(SCE_NP_MATCHING_ATTR_TYPE_BASIC_NUM, SCE_NP_MATCHING_ROOM_ATTR_ID_ROOM_SEARCH_FLAG)]);
-		builder.finish(fb_matchingroom, None);
-		Ok(builder.finished_data().to_vec())
+		let matching_room = room.gen_MatchingRoom(room_id, &[(SCE_NP_MATCHING_ATTR_TYPE_BASIC_NUM, SCE_NP_MATCHING_ROOM_ATTR_ID_ROOM_SEARCH_FLAG)]);
+		Ok(matching_room.encode_to_vec())
 	}
 
-	pub fn set_room_info_gui(&mut self, room_id: &GuiRoomId, attrs: flatbuffers::Vector<flatbuffers::ForwardsUOffset<MatchingAttr>>, req_user_id: i64) -> Result<(), ErrorType> {
+	pub fn set_room_info_gui(&mut self, room_id: &GuiRoomId, attrs: &[MatchingAttr], req_user_id: i64) -> Result<(), ErrorType> {
 		let room = self.get_room_and_check_ownership(room_id, req_user_id)?;
 
 		for attr in attrs {
-			room.set_attr(&attr);
+			room.set_attr(attr);
 		}
 
 		Ok(())
 	}
 
-	pub fn get_room_info_gui(&self, room_id: &GuiRoomId, attrs: flatbuffers::Vector<flatbuffers::ForwardsUOffset<MatchingAttr>>) -> Result<Vec<u8>, ErrorType> {
+	pub fn get_room_info_gui(&self, room_id: &GuiRoomId, attrs: &[MatchingAttr]) -> Result<Vec<u8>, ErrorType> {
 		let room = self.rooms.get(room_id).ok_or(ErrorType::RoomMissing)?;
 
-		let attrs_vec = &attrs.iter().map(|attr| (attr.attr_type(), attr.attr_id())).collect();
+		let attrs_vec: Vec<(u32, u32)> = attrs.iter().map(|attr| (attr.attr_type, attr.attr_id)).collect();
 
-		let mut builder = flatbuffers::FlatBufferBuilder::with_capacity(1024);
-		let fb_matchingroom = room.gen_MatchingRoom(&mut builder, room_id, attrs_vec);
-		builder.finish(fb_matchingroom, None);
-		Ok(builder.finished_data().to_vec())
+		let matching_room = room.gen_MatchingRoom(room_id, &attrs_vec);
+		Ok(matching_room.encode_to_vec())
 	}
 }
