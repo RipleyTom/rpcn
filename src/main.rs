@@ -32,7 +32,8 @@ pub struct Config {
 	server_redirs: HashMap<ComId, ComId>,
 	ticket_signature_info: Option<TicketSignInfo>,
 	stat_server_host_and_port: Option<(String, String)>,
-	stat_server_timeout: u32,
+	stat_server_path: String,
+	stat_server_cache_life: u32,
 	admins_list: Vec<String>,
 }
 
@@ -52,7 +53,8 @@ impl Config {
 			server_redirs: HashMap::new(),
 			ticket_signature_info: None,
 			stat_server_host_and_port: None,
-			stat_server_timeout: 0,
+			stat_server_path: "rpcn_stats".to_string(),
+			stat_server_cache_life: 0,
 			admins_list: Vec::new(),
 		}
 	}
@@ -201,7 +203,8 @@ impl Config {
 			set_string("StatServerHost", &mut stat_server_host);
 			set_string("StatServerPort", &mut stat_server_port);
 
-			set_u32("StatServerCacheLife", &mut self.stat_server_timeout);
+			set_string("StatServerPath", &mut self.stat_server_path);
+			set_u32("StatServerCacheLife", &mut self.stat_server_cache_life);
 
 			if stat_server_host.is_empty() || stat_server_port.is_empty() {
 				println!("Stat server is enabled but it's missing host/port information, disabling it!");
@@ -287,8 +290,12 @@ impl Config {
 		&self.stat_server_host_and_port
 	}
 
-	pub fn get_stat_server_timeout(&self) -> u32 {
-		self.stat_server_timeout
+	pub fn get_stat_server_cache_life(&self) -> u32 {
+		self.stat_server_cache_life
+	}
+
+	pub fn get_stat_server_path(&self) -> &str {
+		&self.stat_server_path
 	}
 
 	pub fn get_admins_list(&self) -> &Vec<String> {

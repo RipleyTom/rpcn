@@ -30,6 +30,7 @@ use room_manager::RoomManager;
 mod score_cache;
 use score_cache::ScoresCache;
 mod daily_cleaner;
+mod stat_server;
 mod udp_server;
 mod utils;
 use crate::Config;

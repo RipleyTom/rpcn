@@ -22,7 +22,7 @@ impl ProtobufVerifier<u16> for Uint16 {
 			return Err(ErrorType::Malformed);
 		}
 
-		return Ok(self.value as u16);
+		Ok(self.value as u16)
 	}
 }
 
@@ -51,7 +51,7 @@ impl ProtobufVerifier<u8> for Uint8 {
 			return Err(ErrorType::Malformed);
 		}
 
-		return Ok(self.value as u8);
+		Ok(self.value as u8)
 	}
 }
 
