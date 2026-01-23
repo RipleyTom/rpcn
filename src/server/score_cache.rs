@@ -17,11 +17,11 @@ struct ScoreUserCache {
 	online_name: String,
 }
 
-struct ScoreTableCache {
-	sorted_scores: Vec<DbScoreInfo>,
-	npid_lookup: HashMap<i64, HashMap<i32, usize>>,
-	table_info: DbBoardInfo,
-	last_insert: u64,
+pub struct ScoreTableCache {
+	pub sorted_scores: Vec<DbScoreInfo>,
+	pub npid_lookup: HashMap<i64, HashMap<i32, usize>>,
+	pub table_info: DbBoardInfo,
+	pub last_insert: u64,
 }
 
 pub struct ScoresCache {
@@ -31,13 +31,13 @@ pub struct ScoresCache {
 
 #[derive(Default)]
 pub struct ScoreRankDataCache {
-	npid: String,
-	online_name: String,
-	pcid: i32,
-	rank: u32,
-	score: i64,
-	has_gamedata: bool,
-	timestamp: u64,
+	pub npid: String,
+	pub online_name: String,
+	pub pcid: i32,
+	pub rank: u32,
+	pub score: i64,
+	pub has_gamedata: bool,
+	pub timestamp: u64,
 }
 
 pub struct GetScoreResultCache {
@@ -156,9 +156,9 @@ impl GetScoreResultCache {
 		}
 
 		let board_info = GetScoreResponse {
-			rank_array: rank_array,
-			comment_array: comment_array,
-			info_array: info_array,
+			rank_array,
+			comment_array,
+			info_array,
 			last_sort_date: self.timestamp,
 			total_record: self.total_records,
 		};
@@ -202,7 +202,28 @@ impl ScoresCache {
 		}
 	}
 
-	fn get_table(&self, com_id: &ComId, board_id: u32, db_info: &DbBoardInfo) -> Arc<RwLock<ScoreTableCache>> {
+	pub fn get_table(&self, com_id: &ComId, board_id: u32) -> Option<Arc<RwLock<ScoreTableCache>>> {
+		let table_desc = TableDescription::new(com_id_to_string(com_id), board_id);
+		let tables = self.tables.read();
+		tables.get(&table_desc).cloned()
+	}
+
+	pub fn get_all_tables(&self, com_id: &ComId) -> Vec<(u32, Arc<RwLock<ScoreTableCache>>)> {
+		let com_id_str = com_id_to_string(com_id);
+		let tables = self.tables.read();
+		tables
+			.iter()
+			.filter_map(|(desc, table)| {
+				if desc.com_id == com_id_str {
+					Some((desc.board_id, table.clone()))
+				} else {
+					None
+				}
+			})
+			.collect()
+	}
+
+	fn get_table_or_insert(&self, com_id: &ComId, board_id: u32, db_info: &DbBoardInfo) -> Arc<RwLock<ScoreTableCache>> {
 		let table_desc = TableDescription::new(com_id_to_string(com_id), board_id);
 		{
 			let tables = self.tables.read();
@@ -233,7 +254,7 @@ impl ScoresCache {
 	}
 
 	pub fn insert_score(&self, db_info: &DbBoardInfo, com_id: &ComId, board_id: u32, score: &DbScoreInfo, npid: &str, online_name: &str) -> u32 {
-		let table = self.get_table(com_id, board_id, db_info);
+		let table = self.get_table_or_insert(com_id, board_id, db_info);
 		let mut table = table.write();
 
 		// First check if the user_id/char_id is already in the cache
@@ -253,6 +274,8 @@ impl ScoresCache {
 			let insert_pos = table.sorted_scores.binary_search_by(|probe| probe.cmp(score, table.table_info.sort_mode)).unwrap_err();
 			table.sorted_scores.insert(insert_pos, (*score).clone());
 			table.npid_lookup.entry(score.user_id).or_default().insert(score.character_id, insert_pos);
+
+			self.add_user(score.user_id, npid, online_name);
 
 			let reorder_start = if let Some(pos) = initial_pos { std::cmp::min(pos, insert_pos + 1) } else { insert_pos + 1 };
 
@@ -274,8 +297,6 @@ impl ScoresCache {
 				table.npid_lookup.get_mut(&user_id).unwrap().remove(&char_id);
 			}
 
-			self.add_user(score.user_id, npid, online_name);
-
 			(insert_pos + 1) as u32
 		} else {
 			table.table_info.rank_limit + 1
@@ -287,7 +308,7 @@ impl ScoresCache {
 		let mut vec_comments = if with_comment { Some(Vec::new()) } else { None };
 		let mut vec_gameinfos = if with_gameinfo { Some(Vec::new()) } else { None };
 
-		let table = self.get_table(com_id, board_id, &Default::default());
+		let table = self.get_table_or_insert(com_id, board_id, &Default::default());
 		let table = table.read();
 		let users = self.users.read();
 
@@ -326,7 +347,7 @@ impl ScoresCache {
 		let mut vec_comments = if with_comment { Some(Vec::new()) } else { None };
 		let mut vec_gameinfos = if with_gameinfo { Some(Vec::new()) } else { None };
 
-		let table = self.get_table(com_id, board_id, &Default::default());
+		let table = self.get_table_or_insert(com_id, board_id, &Default::default());
 		let table = table.read();
 		let users = self.users.read();
 
@@ -371,7 +392,7 @@ impl ScoresCache {
 	}
 
 	pub fn contains_score_with_no_data(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32, score: i64) -> Result<(), ErrorType> {
-		let table = self.get_table(com_id, board_id, &DbBoardInfo::default());
+		let table = self.get_table_or_insert(com_id, board_id, &DbBoardInfo::default());
 
 		{
 			let table = table.read();
@@ -398,7 +419,7 @@ impl ScoresCache {
 	}
 
 	pub fn set_game_data(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32, data_id: u64) -> Result<(), ErrorType> {
-		let table = self.get_table(com_id, board_id, &DbBoardInfo::default());
+		let table = self.get_table_or_insert(com_id, board_id, &DbBoardInfo::default());
 
 		{
 			// Existence needs to be checked again as another score might have pushed this one out
@@ -419,7 +440,7 @@ impl ScoresCache {
 	}
 
 	pub fn get_game_data_id(&self, com_id: &ComId, user_id: i64, character_id: i32, board_id: u32) -> Result<u64, ErrorType> {
-		let table = self.get_table(com_id, board_id, &DbBoardInfo::default());
+		let table = self.get_table_or_insert(com_id, board_id, &DbBoardInfo::default());
 
 		{
 			let table = table.read();
