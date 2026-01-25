@@ -8,9 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.1] - 2026-01-24
 ### Added
 
-- Added configuration to specify the path to the stat server
-- Added a way to dump a score table through /path/score/com_id/table_id on the stat server
-- Added a way to dump all of a communication_id score tables through /path/score/com_id on the stat server
+- Added a configuration entry to specify the API path on the stat server(defaulting to rpcn_stats)
+- Added a way to dump a score table through /api_path/score/com_id/table_id on the stat server
+- Added a way to dump all of a communication_id score tables through /api_path/score/com_id on the stat server
+
+### Changed
+
+- The path to see the usage stats is now /api_path/usage
 
 
 ## [1.7.0] - 2026-01-23

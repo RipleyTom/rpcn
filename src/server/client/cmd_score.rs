@@ -357,9 +357,7 @@ impl Client {
 			.get_score_ids(&com_id, score_req.board_id, &id_vec, score_req.with_comment, score_req.with_game_info);
 		let finished_data = getscore_result.serialize();
 
-		reply.extend(&(finished_data.len() as u32).to_le_bytes());
-		reply.extend(finished_data);
-
+		Client::add_data_packet(reply, &finished_data);
 		Ok(ErrorType::NoError)
 	}
 
