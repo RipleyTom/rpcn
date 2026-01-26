@@ -65,7 +65,7 @@ const SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER: u32 = 0x80000000;
 const CREATOR_ROOM_MEMBER_ID: u16 = 16;
 
 #[repr(u8)]
-#[derive(FromPrimitive, Clone, Debug)]
+#[derive(FromPrimitive, Clone, Copy, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum SignalingType {
 	SignalingNone = 0,
@@ -241,15 +241,26 @@ impl SignalParam {
 
 		Ok(SignalParam { sig_type, flag, hub_member_id })
 	}
+
+	pub fn to_protobuf(&self) -> OptParam {
+		OptParam {
+			r#type: Uint8::new_from_value(self.sig_type as u8),
+			flag: Uint8::new_from_value(self.flag),
+			hub_member_id: Uint16::new_from_value(self.hub_member_id),
+		}
+	}
+
 	pub fn should_signal(&self) -> bool {
 		match self.sig_type {
 			SignalingType::SignalingNone => false,
 			_ => (self.flag & 1) != 1,
 		}
 	}
+
 	pub fn get_type(&self) -> SignalingType {
 		self.sig_type.clone()
 	}
+
 	pub fn get_hub(&self) -> u16 {
 		self.hub_member_id
 	}
@@ -560,6 +571,10 @@ impl Room {
 			flag_attr: self.flag_attr,
 			room_bin_attr_internal,
 		}
+	}
+
+	pub fn to_OptParam(&self) -> Option<OptParam> {
+		self.signaling_param.as_ref().map(|s| s.to_protobuf())
 	}
 
 	pub fn to_RoomDataExternal(&self, search_option: i32, inc_attrs: &Vec<u16>) -> RoomDataExternal {
@@ -998,7 +1013,12 @@ impl RoomManager {
 		self.user_rooms.entry(cinfo.user_id).or_default().insert((*com_id, room_id));
 
 		// Prepare roomDataInternal
-		let room_data = self.rooms[&(*com_id, room_id)].to_RoomDataInternal();
+		let room = &self.rooms[&(*com_id, room_id)];
+		let internal = room.to_RoomDataInternal();
+		let opt_param = room.to_OptParam();
+
+		let room_data = CreateRoomResponse { internal: Some(internal), opt_param };
+
 		room_data.encode_to_vec()
 	}
 
@@ -1262,7 +1282,9 @@ impl RoomManager {
 			})
 			.collect();
 
-		let reply = JoinRoomResponse { room_data, signaling_data };
+		let opt_param = room.to_OptParam();
+
+		let reply = JoinRoomResponse { room_data, signaling_data, opt_param };
 
 		Ok((
 			reply.encode_to_vec(),

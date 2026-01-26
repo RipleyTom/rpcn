@@ -400,7 +400,11 @@ impl StatServer {
 			// NPID is inherently json safe as it is verified at user creation
 			let online_name = sanitize_for_json(&score.online_name);
 			let comment = result.comments.as_ref().map(|c| sanitize_for_json(&c[index])).unwrap_or_default();
-			let game_info = result.infos.as_ref().map(|g| g[index].iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join("")).unwrap_or_default();
+			let game_info = result
+				.infos
+				.as_ref()
+				.map(|g| g[index].iter().map(|b| format!("{:02x}", b)).collect::<Vec<_>>().join(""))
+				.unwrap_or_default();
 
 			let _ = writeln!(res, "        {{\n");
 			let _ = writeln!(res, "            \"rank\": {},", score.rank + 1);
