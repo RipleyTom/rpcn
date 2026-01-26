@@ -213,13 +213,7 @@ impl ScoresCache {
 		let tables = self.tables.read();
 		tables
 			.iter()
-			.filter_map(|(desc, table)| {
-				if desc.com_id == com_id_str {
-					Some((desc.board_id, table.clone()))
-				} else {
-					None
-				}
-			})
+			.filter_map(|(desc, table)| if desc.com_id == com_id_str { Some((desc.board_id, table.clone())) } else { None })
 			.collect()
 	}
 
