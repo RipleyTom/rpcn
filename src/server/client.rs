@@ -356,6 +356,8 @@ impl Drop for Client {
 		if self.authentified {
 			self.shared.cleanup_duty.write().insert(self.client_info.user_id);
 			let mut self_clone = Box::new(self.clone()); // We box the clone in order to avoid stack issues when a lot of users drop(shutdown)
+			self_clone.authentified = false; // Set before spawning to prevent recursive drops if the task is immediately dropped during shutdown
+
 			task::spawn(async move {
 				Client::clean_user_state(&mut self_clone).await;
 
@@ -377,8 +379,6 @@ impl Drop for Client {
 				let notif = Client::create_friend_status_notification(&self_clone.client_info.npid, timestamp, false);
 				self_clone.send_notification(&notif, &to_notif).await;
 
-				// Needed to make sure this is not called recursively!
-				self_clone.authentified = false;
 				self_clone.shared.cleanup_duty.write().remove(&self_clone.client_info.user_id);
 			});
 		}
