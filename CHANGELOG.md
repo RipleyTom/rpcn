@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.8.2] - 2026-01-29
 ### Fixed
 
-- in SetPresence status was truncated instead of comment
+- In SetPresence status was truncated instead of comment
+
+### Misc
+
+- Removed some duplicate code when loading config
 
 
 ## [1.8.1] - 2026-01-26
