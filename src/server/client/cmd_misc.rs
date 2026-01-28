@@ -210,7 +210,7 @@ impl Client {
 					presence_info.status = pr_req.status;
 					presence_info.status.truncate(SCE_NP_BASIC_PRESENCE_EXTENDED_STATUS_SIZE_MAX - 1);
 					presence_info.comment = pr_req.comment;
-					presence_info.status.truncate(SCE_NP_BASIC_PRESENCE_COMMENT_SIZE_MAX - 1);
+					presence_info.comment.truncate(SCE_NP_BASIC_PRESENCE_COMMENT_SIZE_MAX - 1);
 					presence_info.data = pr_req.data;
 					presence_info.data.truncate(SCE_NP_BASIC_MAX_PRESENCE_SIZE);
 
