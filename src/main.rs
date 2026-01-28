@@ -154,13 +154,10 @@ impl Config {
 
 		set_bool("CreateMissing", &mut self.create_missing);
 		set_verbosity(&mut self.verbosity);
-		set_bool("EmailValidated", &mut self.email_validated);
-		set_string("EmailHost", &mut self.email_host);
-		set_string("EmailLogin", &mut self.email_login);
-		set_string("EmailPassword", &mut self.email_password);
 		set_string("Host", &mut self.host_ipv4);
 		set_string("HostIPv6", &mut self.host_ipv6);
 		set_string("Port", &mut self.port);
+		set_bool("EmailValidated", &mut self.email_validated);
 		set_string("EmailHost", &mut self.email_host);
 		set_string("EmailLogin", &mut self.email_login);
 		set_string("EmailPassword", &mut self.email_password);
