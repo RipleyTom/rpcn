@@ -60,10 +60,12 @@ enum SceNpMatching2FlagAttr {
 	SCE_NP_MATCHING2_ROOM_FLAG_ATTR_PROHIBITIVE_MODE = 0x02000000,
 }
 
+const PROTECTED_ROOM_FLAGS: u32 = SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32;
+
 const SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER: u32 = 0x80000000;
 
 const SCE_NP_MATCHING2_ROLE_MEMBER: u8 = 1;
-const SCE_NP_MATCHING2_ROLE_OWNER: u8 = 1;
+const SCE_NP_MATCHING2_ROLE_OWNER: u8 = 2;
 
 const CREATOR_ROOM_MEMBER_ID: u16 = 16;
 
@@ -453,7 +455,7 @@ impl Room {
 		let world_id = pb.world_id;
 		let lobby_id = pb.lobby_id;
 		let max_slot = pb.max_slot as u16;
-		let flag_attr = pb.flag_attr;
+		let flag_attr = pb.flag_attr & !PROTECTED_ROOM_FLAGS;
 		let mut bin_attr_internal: [RoomBinAttrInternal; 2] = [
 			RoomBinAttrInternal::with_id(SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID),
 			RoomBinAttrInternal::with_id(SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_2_ID),
@@ -1574,8 +1576,8 @@ impl RoomManager {
 		let mut vec_new_groups: Vec<u8> = Vec::new();
 
 		if is_room_owner {
-			let flag_filter = req.flag_filter;
-			let flag_attr = req.flag_attr;
+			let flag_filter = req.flag_filter & !PROTECTED_ROOM_FLAGS;
+			let flag_attr = req.flag_attr & !PROTECTED_ROOM_FLAGS;
 			let new_room_flag_attr = (flag_attr & flag_filter) | (room.flag_attr & !flag_filter);
 
 			if new_room_flag_attr != room.flag_attr {

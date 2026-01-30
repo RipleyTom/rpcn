@@ -1239,7 +1239,7 @@ dependencies = [
 
 [[package]]
 name = "rpcn"
-version = "1.8.2"
+version = "1.8.3"
 dependencies = [
  "hyper",
  "hyper-util",
