@@ -172,6 +172,26 @@ impl Client {
 		Ok(ErrorType::NoError)
 	}
 
+	pub fn req_get_room_member_data_external_list(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
+		let com_id = self.get_com_id_with_redir(data);
+		let room_id = data.get::<u64>();
+
+		if data.error() {
+			warn!("Error while extracting data from GetRoomMemberDataExternalList command");
+			return Err(ErrorType::Malformed);
+		}
+
+		let resp = self.shared.room_manager.read().get_room_member_data_external_list(&com_id, room_id);
+
+		match resp {
+			Err(e) => Ok(e),
+			Ok(resp) => {
+				Client::add_data_packet(reply, &resp);
+				Ok(ErrorType::NoError)
+			}
+		}
+	}
+
 	pub fn req_set_roomdata_external(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
 		let (com_id, setdata_req) = self.get_com_and_pb::<SetRoomDataExternalRequest>(data)?;
 
