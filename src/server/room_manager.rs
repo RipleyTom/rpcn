@@ -62,6 +62,9 @@ enum SceNpMatching2FlagAttr {
 
 const SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER: u32 = 0x80000000;
 
+const SCE_NP_MATCHING2_ROLE_MEMBER: u8 = 1;
+const SCE_NP_MATCHING2_ROLE_OWNER: u8 = 1;
+
 const CREATOR_ROOM_MEMBER_ID: u16 = 16;
 
 #[repr(u8)]
@@ -392,6 +395,27 @@ impl RoomUser {
 			nat_type: Uint8::new_from_value(2),
 			flag_attr: self.flag_attr,
 			room_member_bin_attr_internal: bin_attr,
+		}
+	}
+
+	pub fn to_roomMemberDataExternal(&self) -> RoomMemberDataExternal {
+		let user_info = Some(UserInfo {
+			np_id: self.npid.clone(),
+			online_name: self.online_name.clone(),
+			avatar_url: self.avatar_url.clone(),
+		});
+
+		let join_date = self.join_date;
+		let role = if (self.flag_attr & SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER) != 0 {
+			Uint8::new_from_value(SCE_NP_MATCHING2_ROLE_OWNER)
+		} else {
+			Uint8::new_from_value(SCE_NP_MATCHING2_ROLE_MEMBER)
+		};
+
+		RoomMemberDataExternal {
+			user_info,
+			join_date,
+			role,
 		}
 	}
 }
@@ -1457,6 +1481,21 @@ impl RoomManager {
 			.collect();
 
 		let resp = GetRoomDataExternalListResponse { rooms };
+		Ok(resp.encode_to_vec())
+	}
+
+	pub fn get_room_member_data_external_list(&self, com_id: &ComId, room_id: u64) -> Result<Vec<u8>, ErrorType> {
+		if !self.room_exists(com_id, room_id) {
+			return Err(ErrorType::RoomMissing);
+		}
+
+		let room = self.get_room(com_id, room_id);
+		let members: Vec<RoomMemberDataExternal> = room.users.iter().map(|(_, user)| user.to_roomMemberDataExternal()).collect();
+
+		let resp = GetRoomMemberDataExternalListResponse {
+			members,
+		};
+
 		Ok(resp.encode_to_vec())
 	}
 
