@@ -9,9 +9,13 @@ mod server;
 use server::Server;
 use server::client::{COMMUNICATION_ID_SIZE, Client, ComId};
 
+use openssl::asn1::Asn1Time;
+use openssl::bn::BigNum;
 use openssl::ec::EcKey;
 use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Private};
+use openssl::rsa::Rsa;
+use openssl::x509::{X509, X509NameBuilder};
 
 pub struct TicketSignInfo {
 	pub digest: MessageDigest,
@@ -308,8 +312,53 @@ impl Config {
 	}
 }
 
+fn generate_certificate() -> Result<(), String> {
+	let rsa = Rsa::generate(4096).map_err(|e| format!("Failed to generate RSA key: {}", e))?;
+	let pkey = PKey::from_rsa(rsa).map_err(|e| format!("Failed to create PKey: {}", e))?;
+
+	let mut name_builder = X509NameBuilder::new().map_err(|e| format!("Failed to create name builder: {}", e))?;
+	name_builder.append_entry_by_text("CN", "RPCN").map_err(|e| format!("Failed to set CN: {}", e))?;
+	let name = name_builder.build();
+
+	let mut builder = X509::builder().map_err(|e| format!("Failed to create X509 builder: {}", e))?;
+	builder.set_version(2).map_err(|e| format!("Failed to set version: {}", e))?;
+
+	let serial = BigNum::from_u32(1).map_err(|e| format!("Failed to create serial: {}", e))?;
+	let serial = serial.to_asn1_integer().map_err(|e| format!("Failed to convert serial: {}", e))?;
+	builder.set_serial_number(&serial).map_err(|e| format!("Failed to set serial: {}", e))?;
+
+	builder.set_subject_name(&name).map_err(|e| format!("Failed to set subject: {}", e))?;
+	builder.set_issuer_name(&name).map_err(|e| format!("Failed to set issuer: {}", e))?;
+
+	let not_before = Asn1Time::days_from_now(0).map_err(|e| format!("Failed to create not_before: {}", e))?;
+	let not_after = Asn1Time::days_from_now(3650).map_err(|e| format!("Failed to create not_after: {}", e))?;
+	builder.set_not_before(&not_before).map_err(|e| format!("Failed to set not_before: {}", e))?;
+	builder.set_not_after(&not_after).map_err(|e| format!("Failed to set not_after: {}", e))?;
+
+	builder.set_pubkey(&pkey).map_err(|e| format!("Failed to set pubkey: {}", e))?;
+	builder.sign(&pkey, MessageDigest::sha256()).map_err(|e| format!("Failed to sign certificate: {}", e))?;
+
+	let cert = builder.build();
+
+	let cert_pem = cert.to_pem().map_err(|e| format!("Failed to serialize certificate: {}", e))?;
+	std::fs::write("cert.pem", &cert_pem).map_err(|e| format!("Failed to write cert.pem: {}", e))?;
+
+	let key_pem = pkey.private_key_to_pem_pkcs8().map_err(|e| format!("Failed to serialize private key: {}", e))?;
+	std::fs::write("key.pem", &key_pem).map_err(|e| format!("Failed to write key.pem: {}", e))?;
+
+	println!("Generated cert.pem and key.pem (self-signed, RSA 4096, valid for 3650 days)");
+	Ok(())
+}
+
 fn main() {
 	println!("RPCN v{}", env!("CARGO_PKG_VERSION"));
+
+	if env::args().any(|arg| arg == "--cert-gen") {
+		if let Err(e) = generate_certificate() {
+			println!("Failed to generate certificate: {}", e);
+		}
+		return;
+	}
 
 	let mut config = Config::new();
 	if let Err(e) = config.load_config_file() {
