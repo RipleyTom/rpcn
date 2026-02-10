@@ -414,11 +414,7 @@ impl RoomUser {
 			Uint8::new_from_value(SCE_NP_MATCHING2_ROLE_MEMBER)
 		};
 
-		RoomMemberDataExternal {
-			user_info,
-			join_date,
-			role,
-		}
+		RoomMemberDataExternal { user_info, join_date, role }
 	}
 }
 
@@ -1494,9 +1490,7 @@ impl RoomManager {
 		let room = self.get_room(com_id, room_id);
 		let members: Vec<RoomMemberDataExternal> = room.users.iter().map(|(_, user)| user.to_roomMemberDataExternal()).collect();
 
-		let resp = GetRoomMemberDataExternalListResponse {
-			members,
-		};
+		let resp = GetRoomMemberDataExternalListResponse { members };
 
 		Ok(resp.encode_to_vec())
 	}

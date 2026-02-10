@@ -111,14 +111,7 @@ impl Server {
 		socket_ref.set_tcp_keepalive(&TcpKeepalive::new().with_time(std::time::Duration::new(30, 0)).with_interval(std::time::Duration::new(30, 0)))
 	}
 
-	pub fn start(&mut self) -> io::Result<()> {
-		// Parse host address
-		let str_addr = self.config.read().get_host_ipv4().clone() + ":" + self.config.read().get_port();
-		let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("{} is not a valid address", &str_addr)))?;
-		let addr = addr
-			.next()
-			.ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("{} is not a valid address", &str_addr)))?;
-
+	fn load_certificate() -> io::Result<ServerConfig> {
 		// Setup TLS
 		let f_cert = File::open("cert.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open certificate cert.pem"))?;
 		let f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
@@ -132,11 +125,25 @@ impl Server {
 			return Err(io::Error::new(io::ErrorKind::InvalidInput, "key.pem doesn't contain a PKCS8 encoded private key!"));
 		}
 
-		let server_config = ServerConfig::builder()
-			//.with_safe_default_protocol_versions()
+		ServerConfig::builder()
 			.with_no_client_auth()
 			.with_single_cert(certif, private_key.remove(0).into())
-			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))?;
+			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))
+	}
+
+	pub fn start(&mut self) -> io::Result<()> {
+		// Parse host address
+		let str_addr = self.config.read().get_host_ipv4().clone() + ":" + self.config.read().get_port();
+		let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("{} is not a valid address", &str_addr)))?;
+		let addr = addr
+			.next()
+			.ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("{} is not a valid address", &str_addr)))?;
+
+		let server_config = Server::load_certificate().inspect_err(|_| {
+			println!("A certificate error occurred. To generate a certificate, run:");
+			let exe_path = crate::env::args().next().unwrap_or(String::from("rpcn"));
+			println!("{} --cert-gen", exe_path);
+		})?;
 
 		// Setup Tokio
 		let runtime = runtime::Builder::new_multi_thread().enable_all().build()?;
