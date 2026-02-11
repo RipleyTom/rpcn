@@ -28,10 +28,7 @@ pub struct Config {
 	host_ipv4: String,
 	host_ipv6: String,
 	port: String,
-	email_validated: bool, // Requires email validation
-	email_host: String,
-	email_login: String,
-	email_password: String,
+	email_url: String,
 	banned_domains: HashSet<String>,
 	server_redirs: HashMap<ComId, ComId>,
 	ticket_signature_info: Option<TicketSignInfo>,
@@ -49,10 +46,7 @@ impl Config {
 			host_ipv4: "0.0.0.0".to_string(),
 			host_ipv6: "0:0:0:0:0:0:0:0".to_string(),
 			port: "31313".to_string(),
-			email_validated: false,
-			email_host: String::new(),
-			email_login: String::new(),
-			email_password: String::new(),
+			email_url: String::new(),
 			banned_domains: HashSet::new(),
 			server_redirs: HashMap::new(),
 			ticket_signature_info: None,
@@ -144,27 +138,19 @@ impl Config {
 			}
 		};
 
-		// Unused for now
-		// let set_u32 = |name: &str, d_u32: &mut u32| {
-		// 	if let Some(data) = config_data.get(name) {
-		// 		match data.parse::<u32>() {
-		// 			Ok(parsed) => *d_u32 = parsed,
-		// 			Err(e) => println!("Failed to parse value for <{}>, defaulting to <{}>: {}", name, d_u32, e),
-		// 		}
-		// 	} else {
-		// 		println!("Configuration entry for <{}> was not found, defaulting to <{}>", name, d_u32);
-		// 	}
-		// };
-
 		set_bool("CreateMissing", &mut self.create_missing);
 		set_verbosity(&mut self.verbosity);
 		set_string("Host", &mut self.host_ipv4);
 		set_string("HostIPv6", &mut self.host_ipv6);
 		set_string("Port", &mut self.port);
-		set_bool("EmailValidated", &mut self.email_validated);
-		set_string("EmailHost", &mut self.email_host);
-		set_string("EmailLogin", &mut self.email_login);
-		set_string("EmailPassword", &mut self.email_password);
+
+		// Error if EmailValidated is true and the user needs to update their config otherwise silently ignore the deprecated setting
+		if config_data.get("EmailValidated").is_some_and(|s| s.eq_ignore_ascii_case("true")) {
+			println!("Deprecated email configuration detected, please update your config to use the new EmailUrl!");
+			return Err(std::io::Error::new(std::io::ErrorKind::Other, "Deprecated settings"));
+		}
+
+		set_string("EmailUrl", &mut self.email_url);
 
 		let mut sign_tickets = false;
 		set_bool("SignTickets", &mut sign_tickets);
@@ -224,7 +210,7 @@ impl Config {
 	}
 
 	pub fn is_email_validated(&self) -> bool {
-		self.email_validated
+		!self.email_url.is_empty()
 	}
 
 	pub fn get_verbosity(&self) -> &tracing::Level {
@@ -243,8 +229,8 @@ impl Config {
 		&self.port
 	}
 
-	pub fn get_email_auth(&self) -> (String, String, String) {
-		(self.email_host.clone(), self.email_login.clone(), self.email_password.clone())
+	pub fn get_email_url(&self) -> String {
+		self.email_url.clone()
 	}
 
 	pub fn load_domains_banlist(&mut self) {
@@ -361,8 +347,10 @@ fn main() {
 	}
 
 	let mut config = Config::new();
+
 	if let Err(e) = config.load_config_file() {
-		println!("An error happened reading the config file rpcn.cfg: {}\nDefault values will be used for every settings!", e);
+		println!("An error happened reading the config file rpcn.cfg: {}", e);
+		return;
 	}
 
 	config.load_domains_banlist();
