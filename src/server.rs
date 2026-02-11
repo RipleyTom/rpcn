@@ -52,6 +52,29 @@ pub struct Server {
 	cleanup_duty: Arc<RwLock<HashSet<i64>>>,
 }
 
+fn install_signal_handlers(term_watch: &TerminateWatch) {
+	{
+		let term_watch = term_watch.clone();
+		tokio::spawn(async move {
+			if tokio::signal::ctrl_c().await.is_ok() {
+				info!("SIGINT received, shutting down");
+				let _ = term_watch.send.lock().send(true);
+			}
+		});
+	}
+
+	#[cfg(unix)]
+	{
+		let term_watch = term_watch.clone();
+		tokio::spawn(async move {
+			let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("Failed to register SIGTERM handler");
+			sigterm.recv().await;
+			info!("SIGTERM received, shutting down");
+			let _ = term_watch.send.lock().send(true);
+		});
+	}
+}
+
 impl Server {
 	pub fn new(config: Config) -> Result<Server, String> {
 		let config = Arc::new(RwLock::new(config));
@@ -160,6 +183,8 @@ impl Server {
 		let fut_server = async {
 			let (term_send, term_recv) = watch::channel(false);
 			let mut term_watch = TerminateWatch::new(term_recv, term_send);
+
+			install_signal_handlers(&term_watch);
 
 			self.start_udp_server(term_watch.clone()).await?;
 			self.start_stat_server(term_watch.clone(), self.game_tracker.clone()).await?;

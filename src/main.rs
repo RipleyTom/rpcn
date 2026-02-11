@@ -386,6 +386,6 @@ fn main() {
 	if let Err(e) = serv.start() {
 		println!("Server terminated with error: {}", e);
 	} else {
-		println!("Server terminated normally");
+		println!("Server terminated gracefully");
 	}
 }
