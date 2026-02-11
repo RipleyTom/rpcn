@@ -1,22 +1,20 @@
-version: '3.8'
-
 volumes:
   rpcnstorage:
-    name: rpcnstorage 
+    name: rpcnstorage
     driver: local
     driver_opts:
-      device: /home/$USER/rpcn      #use your preferred storage path here. This will NOT auto create the directory, must exist prior.
+      # Use your preferred storage path here, it must already exist
+      device: /home/$USER/rpcn_data
       o: bind
       type: none
 
 services:
   rpcn:
     container_name: rpcn
-    image: rpcn:latest
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
       - rpcnstorage:/rpcn
-    network_mode: host      #Only works with Linux systems currently
-    
+    # Only works on Linux currently
+    network_mode: host
