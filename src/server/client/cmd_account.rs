@@ -27,23 +27,12 @@ impl Client {
 	}
 
 	fn send_email(&self, email_to_send: Message) -> Result<(), lettre::transport::smtp::Error> {
-		let (host, login, password) = self.config.read().get_email_auth();
+		let smtp_url = self.config.read().get_email_url();
 
-		let smtp_client;
-		if host.is_empty() {
-			smtp_client = SmtpTransport::unencrypted_localhost();
-		} else {
-			let mut smtp_client_builder = SmtpTransport::relay(&host)?;
-
-			if !login.is_empty() {
-				smtp_client_builder = smtp_client_builder
-					.credentials(Credentials::new(login, password))
-					.authentication(vec![Mechanism::Plain])
-					.hello_name(lettre::transport::smtp::extension::ClientId::Domain("np.rpcs3.net".to_string()));
-			}
-
-			smtp_client = smtp_client_builder.build();
-		}
+		let smtp_client = SmtpTransport::from_url(&smtp_url)?
+			.hello_name(lettre::transport::smtp::extension::ClientId::Domain("np.rpcs3.net".to_string()))
+			.authentication(vec![Mechanism::Plain])
+			.build();
 
 		smtp_client.send(&email_to_send)?;
 		Ok(())

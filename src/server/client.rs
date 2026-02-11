@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use lettre::transport::smtp::authentication::{Credentials, Mechanism};
+use lettre::transport::smtp::authentication::Mechanism;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use parking_lot::{Mutex, RwLock};
