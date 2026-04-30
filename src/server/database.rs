@@ -12,6 +12,7 @@ use crate::server::client::*;
 
 pub mod db_score;
 pub mod db_tus;
+pub mod db_trophy;
 
 pub struct Database {
 	conn: r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>,
@@ -101,7 +102,7 @@ struct MigrationData {
 
 static DATABASE_PATH: &str = "db/rpcn.db";
 
-static DATABASE_MIGRATIONS: [MigrationData; 11] = [
+static DATABASE_MIGRATIONS: [MigrationData; 12] = [
 	MigrationData {
 		version: 1,
 		text: "Initial setup",
@@ -156,6 +157,11 @@ static DATABASE_MIGRATIONS: [MigrationData; 11] = [
 		version: 11,
 		text: "Prepare tables for user deletion",
 		function: prepare_for_deletion,
+	},
+	MigrationData {
+		version: 12,
+		text: "Adding tables for trophies",
+		function: add_trophy_tables,
 	},
 ];
 
@@ -518,6 +524,28 @@ fn prepare_for_deletion(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnect
 	create_deleted_user_account(conn)?;
 	create_gdpr_hash_tables(conn)?;
 	improve_tables_for_deletion(conn)?;
+	Ok(())
+}
+
+fn add_trophy_tables(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	conn.execute(
+		"CREATE TABLE IF NOT EXISTS trophy_sets ( communication_id TEXT PRIMARY KEY, title TEXT NOT NULL, platform TEXT, trophy_set_version TEXT, has_trophy_groups INTEGER NOT NULL, total_item_count INTEGER NOT NULL )",
+		[],
+	)
+	.map_err(|e| format!("Failed to create trophy_sets table: {}", e))?;
+
+	conn.execute(
+		"CREATE TABLE IF NOT EXISTS trophy_definitions ( communication_id TEXT NOT NULL, trophy_id INTEGER NOT NULL, trophy_group_id TEXT, trophy_name TEXT, trophy_detail TEXT, trophy_type INTEGER, trophy_hidden INTEGER NOT NULL, trophy_icon_url TEXT, PRIMARY KEY(communication_id, trophy_id), FOREIGN KEY(communication_id) REFERENCES trophy_sets(communication_id) ON DELETE CASCADE )",
+		[],
+	)
+	.map_err(|e| format!("Failed to create trophy_definitions table: {}", e))?;
+
+	conn.execute(
+		"CREATE TABLE IF NOT EXISTS user_trophies ( user_id UNSIGNED BIGINT NOT NULL, communication_id TEXT NOT NULL, trophy_id INTEGER NOT NULL, earned_at UNSIGNED BIGINT NOT NULL, PRIMARY KEY(user_id, communication_id, trophy_id), FOREIGN KEY(user_id) REFERENCES account(user_id) ON DELETE CASCADE, FOREIGN KEY(communication_id, trophy_id) REFERENCES trophy_definitions(communication_id, trophy_id) ON DELETE CASCADE )",
+		[],
+	)
+	.map_err(|e| format!("Failed to create user_trophies table: {}", e))?;
+
 	Ok(())
 }
 
