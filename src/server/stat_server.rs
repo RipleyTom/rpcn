@@ -179,7 +179,7 @@ impl StatServer {
 						let json_cache = self.json_cache.clone();
 
 						tokio::task::spawn(async move {
-							if let Err(err) = http1::Builder::new().keep_alive(false).serve_connection(io, service_fn(|r| StatServer::handle_stat_server_req(r, &path, cache_life, game_tracker.clone(), score_cache.clone(), json_cache.clone()))).await {
+							if let Err(err) = http1::Builder::new().keep_alive(false).serve_connection(io, service_fn(|r| StatServer::handle_stat_server_req(r, &path, cache_life, game_tracker.clone(), score_cache.clone(), db_pool.clone(), json_cache.clone()))).await {
 								warn!("Stat: Error serving connection: {}", err);
 							}
 						});
@@ -333,6 +333,8 @@ impl StatServer {
 			}
 		};
 
+		let unique_players = db.get_unique_player_count_for_game(communication_id).unwrap_or(0);
+
 		let mut res = String::from("{\n");
 		let _ = writeln!(res, "    \"communicationId\": \"{}\",", sanitize_for_json(&trophy_set.communication_id));
 		let _ = writeln!(res, "    \"title\": \"{}\",", sanitize_for_json(&trophy_set.title));
@@ -345,9 +347,19 @@ impl StatServer {
 
 		let _ = writeln!(res, "    \"hasTrophyGroups\": {},", trophy_set.has_trophy_groups);
 		let _ = writeln!(res, "    \"totalItemCount\": {},", trophy_set.total_item_count);
+		let _ = writeln!(res, "    \"uniquePlayers\": {},", unique_players);
 		let _ = writeln!(res, "    \"trophies\": [");
 
 		for (index, def) in defs.iter().enumerate() {
+			let earners = earners_map.get(&def.trophy_id);
+			let earner_count = earners.map(|e| e.len()).unwrap_or(0) as f64;
+
+			let earner_pct = if unique_players > 0 {
+				(earner_count / unique_players as f64 * 100.0 * 10.0).round() / 10.0
+			} else {
+				0.0
+			};
+
 			let _ = writeln!(res, "        {{");
 			let _ = writeln!(res, "            \"trophyId\": {},", def.trophy_id);
 			let _ = writeln!(res, "            \"trophyHidden\": {},", def.trophy_hidden);
@@ -356,26 +368,9 @@ impl StatServer {
 			let _ = writeln!(res, "            \"trophyDetail\": \"{}\",", sanitize_for_json(&def.trophy_detail));
 			let _ = writeln!(res, "            \"trophyGroupId\": \"{}\",", sanitize_for_json(&def.trophy_group_id));
 
-			let icon_url = def.trophy_icon_url.as_deref().unwrap_or("");
-			let _ = writeln!(res, "            \"trophyIconUrl\": \"{}\",", sanitize_for_json(icon_url));
-
-			// Earners sub-array
-			let _ = writeln!(res, "            \"earners\": [");
-			if let Some(earners) = earners_map.get(&def.trophy_id) {
-				for (ei, earner) in earners.iter().enumerate() {
-					let _ = writeln!(res, "                {{");
-					let _ = writeln!(res, "                    \"npid\": \"{}\",", sanitize_for_json(&earner.npid));
-					let _ = writeln!(res, "                    \"earnedAt\": {}", earner.earned_at);
-					let _ = write!(res, "                }}");
-					if ei != earners.len() - 1 {
-						res += ",\n";
-					} else {
-						res += "\n";
-					}
-				}
-			}
-			let _ = writeln!(res, "            ]");
-			let _ = write!(res, "        }}");
+			let _ = writeln!(res, "            \"earnerCount\": {},", earner_count as u64);
+			let _ = write!(res, "            \"earnerPercentage\": {:.1}", earner_pct);
+			let _ = write!(res, "\n        }}");
 
 			if index != defs.len() - 1 {
 				res += ",\n";
@@ -386,6 +381,92 @@ impl StatServer {
 
 		res += "    ]\n}";
 		res
+	}
+
+	fn all_trophies_for_user_to_json(db_pool: &r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, npid: &str) -> String {
+		let conn = match db_pool.get() {
+			Ok(c) => c,
+			Err(e) => {
+				warn!("Stat: failed to get db connection for user all-trophies: {}", e);
+				return "[]".to_owned();
+			}
+		};
+		let db = Database::new(conn);
+
+		let games = match db.get_all_trophies_for_user(npid) {
+			Ok(g) => g,
+			Err(_) => return "[]".to_owned(),
+		};
+
+		if games.is_empty() {
+			return "[]".to_owned();
+		}
+
+		let mut res = String::from("[\n");
+		for (game_index, (comm_id, title, platform, earned_trophies)) in games.iter().enumerate() {
+			// Build a lookup: trophy_id -> earned_at for this user
+			let earned_map: std::collections::HashMap<i32, u64> =
+				earned_trophies.iter().map(|(tid, _, _, _, _, earned_at)| (*tid, *earned_at)).collect();
+
+			// Fetch all definitions so we can show unearned trophies too
+			let all_defs = match db.get_trophy_definitions(comm_id) {
+				Ok(d) => d,
+				Err(_) => Vec::new(),
+			};
+
+			res += "  {\n";
+			let _ = writeln!(res, "    \"communicationId\": \"{}\",", sanitize_for_json(comm_id));
+			let _ = writeln!(res, "    \"title\": \"{}\",", sanitize_for_json(title));
+			let _ = writeln!(res, "    \"platform\": \"{}\",", sanitize_for_json(platform.as_deref().unwrap_or("")));
+			let _ = writeln!(res, "    \"earnedCount\": {},", earned_trophies.len());
+			let _ = writeln!(res, "    \"totalCount\": {},", all_defs.len());
+			res += "    \"trophies\": [\n";
+
+			if !all_defs.is_empty() {
+				let last = all_defs.len() - 1;
+				for (i, def) in all_defs.iter().enumerate() {
+					let maybe_earned_at = earned_map.get(&def.trophy_id);
+					res += "      {\n";
+					let _ = writeln!(res, "        \"trophyId\": {},", def.trophy_id);
+					let _ = writeln!(res, "        \"trophyName\": \"{}\",", sanitize_for_json(&def.trophy_name));
+					let _ = writeln!(res, "        \"trophyDetail\": \"{}\",", sanitize_for_json(&def.trophy_detail));
+					let _ = writeln!(res, "        \"trophyType\": \"{}\",", trophy_type_to_str(def.trophy_type));
+					let _ = writeln!(res, "        \"trophyHidden\": {},", def.trophy_hidden);
+					let _ = writeln!(res, "        \"trophyGroupId\": \"{}\",", sanitize_for_json(&def.trophy_group_id));
+					if let Some(earned_at) = maybe_earned_at {
+						let _ = writeln!(res, "        \"earned\": true,");
+						let _ = writeln!(res, "        \"earnedAt\": {}", earned_at);
+					} else {
+						let _ = writeln!(res, "        \"earned\": false,");
+						res += "        \"earnedAt\": null\n";
+					}
+					res += if i != last { "      },\n" } else { "      }\n" };
+				}
+			} else {
+				let last = earned_trophies.len().saturating_sub(1);
+				for (i, (trophy_id, name, detail, ttype, hidden, earned_at)) in earned_trophies.iter().enumerate() {
+					res += "      {\n";
+					let _ = writeln!(res, "        \"trophyId\": {},", trophy_id);
+					let _ = writeln!(res, "        \"trophyName\": \"{}\",", sanitize_for_json(name));
+					let _ = writeln!(res, "        \"trophyDetail\": \"{}\",", sanitize_for_json(detail));
+					let _ = writeln!(res, "        \"trophyType\": \"{}\",", trophy_type_to_str(*ttype));
+					let _ = writeln!(res, "        \"trophyHidden\": {},", hidden);
+					let _ = writeln!(res, "        \"earned\": true,");
+					let _ = writeln!(res, "        \"earnedAt\": {}", earned_at);
+					res += if i != last { "      },\n" } else { "      }\n" };
+				}
+			}
+
+			res += "    ]\n";
+			res += if game_index != games.len() - 1 { "  },\n" } else { "  }\n" };
+		}
+		res += "]";
+		res
+	}
+
+	fn handle_all_user_trophies_req(db_pool: &r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, npid: &str) -> Result<Response<String>, Infallible> {
+		let json = StatServer::all_trophies_for_user_to_json(db_pool, npid);
+		Ok(Response::builder().header("Content-Type", "application/json").body(json).unwrap())
 	}
 
 	fn handle_trophy_req(cache_life: u32, db_pool: &r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, json_cache: &Arc<JsonCache>, communication_id: &str,) -> Result<Response<String>, Infallible> {
@@ -447,7 +528,18 @@ impl StatServer {
 			}
 		}
 
+		// /user/{npid}/trophies
+		let user_prefix = format!("{}/user/", path);
+		if let Some(rest) = req_path.strip_prefix(&user_prefix) {
+			if let Some(npid) = rest.strip_suffix("/trophies") {
+				if !npid.is_empty() && npid.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') {
+					return StatServer::handle_all_user_trophies_req(&db_pool, npid);
+				}
+			}
+		}
+
 		if let Some(com_id_str) = req_path.strip_prefix(&trophy_prefix) {
+			// /trophy/{comm_id}
 			if com_id_str.len() == COMMUNICATION_ID_SIZE && com_id_str.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_') {
 				return StatServer::handle_trophy_req(cache_life, &db_pool, &json_cache, com_id_str);
 			}
