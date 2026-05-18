@@ -8,6 +8,7 @@ mod cmd_score;
 mod cmd_server;
 mod cmd_session;
 pub mod cmd_tus;
+mod cmd_trophy;
 
 mod ticket;
 
@@ -263,6 +264,8 @@ enum CommandType {
 	QuickMatchGUI,
 	SearchJoinRoomGUI,
 	GetRoomMemberDataExternalList,
+	UnlockTrophy,
+	SyncTrophies,
 	UpdateDomainBans = 0x0100,
 	TerminateServer,
 	UpdateServersCfg,
@@ -720,6 +723,8 @@ impl Client {
 			CommandType::GetRoomInfoGUI => self.req_get_room_info_gui(data, reply),
 			CommandType::QuickMatchGUI => self.req_quickmatch_gui(data, reply).await,
 			CommandType::SearchJoinRoomGUI => self.req_searchjoin_gui(data, reply).await,
+			CommandType::UnlockTrophy => self.req_unlock_trophy(data, reply),
+			CommandType::SyncTrophies => self.req_sync_trophies(data, reply),
 			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
 			CommandType::TerminateServer => self.req_admin_terminate_server(),
 			CommandType::UpdateServersCfg => self.req_admin_update_servers_cfg(),

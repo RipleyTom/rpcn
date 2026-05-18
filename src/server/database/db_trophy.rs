@@ -195,4 +195,149 @@ impl Database {
 			})?;
 		Ok(())
 	}
+
+	pub fn get_all_trophies_for_user(
+		&self,
+		npid: &str,
+	) -> Result<Vec<(String, String, Option<String>, Vec<(i32, String, String, i32, bool, u64)>)>, DbError> {
+		let mut stmt = self
+			.conn
+			.prepare(
+				"SELECT \
+				     ut.communication_id, \
+				     COALESCE(ts.title, ut.communication_id), \
+				     ts.platform, \
+				     ut.trophy_id, \
+				     COALESCE(td.trophy_name, ''), \
+				     COALESCE(td.trophy_detail, ''), \
+				     COALESCE(td.trophy_type, 0), \
+				     COALESCE(td.trophy_hidden, 0), \
+				     ut.earned_at \
+				 FROM user_trophies ut \
+				 JOIN account a ON ut.user_id = a.user_id \
+				 LEFT JOIN trophy_sets ts ON ts.communication_id = ut.communication_id \
+				 LEFT JOIN trophy_definitions td \
+				     ON td.communication_id = ut.communication_id AND td.trophy_id = ut.trophy_id \
+				 WHERE a.username = ?1 \
+				 ORDER BY ut.communication_id ASC, ut.trophy_id ASC",
+			)
+			.map_err(|e| {
+				error!("Failed to prepare get_all_trophies_for_user statement: {}", e);
+				DbError::Internal
+			})?;
+
+		let rows = stmt
+			.query_map(rusqlite::params![npid], |r| {
+				Ok((
+					r.get::<_, String>(0)?,
+					r.get::<_, String>(1)?,
+					r.get::<_, Option<String>>(2)?,
+					r.get::<_, i32>(3)?,
+					r.get::<_, String>(4)?,
+					r.get::<_, String>(5)?,
+					r.get::<_, i32>(6)?,
+					r.get::<_, i32>(7)? != 0,
+					r.get::<_, i64>(8)? as u64,
+				))
+			})
+			.map_err(|e| {
+				error!("Failed to query all trophies for npid={}: {}", npid, e);
+				DbError::Internal
+			})?;
+
+		// Group rows by communication_id
+		let mut games: Vec<(String, String, Option<String>, Vec<(i32, String, String, i32, bool, u64)>)> = Vec::new();
+		for row in rows {
+			let (comm_id, title, platform, trophy_id, name, detail, ttype, hidden, earned_at) = row.map_err(|e| {
+				error!("Failed to read all_trophies row: {}", e);
+				DbError::Internal
+			})?;
+
+			match games.last_mut() {
+				Some(last) if last.0 == comm_id => {
+					last.3.push((trophy_id, name, detail, ttype, hidden, earned_at));
+				}
+				_ => {
+					games.push((comm_id, title, platform, vec![(trophy_id, name, detail, ttype, hidden, earned_at)]));
+				}
+			}
+		}
+
+		Ok(games)
+	}
+
+	pub fn get_user_trophies_by_npid(&self, npid: &str, communication_id: &str) -> Result<Vec<(i32, u64)>, DbError> {
+		let mut stmt = self
+			.conn
+			.prepare(
+				"SELECT ut.trophy_id, ut.earned_at \
+				 FROM user_trophies ut \
+				 JOIN account a ON ut.user_id = a.user_id \
+				 WHERE a.username = ?1 AND ut.communication_id = ?2 \
+				 ORDER BY ut.trophy_id ASC",
+			)
+			.map_err(|e| {
+				error!("Failed to prepare get_user_trophies_by_npid statement: {}", e);
+				DbError::Internal
+			})?;
+
+		let rows = stmt
+			.query_map(rusqlite::params![npid, communication_id], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, i64>(1)?)))
+			.map_err(|e| {
+				error!("Failed to query user trophies for npid={} comm={}: {}", npid, communication_id, e);
+				DbError::Internal
+			})?;
+
+		let mut result = Vec::new();
+		for row in rows {
+			let (tid, ts) = row.map_err(|e| {
+				error!("Failed to read user trophy row: {}", e);
+				DbError::Internal
+			})?;
+			result.push((tid, ts as u64));
+		}
+
+		Ok(result)
+	}
+
+	pub fn get_unique_player_count_for_game(&self, communication_id: &str) -> Result<i64, DbError> {
+		self.conn
+			.query_row(
+				"SELECT COUNT(DISTINCT user_id) FROM user_trophies WHERE communication_id = ?1",
+				rusqlite::params![communication_id],
+				|r| r.get(0),
+			)
+			.map_err(|e| {
+				error!("Failed to count unique players for {}: {}", communication_id, e);
+				DbError::Internal
+			})
+	}
+
+	pub fn get_user_trophies(&self, user_id: i64, communication_id: &str) -> Result<Vec<(i32, u64)>, DbError> {
+		let mut stmt = self
+			.conn
+			.prepare("SELECT trophy_id, earned_at FROM user_trophies WHERE user_id = ?1 AND communication_id = ?2 ORDER BY trophy_id ASC")
+			.map_err(|e| {
+				error!("Failed to prepare get_user_trophies statement: {}", e);
+				DbError::Internal
+			})?;
+
+		let rows = stmt
+			.query_map(rusqlite::params![user_id, communication_id], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, i64>(1)?)))
+			.map_err(|e| {
+				error!("Failed to query user trophies for user_id={} comm={}: {}", user_id, communication_id, e);
+				DbError::Internal
+			})?;
+
+		let mut result = Vec::new();
+		for row in rows {
+			let (tid, ts) = row.map_err(|e| {
+				error!("Failed to read user trophy row: {}", e);
+				DbError::Internal
+			})?;
+			result.push((tid, ts as u64));
+		}
+
+		Ok(result)
+	}
 }
