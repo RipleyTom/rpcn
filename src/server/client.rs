@@ -334,6 +334,14 @@ pub fn com_id_to_string(com_id: &ComId) -> String {
 	com_id.iter().map(|c| *c as char).collect()
 }
 
+pub fn is_valid_com_id_str(s: &str) -> bool {
+	if s.len() != COMMUNICATION_ID_SIZE {
+		return false;
+	}
+	let b = s.as_bytes();
+	b[0..9].iter().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) && b[9] == b'_' && b[10..12].iter().all(|c| c.is_ascii_digit())
+}
+
 impl SharedData {
 	pub fn new(
 		gui_room_manager: Arc<RwLock<GuiRoomManager>>,
