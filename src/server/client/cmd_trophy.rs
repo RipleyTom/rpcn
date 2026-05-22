@@ -1,6 +1,6 @@
 use tracing::{error, warn};
 
-use crate::server::client::{Client, ComId, ErrorType};
+use crate::server::client::{Client, ErrorType, com_id_to_string};
 use crate::server::database::Database;
 use crate::server::stream_extractor::StreamExtractor;
 
@@ -20,10 +20,9 @@ impl Client {
 			return Err(ErrorType::InvalidInput);
 		}
 
-		let communication_id = Self::com_id_to_db_string(&com_id);
+		let communication_id = com_id_to_string(&com_id);
 
-		let db = self.get_database_connection()?;
-		let db = Database::new(db);
+		let db = Database::new(self.get_database_connection()?);
 
 		db.record_user_trophy(self.client_info.user_id, &communication_id, trophy_id, timestamp as i64)
 			.map_err(|e| {
@@ -64,10 +63,9 @@ impl Client {
 			local_trophies.push((tid, ts));
 		}
 
-		let communication_id = Self::com_id_to_db_string(&com_id);
+		let communication_id = com_id_to_string(&com_id);
 
-		let db = self.get_database_connection()?;
-		let db = Database::new(db);
+		let db = Database::new(self.get_database_connection()?);
 
 		for (tid, ts) in &local_trophies {
 			if let Err(e) = db.record_user_trophy(self.client_info.user_id, &communication_id, *tid, *ts as i64) {
@@ -88,9 +86,5 @@ impl Client {
 		}
 
 		Ok(ErrorType::NoError)
-	}
-
-	fn com_id_to_db_string(com_id: &ComId) -> String {
-		com_id.iter().map(|b| *b as char).collect()
 	}
 }
