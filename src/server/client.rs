@@ -34,6 +34,7 @@ use crate::Config;
 use crate::server::client::cmd_session::ClientSharedSessionInfo;
 use crate::server::client::notifications::NotificationType;
 use crate::server::client::ticket::Ticket;
+use crate::server::cleaners;
 use crate::server::database::Database;
 use crate::server::game_tracker::GameTracker;
 use crate::server::gui_room_manager::GuiRoomManager;
@@ -186,6 +187,7 @@ pub struct Client {
 	client_info: ClientInfo,
 	post_reply_notifications: Vec<Vec<u8>>,
 	terminate_watch: TerminateWatch,
+	filecleaner_send: mpsc::UnboundedSender<(u32, cleaners::FileType)>,
 	current_game: (Option<ComId>, Option<String>),
 }
 
@@ -393,6 +395,7 @@ impl Client {
 		db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
 		shared: SharedData,
 		terminate_watch: TerminateWatch,
+		filecleaner_send: mpsc::UnboundedSender<(u32, cleaners::FileType)>,
 	) -> (Client, io::ReadHalf<TlsStream<TcpStream>>) {
 		let client_info = ClientInfo {
 			user_id: 0,
@@ -428,6 +431,7 @@ impl Client {
 				client_info,
 				post_reply_notifications: Vec::new(),
 				terminate_watch,
+				filecleaner_send,
 				current_game: (None, None),
 			},
 			tls_reader,
@@ -775,6 +779,10 @@ impl Client {
 		}
 
 		final_com_id
+	}
+
+	pub async fn queue_file_cleaner(&self, timestamp: u32, file: cleaners::FileType) {
+		let _ = self.filecleaner_send.send((timestamp, file));
 	}
 
 	//Helper for avoiding potentially pointless queries to database
