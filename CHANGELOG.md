@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.7] - 2026-05-24
+### Added
+
+- Added a file cleaner task to queue files to be cleaned after a certain time
+
+### Misc
+
+- Updated dependencies
+
+
 ## [1.8.6] - 2026-04-23
 ### Misc
 
