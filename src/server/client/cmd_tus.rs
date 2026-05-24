@@ -5,7 +5,9 @@ use tokio::fs;
 
 use crate::server::Server;
 use crate::server::client::*;
+use crate::server::cleaners;
 use crate::server::database::DbError;
+use crate::server::database::db_tus::DbTusDataStatus;
 
 const TUS_DATA_DIRECTORY: &str = "tus_data";
 const TUS_FILE_EXTENSION: &str = "tdt";
@@ -107,7 +109,7 @@ impl Client {
 		})
 	}
 
-	async fn delete_tus_data(id: u64) {
+	pub async fn delete_tus_data(id: u64) {
 		let path = Client::tus_id_to_path(id);
 		if let Err(e) = std::fs::remove_file(&path) {
 			error!("Failed to delete tus data {}: {}", &path, e);
@@ -589,24 +591,25 @@ impl Client {
 		Ok(ErrorType::NoError)
 	}
 
-	fn preliminary_set_tus_data_check<F>(f: F, compare_timestamp: &Option<u64>, compare_author_id: &Option<i64>) -> Option<Result<ErrorType, ErrorType>>
-	where
-		F: FnOnce() -> Result<Option<(u64, i64)>, DbError>,
-	{
+	fn preliminary_set_tus_data_check(
+		getdata_result: &Result<Option<DbTusDataStatus>, DbError>,
+		compare_timestamp: &Option<u64>,
+		compare_author_id: &Option<i64>,
+	) -> Option<Result<ErrorType, ErrorType>> {
 		if compare_timestamp.is_some() || compare_author_id.is_some() {
-			match f() {
+			match getdata_result {
 				Err(DbError::Internal) => return Some(Err(ErrorType::DbFail)),
 				Err(_) => unreachable!(),
 				Ok(None) => return None,
-				Ok(Some((db_timestamp, db_author_id))) => {
+				Ok(Some(dbtusdata)) => {
 					if let Some(compare_timestamp) = compare_timestamp
-						&& db_timestamp > *compare_timestamp
+						&& dbtusdata.timestamp > *compare_timestamp
 					{
 						return Some(Ok(ErrorType::CondFail));
 					}
 
 					if let Some(compare_author_id) = *compare_author_id
-						&& compare_author_id != db_author_id
+						&& compare_author_id != dbtusdata.author_id
 					{
 						return Some(Ok(ErrorType::CondFail));
 					}
@@ -674,15 +677,23 @@ impl Client {
 		let new_timestamp = Client::get_psn_timestamp();
 
 		if user.vuser {
-			if let Some(ret_value) = Client::preliminary_set_tus_data_check(|| db.tus_get_vuser_data_timestamp_and_author(&com_id, npid, slot), &compare_timestamp, &compare_author_id) {
+			let getdata_result = db.tus_get_vuser_data_tusdatastatus(&com_id, npid, slot);
+
+			if let Some(ret_value) = Client::preliminary_set_tus_data_check(&getdata_result, &compare_timestamp, &compare_author_id) {
 				return ret_value;
 			}
 
+			let old_data_id = if let Ok(Some(existing_tusdata)) = getdata_result { existing_tusdata.data_id } else { 0 };
 			let data_id = Client::create_tus_data_file(&tus_req.data).await;
 
 			let res = db.tus_set_vuser_data(&com_id, npid, slot, data_id, &info, self.client_info.user_id, new_timestamp, compare_timestamp, compare_author_id);
 			match res {
-				Ok(()) => Ok(ErrorType::NoError),
+				Ok(()) => {
+					if old_data_id != 0 {
+						self.queue_file_cleaner(Client::get_timestamp_seconds() + (5 * 60), cleaners::FileType::TusDataFile(old_data_id)).await;
+					}
+					Ok(ErrorType::NoError)
+				},
 				Err(DbError::Empty) => {
 					Client::delete_tus_data(data_id).await;
 					Ok(ErrorType::CondFail)
@@ -700,15 +711,23 @@ impl Client {
 				return Ok(ErrorType::Unauthorized);
 			}
 
-			if let Some(ret_value) = Client::preliminary_set_tus_data_check(|| db.tus_get_user_data_timestamp_and_author(&com_id, user_id, slot), &compare_timestamp, &compare_author_id) {
+			let getdata_result = db.tus_get_user_data_tusdatastatus(&com_id, user_id, slot);
+
+			if let Some(ret_value) = Client::preliminary_set_tus_data_check(&getdata_result, &compare_timestamp, &compare_author_id) {
 				return ret_value;
 			}
 
+			let old_data_id = if let Ok(Some(existing_tusdata)) = getdata_result { existing_tusdata.data_id } else { 0 };
 			let data_id = Client::create_tus_data_file(&tus_req.data).await;
 
 			let res = db.tus_set_user_data(&com_id, user_id, slot, data_id, &info, user_id, new_timestamp, compare_timestamp, compare_author_id);
 			match res {
-				Ok(()) => Ok(ErrorType::NoError),
+				Ok(()) => {
+					if old_data_id != 0 {
+						self.queue_file_cleaner(Client::get_timestamp_seconds() + (5 * 60), cleaners::FileType::TusDataFile(old_data_id)).await;
+					}
+					Ok(ErrorType::NoError)
+				},
 				Err(DbError::Empty) => {
 					Client::delete_tus_data(data_id).await;
 					Ok(ErrorType::CondFail)

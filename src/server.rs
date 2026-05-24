@@ -8,7 +8,7 @@ use rustls_pemfile::{certs, pkcs8_private_keys};
 use tokio::io::AsyncWriteExt;
 use tokio::net::TcpListener;
 use tokio::runtime;
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use tokio_rustls::rustls::server::ServerConfig;
@@ -29,7 +29,7 @@ mod room_manager;
 use room_manager::RoomManager;
 mod score_cache;
 use score_cache::ScoresCache;
-mod daily_cleaner;
+mod cleaners;
 mod stat_server;
 mod udp_server;
 mod utils;
@@ -182,6 +182,7 @@ impl Server {
 
 		let fut_server = async {
 			let (term_send, term_recv) = watch::channel(false);
+			let (filecleaner_send, filecleaner_recv) = mpsc::unbounded_channel();
 			let mut term_watch = TerminateWatch::new(term_recv, term_send);
 
 			install_signal_handlers(&term_watch);
@@ -189,6 +190,7 @@ impl Server {
 			self.start_udp_server(term_watch.clone()).await?;
 			self.start_stat_server(term_watch.clone(), self.game_tracker.clone()).await?;
 			self.start_cleaner_task(term_watch.clone(), self.db_pool.clone(), self.client_infos.clone()).await;
+			self.start_filecleaner_task(term_watch.clone(), filecleaner_recv).await;
 
 			let listener = TcpListener::bind(&addr).await.map_err(|e| io::Error::new(e.kind(), format!("Error binding to <{}>: {}", &addr, e)))?;
 			info!("Now waiting for connections on <{}>", &addr);
@@ -215,10 +217,11 @@ impl Server {
 						let shared = SharedData::new(self.gui_room_manager.clone(), self.room_manager.clone(), self.client_infos.clone(), self.score_cache.clone(), self.game_tracker.clone(), self.cleanup_duty.clone());
 						let servinfo_vec = servinfo_vec.clone();
 						let term_watch = term_watch.clone();
+						let filecleaner_send = filecleaner_send.clone();
 						let fut_client = async move {
 							let mut stream = acceptor.accept(stream).await?;
 							stream.write_all(&servinfo_vec).await?;
-							let (mut client, mut tls_reader) = Client::new(config, stream, db_pool, shared, term_watch).await;
+							let (mut client, mut tls_reader) = Client::new(config, stream, db_pool, shared, term_watch, filecleaner_send).await;
 							client.process(&mut tls_reader).await;
 							Ok(()) as io::Result<()>
 						};

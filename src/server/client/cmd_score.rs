@@ -171,7 +171,7 @@ impl Client {
 		})
 	}
 
-	async fn delete_score_data(id: u64) {
+	pub async fn delete_score_data(id: u64) {
 		let path = Client::score_id_to_path(id);
 		if let Err(e) = std::fs::remove_file(&path) {
 			error!("Failed to delete score data {}: {}", &path, e);

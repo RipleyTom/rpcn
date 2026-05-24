@@ -147,7 +147,7 @@ impl Config {
 		// Error if EmailValidated is true and the user needs to update their config otherwise silently ignore the deprecated setting
 		if config_data.get("EmailValidated").is_some_and(|s| s.eq_ignore_ascii_case("true")) {
 			println!("Deprecated email configuration detected, please update your config to use the new EmailUrl!");
-			return Err(std::io::Error::new(std::io::ErrorKind::Other, "Deprecated settings"));
+			return Err(std::io::Error::other("Deprecated settings"));
 		}
 
 		set_string("EmailUrl", &mut self.email_url);

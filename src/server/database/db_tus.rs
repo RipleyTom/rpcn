@@ -445,11 +445,17 @@ impl Database {
 		Ok(())
 	}
 
-	pub fn tus_get_user_data_timestamp_and_author(&self, com_id: &ComId, user: i64, slot: i32) -> Result<Option<(u64, i64)>, DbError> {
+	pub fn tus_get_user_data_tusdatastatus(&self, com_id: &ComId, user: i64, slot: i32) -> Result<Option<DbTusDataStatus>, DbError> {
 		let res = self.conn.query_row(
-			"SELECT timestamp, author_id FROM tus_data WHERE communication_id = ?1 AND owner_id = ?2 AND slot_id = ?3",
+			"SELECT timestamp, author_id, data_id FROM tus_data WHERE communication_id = ?1 AND owner_id = ?2 AND slot_id = ?3",
 			rusqlite::params![com_id, user, slot],
-			|r| Ok((r.get_unwrap(0), r.get_unwrap(1))),
+			|r| {
+				Ok(DbTusDataStatus {
+					timestamp: r.get_unwrap(0),
+					author_id: r.get_unwrap(1),
+					data_id: r.get_unwrap(2),
+				})
+			},
 		);
 
 		match res {
@@ -459,11 +465,17 @@ impl Database {
 		}
 	}
 
-	pub fn tus_get_vuser_data_timestamp_and_author(&self, com_id: &ComId, vuser: &str, slot: i32) -> Result<Option<(u64, i64)>, DbError> {
+	pub fn tus_get_vuser_data_tusdatastatus(&self, com_id: &ComId, vuser: &str, slot: i32) -> Result<Option<DbTusDataStatus>, DbError> {
 		let res = self.conn.query_row(
-			"SELECT timestamp, author_id FROM tus_data_vuser WHERE communication_id = ?1 AND vuser = ?2 AND slot_id = ?3",
+			"SELECT timestamp, author_id, data_id FROM tus_data_vuser WHERE communication_id = ?1 AND vuser = ?2 AND slot_id = ?3",
 			rusqlite::params![com_id, vuser, slot],
-			|r| Ok((r.get_unwrap(0), r.get_unwrap(1))),
+			|r| {
+				Ok(DbTusDataStatus {
+					timestamp: r.get_unwrap(0),
+					author_id: r.get_unwrap(1),
+					data_id: r.get_unwrap(2),
+				})
+			},
 		);
 
 		match res {
