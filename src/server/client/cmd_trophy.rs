@@ -48,7 +48,7 @@ impl Client {
 			return Err(ErrorType::InvalidInput);
 		}
 
-		let mut local_trophies: Vec<(i32, u64)> = Vec::with_capacity(count as usize);
+		let mut local_trophies: Vec<(i32, i64)> = Vec::with_capacity(count as usize);
 		for _ in 0..count {
 			let tid = data.get::<i32>();
 			let ts = data.get::<u64>();
@@ -60,19 +60,18 @@ impl Client {
 				warn!("SyncTrophies: negative trophy_id {} in local list", tid);
 				return Err(ErrorType::InvalidInput);
 			}
-			local_trophies.push((tid, ts));
+			local_trophies.push((tid, ts as i64));
 		}
 
 		let communication_id = com_id_to_string(&com_id);
 
 		let db = Database::new(self.get_database_connection()?);
 
-		for (tid, ts) in &local_trophies {
-			if let Err(e) = db.record_user_trophy(self.client_info.user_id, &communication_id, *tid, *ts as i64) {
-				error!("SyncTrophies: failed to record trophy {}: {:?}", tid, e);
-				return Err(ErrorType::DbFail);
-			}
-		}
+		db.record_user_trophies_bulk(self.client_info.user_id, &communication_id, &local_trophies)
+			.map_err(|e| {
+				error!("SyncTrophies: failed to bulk record trophies: {:?}", e);
+				ErrorType::DbFail
+			})?;
 
 		let server_trophies = db.get_user_trophies(self.client_info.user_id, &communication_id).map_err(|e| {
 			error!("SyncTrophies: failed to query server trophies: {:?}", e);
