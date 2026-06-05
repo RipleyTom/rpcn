@@ -15,6 +15,44 @@ impl Database {
 		Ok(())
 	}
 
+	pub fn record_user_trophies_bulk(&self, user_id: i64, communication_id: &str, trophies: &[(i32, i64)]) -> Result<(), DbError> {
+		if trophies.is_empty() {
+			return Ok(());
+		}
+
+		for chunk in trophies.chunks(500) {
+			let placeholders: String = chunk
+				.iter()
+				.enumerate()
+				.map(|(i, _)| format!("(?1, ?2, ?{}, ?{})", i * 2 + 3, i * 2 + 4))
+				.collect::<Vec<_>>()
+				.join(", ");
+
+			let sql = format!(
+				"INSERT OR IGNORE INTO user_trophies (user_id, communication_id, trophy_id, earned_at) VALUES {}",
+				placeholders
+			);
+
+			let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![
+				Box::new(user_id),
+				Box::new(communication_id.to_owned()),
+			];
+			for (tid, ts) in chunk {
+				params.push(Box::new(*tid));
+				params.push(Box::new(*ts));
+			}
+
+			self.conn
+				.execute(&sql, rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())))
+				.map_err(|e| {
+					error!("Unexpected error bulk recording user trophies: {}", e);
+					DbError::Internal
+				})?;
+		}
+
+		Ok(())
+	}
+
 	pub fn get_user_trophies(&self, user_id: i64, communication_id: &str) -> Result<Vec<(i32, u64)>, DbError> {
 		let mut stmt = self
 			.conn
