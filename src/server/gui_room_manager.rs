@@ -197,15 +197,15 @@ impl GuiRoom {
 	fn gen_MatchingRoomStatus(&self, id: &GuiRoomId, member_filter: Option<i64>, extra_member: Option<&GuiRoomMember>) -> MatchingRoomStatus {
 		let mut members = Vec::new();
 
-		if let Some(user_id) = member_filter
-			&& user_id != 0
-		{
-			if let Some(member) = self.members.get(&user_id) {
-				members.push(member.to_protobuf());
-			}
-		} else {
-			for member in self.members.values() {
-				members.push(member.to_protobuf());
+		if let Some(user_id) = member_filter {
+			if user_id != 0 {
+				if let Some(member) = self.members.get(&user_id) {
+					members.push(member.to_protobuf());
+				}
+			} else {
+				for member in self.members.values() {
+					members.push(member.to_protobuf());
+				}
 			}
 		}
 
@@ -452,7 +452,7 @@ impl<'a> GuiRoomManager {
 			room.stealth = true;
 			// room.privilege_grant = false;
 			let member_ids: HashSet<i64> = room.members.keys().filter_map(|user_id| if *user_id != cinfo.user_id { Some(*user_id) } else { None }).collect();
-			let status = room.gen_MatchingRoomStatus(&room_id, None, None);
+			let status = room.gen_MatchingRoomStatus(&room_id, Some(0), None);
 			Some((member_ids, status.encode_to_vec()))
 		} else {
 			None
@@ -468,7 +468,7 @@ impl<'a> GuiRoomManager {
 		let room = GuiRoomManager::insert_room(&mut self.rooms, &mut self.comid_rooms, com_id, &room_id, GuiRoom::from_protobuf(req, com_id));
 		GuiRoomManager::add_member_to_room(&mut self.user_rooms, &room_id, cinfo, true, room);
 
-		let room_data = room.gen_MatchingRoomStatus(&room_id, None, None);
+		let room_data = room.gen_MatchingRoomStatus(&room_id, Some(0), None);
 		room_data.encode_to_vec()
 	}
 
@@ -486,7 +486,7 @@ impl<'a> GuiRoomManager {
 		let member_ids: HashSet<i64> = room.members.keys().copied().collect();
 		GuiRoomManager::add_member_to_room(&mut self.user_rooms, room_id, cinfo, false, room);
 
-		let reply = room.gen_MatchingRoomStatus(room_id, None, None).encode_to_vec();
+		let reply = room.gen_MatchingRoomStatus(room_id, Some(0), None).encode_to_vec();
 		let notif = room.gen_MatchingRoomStatus(room_id, Some(cinfo.user_id), None).encode_to_vec();
 
 		Ok((reply, member_ids, notif))
@@ -542,7 +542,7 @@ impl<'a> GuiRoomManager {
 		}
 
 		// Prepare the notification that user has left
-		let notif = room.gen_MatchingRoomStatus(room_id, Some(0), Some(&member_left)).encode_to_vec();
+		let notif = room.gen_MatchingRoomStatus(room_id, None, Some(&member_left)).encode_to_vec();
 		notifications.push((NotificationType::MemberLeftRoomGUI, notif));
 
 		Ok((reply, set_user_ids, notifications))
@@ -610,7 +610,7 @@ impl<'a> GuiRoomManager {
 					let member_ids: HashSet<i64> = room.members.keys().copied().collect();
 					GuiRoomManager::add_member_to_room(&mut self.user_rooms, room_id, cinfo, false, room);
 
-					let reply = room.gen_MatchingSearchJoinRoomInfo(room_id, None, None, &req.attrs).encode_to_vec();
+					let reply = room.gen_MatchingSearchJoinRoomInfo(room_id, Some(0), None, &req.attrs).encode_to_vec();
 					let notif = room.gen_MatchingRoomStatus(room_id, Some(cinfo.user_id), None).encode_to_vec();
 
 					return Ok((reply, member_ids, notif));
