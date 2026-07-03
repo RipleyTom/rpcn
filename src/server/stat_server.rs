@@ -17,7 +17,8 @@ use tracing::{info, warn};
 use crate::Client;
 use crate::server::GameTracker;
 use crate::server::Server;
-use crate::server::client::{COMMUNICATION_ID_SIZE, ComId, TerminateWatch, com_id_to_string};
+use crate::server::client::{COMMUNICATION_ID_SIZE, ComId, TerminateWatch, com_id_to_string, is_valid_com_id_str};
+use crate::server::database::Database;
 use crate::server::database::db_score::DbBoardInfo;
 use crate::server::score_cache::{GetScoreResultCache, ScoresCache};
 
@@ -52,6 +53,7 @@ impl JsonScoreCache {
 struct JsonCache {
 	usage_cache: CachedResponse,
 	score_cache: JsonScoreCache,
+	trophy_cache: Mutex<HashMap<String, CachedResponse>>,
 }
 
 impl JsonCache {
@@ -59,6 +61,7 @@ impl JsonCache {
 		JsonCache {
 			usage_cache: CachedResponse::new(),
 			score_cache: JsonScoreCache::new(),
+			trophy_cache: Mutex::new(HashMap::new()),
 		}
 	}
 }
@@ -70,6 +73,7 @@ pub struct StatServer {
 	cache_life: u32,
 	game_tracker: Arc<GameTracker>,
 	score_cache: Arc<ScoresCache>,
+	db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
 	json_cache: Arc<JsonCache>,
 }
 
@@ -97,6 +101,7 @@ impl Server {
 		}
 
 		let score_cache = self.score_cache.clone();
+		let db_pool = self.db_pool.clone();
 
 		if let Some((host, port)) = &bind_addr {
 			let str_addr = host.to_owned() + ":" + port;
@@ -113,7 +118,7 @@ impl Server {
 
 			info!("Stat server now waiting for connections on {}", str_addr);
 
-			let mut stat_server = StatServer::new(listener, term_watch, path, cache_life, game_tracker, score_cache);
+			let mut stat_server = StatServer::new(listener, term_watch, path, cache_life, game_tracker, score_cache, db_pool);
 
 			tokio::task::spawn(async move {
 				stat_server.server_proc().await;
@@ -125,7 +130,7 @@ impl Server {
 }
 
 impl StatServer {
-	fn new(listener: TcpListener, term_watch: TerminateWatch, path: String, cache_life: u32, game_tracker: Arc<GameTracker>, score_cache: Arc<ScoresCache>) -> StatServer {
+	fn new(listener: TcpListener, term_watch: TerminateWatch, path: String, cache_life: u32, game_tracker: Arc<GameTracker>, score_cache: Arc<ScoresCache>, db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>) -> StatServer {
 		StatServer {
 			listener,
 			term_watch,
@@ -133,6 +138,7 @@ impl StatServer {
 			cache_life,
 			game_tracker,
 			score_cache,
+			db_pool,
 			json_cache: Arc::new(JsonCache::new()),
 		}
 	}
@@ -159,10 +165,11 @@ impl StatServer {
 						let cache_life = self.cache_life;
 						let game_tracker = self.game_tracker.clone();
 						let score_cache = self.score_cache.clone();
+						let db_pool = self.db_pool.clone();
 						let json_cache = self.json_cache.clone();
 
 						tokio::task::spawn(async move {
-							if let Err(err) = http1::Builder::new().keep_alive(false).serve_connection(io, service_fn(|r| StatServer::handle_stat_server_req(r, &path, cache_life, game_tracker.clone(), score_cache.clone(), json_cache.clone()))).await {
+							if let Err(err) = http1::Builder::new().keep_alive(false).serve_connection(io, service_fn(|r| StatServer::handle_stat_server_req(r, &path, cache_life, game_tracker.clone(), score_cache.clone(), db_pool.clone(), json_cache.clone()))).await {
 								warn!("Stat: Error serving connection: {}", err);
 							}
 						});
@@ -278,12 +285,109 @@ impl StatServer {
 		Ok(Response::new("".to_owned()))
 	}
 
+	fn trophy_to_json(db_pool: &r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, communication_id: &str) -> String {
+		let conn = match db_pool.get() {
+			Ok(c) => c,
+			Err(e) => {
+				warn!("Stat: trophy_to_json: failed to get db connection: {}", e);
+				return "{}".to_owned();
+			}
+		};
+		let db = Database::new(conn);
+
+		let unique_players = db.get_unique_player_count_for_game(communication_id).unwrap_or(0);
+
+		let earner_counts = match db.get_trophy_earner_counts_for_game(communication_id) {
+			Ok(v) => v,
+			Err(e) => {
+				warn!("Stat: trophy_to_json: failed to query earner counts: {:?}", e);
+				return "{}".to_owned();
+			}
+		};
+
+		let mut res = String::from("{\n");
+		let _ = writeln!(res, "    \"communicationId\": \"{}\",", sanitize_for_json(communication_id));
+		let _ = writeln!(res, "    \"uniquePlayers\": {},", unique_players);
+		res += "    \"trophies\": [\n";
+
+		for (index, (trophy_id, earner_count)) in earner_counts.iter().enumerate() {
+			let _ = write!(res, "        {{\"trophyId\": {}, \"earnerCount\": {}}}", trophy_id, earner_count);
+			res += if index != earner_counts.len() - 1 { ",\n" } else { "\n" };
+		}
+
+		res += "    ]\n}";
+		res
+	}
+
+	fn all_trophies_for_user_to_json(db_pool: &r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, npid: &str) -> String {
+		let conn = match db_pool.get() {
+			Ok(c) => c,
+			Err(e) => {
+				warn!("Stat: failed to get db connection for user all-trophies: {}", e);
+				return "[]".to_owned();
+			}
+		};
+		let db = Database::new(conn);
+
+		let games = match db.get_all_trophies_for_user(npid) {
+			Ok(g) => g,
+			Err(_) => return "[]".to_owned(),
+		};
+
+		if games.is_empty() {
+			return "[]".to_owned();
+		}
+
+		let mut res = String::from("[\n");
+		for (game_index, (comm_id, trophies)) in games.iter().enumerate() {
+			res += "  {\n";
+			let _ = writeln!(res, "    \"communicationId\": \"{}\",", sanitize_for_json(comm_id));
+			res += "    \"trophies\": [\n";
+
+			for (i, (trophy_id, earned_at)) in trophies.iter().enumerate() {
+				let _ = write!(res, "      {{\"trophyId\": {}, \"earnedAt\": {}}}", trophy_id, earned_at);
+				res += if i != trophies.len() - 1 { ",\n" } else { "\n" };
+			}
+
+			res += "    ]\n";
+			res += if game_index != games.len() - 1 { "  },\n" } else { "  }\n" };
+		}
+		res += "]";
+		res
+	}
+
+	fn handle_all_user_trophies_req(db_pool: &r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, npid: &str) -> Result<Response<String>, Infallible> {
+		let json = StatServer::all_trophies_for_user_to_json(db_pool, npid);
+		Ok(Response::builder().header("Content-Type", "application/json").body(json).unwrap())
+	}
+
+	fn handle_trophy_req(cache_life: u32, db_pool: &r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, json_cache: &Arc<JsonCache>, communication_id: &str) -> Result<Response<String>, Infallible> {
+		if cache_life == 0 {
+			let json = StatServer::trophy_to_json(db_pool, communication_id);
+			return Ok(Response::builder().header("Content-Type", "application/json").body(json).unwrap());
+		}
+
+		let new_timestamp = Client::get_timestamp_seconds();
+		let mut trophy_map = json_cache.trophy_cache.lock();
+		let cached = trophy_map.entry(communication_id.to_owned()).or_insert_with(CachedResponse::new);
+
+		let is_stale = new_timestamp > cached.timestamp.load(Ordering::SeqCst) + cache_life;
+		if is_stale {
+			let json = StatServer::trophy_to_json(db_pool, communication_id);
+			*cached.cached_response.lock() = Response::builder().header("Content-Type", "application/json").body(json).unwrap();
+			cached.timestamp.store(new_timestamp, Ordering::SeqCst);
+		}
+
+		Ok(cached.cached_response.lock().clone())
+	}
+
 	async fn handle_stat_server_req(
 		req: Request<hyper::body::Incoming>,
 		path: &str,
 		cache_life: u32,
 		game_tracker: Arc<GameTracker>,
 		score_cache: Arc<ScoresCache>,
+		db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
 		json_cache: Arc<JsonCache>,
 	) -> Result<Response<String>, Infallible> {
 		if req.method() != Method::GET {
@@ -293,6 +397,7 @@ impl StatServer {
 		let req_path = req.uri().path();
 		let usage_path = format!("{}/usage", path);
 		let score_prefix = format!("{}/score/", path);
+		let trophy_prefix = format!("{}/trophy/", path);
 
 		if req_path == usage_path {
 			return StatServer::handle_usage_req(cache_life, &game_tracker, &json_cache);
@@ -312,6 +417,23 @@ impl StatServer {
 				} else {
 					return StatServer::handle_com_id_score_req(cache_life, &score_cache, &json_cache, &com_id);
 				}
+			}
+		}
+
+		// /user/{npid}/trophies
+		let user_prefix = format!("{}/user/", path);
+		if let Some(rest) = req_path.strip_prefix(&user_prefix) {
+			if let Some(npid) = rest.strip_suffix("/trophies") {
+				if !npid.is_empty() && npid.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') {
+					return StatServer::handle_all_user_trophies_req(&db_pool, npid);
+				}
+			}
+		}
+
+		// /trophy/{comm_id}
+		if let Some(com_id_str) = req_path.strip_prefix(&trophy_prefix) {
+			if is_valid_com_id_str(com_id_str) {
+				return StatServer::handle_trophy_req(cache_life, &db_pool, &json_cache, com_id_str);
 			}
 		}
 

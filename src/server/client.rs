@@ -8,6 +8,7 @@ mod cmd_score;
 mod cmd_server;
 mod cmd_session;
 pub mod cmd_tus;
+mod cmd_trophy;
 
 mod ticket;
 
@@ -265,6 +266,8 @@ enum CommandType {
 	QuickMatchGUI,
 	SearchJoinRoomGUI,
 	GetRoomMemberDataExternalList,
+	UnlockTrophy,
+	SyncTrophies,
 	UpdateDomainBans = 0x0100,
 	TerminateServer,
 	UpdateServersCfg,
@@ -331,6 +334,14 @@ pub enum ErrorType {
 
 pub fn com_id_to_string(com_id: &ComId) -> String {
 	com_id.iter().map(|c| *c as char).collect()
+}
+
+pub fn is_valid_com_id_str(s: &str) -> bool {
+	if s.len() != COMMUNICATION_ID_SIZE {
+		return false;
+	}
+	let b = s.as_bytes();
+	b[0..9].iter().all(|c| c.is_ascii_uppercase() || c.is_ascii_digit()) && b[9] == b'_' && b[10..12].iter().all(|c| c.is_ascii_digit())
 }
 
 impl SharedData {
@@ -724,6 +735,8 @@ impl Client {
 			CommandType::GetRoomInfoGUI => self.req_get_room_info_gui(data, reply),
 			CommandType::QuickMatchGUI => self.req_quickmatch_gui(data, reply).await,
 			CommandType::SearchJoinRoomGUI => self.req_searchjoin_gui(data, reply).await,
+			CommandType::UnlockTrophy => self.req_unlock_trophy(data, reply),
+			CommandType::SyncTrophies => self.req_sync_trophies(data, reply),
 			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
 			CommandType::TerminateServer => self.req_admin_terminate_server(),
 			CommandType::UpdateServersCfg => self.req_admin_update_servers_cfg(),
