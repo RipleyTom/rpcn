@@ -51,7 +51,7 @@ impl Client {
 		let mut local_trophies: Vec<(i32, i64)> = Vec::with_capacity(count as usize);
 		for _ in 0..count {
 			let tid = data.get::<i32>();
-			let ts = data.get::<u64>();
+			let ts = data.get::<i64>();
 			if data.error() {
 				warn!("SyncTrophies: malformed trophy entry");
 				return Err(ErrorType::Malformed);
@@ -60,7 +60,7 @@ impl Client {
 				warn!("SyncTrophies: negative trophy_id {} in local list", tid);
 				return Err(ErrorType::InvalidInput);
 			}
-			local_trophies.push((tid, ts as i64));
+			local_trophies.push((tid, ts));
 		}
 
 		let communication_id = com_id_to_string(&com_id);
