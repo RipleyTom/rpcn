@@ -1,10 +1,38 @@
 use tracing::{error, warn};
 
-use crate::server::client::{Client, ErrorType, com_id_to_string};
+use crate::server::client::{Client, ErrorType, com_id_to_string, is_valid_com_id_str};
 use crate::server::database::Database;
 use crate::server::stream_extractor::StreamExtractor;
 
 impl Client {
+	pub fn delete_trophies(&self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
+		let communication_id = data.get_string(true);
+
+		if data.error() {
+			warn!("DeleteTrophies: malformed packet");
+			return Err(ErrorType::Malformed);
+		}
+
+		if !communication_id.is_empty() && !is_valid_com_id_str(&communication_id) {
+			warn!("DeleteTrophies: invalid communication id {}", communication_id);
+			return Err(ErrorType::InvalidInput);
+		}
+
+		let db = Database::new(self.get_database_connection()?);
+		let user_id = self.client_info.user_id;
+
+		db.delete_user_trophies(user_id, &communication_id).map_err(|e| {
+			if communication_id.is_empty() {
+				error!("DeleteTrophies: failed to delete all trophies for user_id={}: {:?}", user_id, e);
+			} else {
+				error!("DeleteTrophies: failed to delete trophies for user_id={} communication_id={}: {:?}", user_id, communication_id, e);
+			}
+			ErrorType::DbFail
+		})?;
+
+		Ok(ErrorType::NoError)
+	}
+
 	pub fn req_unlock_trophy(&mut self, data: &mut StreamExtractor, _reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = data.get_com_id();
 		let trophy_id = data.get::<i32>();
