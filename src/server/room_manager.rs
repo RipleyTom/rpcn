@@ -850,7 +850,10 @@ impl Room {
 	}
 
 	fn is_slot_private(&self, slot: usize) -> bool {
-		(self.password_slot_mask & (64 - slot as u64)) != 0
+		if slot == 0 || slot > 64 {
+			return false;
+		}
+		((self.password_slot_mask >> (64 - slot as u32)) & 1) != 0
 	}
 
 	fn occupy_slot(&mut self, slot: usize) -> u16 {
@@ -1742,5 +1745,39 @@ impl RoomManager {
 		}
 
 		Some(self.user_rooms.get(&user).unwrap().clone())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::Room;
+	use crate::server::stream_extractor::np2_structs::CreateJoinRoomRequest;
+
+	#[test]
+	fn slot_private_mask_uses_the_correct_bit_for_each_slot() {
+		let mut request = CreateJoinRoomRequest::default();
+		request.max_slot = 4;
+
+		let mut room = Room::from_protobuf(&request).unwrap();
+		room.password_slot_mask = 1u64 << 63;
+
+		assert!(room.is_slot_private(1));
+		assert!(!room.is_slot_private(2));
+		assert!(!room.is_slot_private(3));
+		assert!(!room.is_slot_private(4));
+	}
+
+	#[test]
+	fn slot_private_mask_covers_the_expected_slot_range() {
+		let mut request = CreateJoinRoomRequest::default();
+		request.max_slot = 4;
+
+		let mut room = Room::from_protobuf(&request).unwrap();
+		room.password_slot_mask = (1u64 << 63) | (1u64 << 61);
+
+		assert!(room.is_slot_private(1));
+		assert!(!room.is_slot_private(2));
+		assert!(room.is_slot_private(3));
+		assert!(!room.is_slot_private(4));
 	}
 }
