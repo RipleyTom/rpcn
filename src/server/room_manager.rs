@@ -263,7 +263,7 @@ impl SignalParam {
 	}
 
 	pub fn get_type(&self) -> SignalingType {
-		self.sig_type.clone()
+		self.sig_type
 	}
 
 	pub fn get_hub(&self) -> u16 {
@@ -850,7 +850,7 @@ impl Room {
 	}
 
 	fn is_slot_private(&self, slot: usize) -> bool {
-		(self.password_slot_mask & (64 - slot as u64)) != 0
+		((self.password_slot_mask >> (64 - slot as u32)) & 1) != 0
 	}
 
 	fn occupy_slot(&mut self, slot: usize) -> u16 {
@@ -1488,7 +1488,7 @@ impl RoomManager {
 		}
 
 		let room = self.get_room(com_id, room_id);
-		let members: Vec<RoomMemberDataExternal> = room.users.iter().map(|(_, user)| user.to_roomMemberDataExternal()).collect();
+		let members: Vec<RoomMemberDataExternal> = room.users.values().map(|user| user.to_roomMemberDataExternal()).collect();
 
 		let resp = GetRoomMemberDataExternalListResponse { members };
 

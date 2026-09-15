@@ -4,8 +4,8 @@ use prost::Message;
 use tokio::fs;
 
 use crate::server::Server;
-use crate::server::client::*;
 use crate::server::cleaners;
+use crate::server::client::*;
 use crate::server::database::DbError;
 use crate::server::database::db_tus::DbTusDataStatus;
 
@@ -693,7 +693,7 @@ impl Client {
 						self.queue_file_cleaner(Client::get_timestamp_seconds() + (5 * 60), cleaners::FileType::TusDataFile(old_data_id)).await;
 					}
 					Ok(ErrorType::NoError)
-				},
+				}
 				Err(DbError::Empty) => {
 					Client::delete_tus_data(data_id).await;
 					Ok(ErrorType::CondFail)
@@ -727,7 +727,7 @@ impl Client {
 						self.queue_file_cleaner(Client::get_timestamp_seconds() + (5 * 60), cleaners::FileType::TusDataFile(old_data_id)).await;
 					}
 					Ok(ErrorType::NoError)
-				},
+				}
 				Err(DbError::Empty) => {
 					Client::delete_tus_data(data_id).await;
 					Ok(ErrorType::CondFail)

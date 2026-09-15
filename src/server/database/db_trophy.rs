@@ -1,15 +1,13 @@
-use tracing::error;
 use crate::server::database::*;
+use tracing::error;
 
 impl Database {
 	pub fn delete_user_trophies(&self, user_id: i64, communication_id: &str) -> Result<(), DbError> {
 		let result = if communication_id.is_empty() {
 			self.conn.execute("DELETE FROM user_trophies WHERE user_id = ?1", rusqlite::params![user_id])
 		} else {
-			self.conn.execute(
-				"DELETE FROM user_trophies WHERE user_id = ?1 AND communication_id = ?2",
-				rusqlite::params![user_id, communication_id],
-			)
+			self.conn
+				.execute("DELETE FROM user_trophies WHERE user_id = ?1 AND communication_id = ?2", rusqlite::params![user_id, communication_id])
 		};
 
 		result.map_err(|e| {
@@ -51,26 +49,18 @@ impl Database {
 				.collect::<Vec<_>>()
 				.join(", ");
 
-			let sql = format!(
-				"INSERT OR IGNORE INTO user_trophies (user_id, communication_id, trophy_id, earned_at) VALUES {}",
-				placeholders
-			);
+			let sql = format!("INSERT OR IGNORE INTO user_trophies (user_id, communication_id, trophy_id, earned_at) VALUES {}", placeholders);
 
-			let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![
-				Box::new(user_id),
-				Box::new(communication_id.to_owned()),
-			];
+			let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(user_id), Box::new(communication_id.to_owned())];
 			for (tid, ts) in chunk {
 				params.push(Box::new(*tid));
 				params.push(Box::new(*ts));
 			}
 
-			self.conn
-				.execute(&sql, rusqlite::params_from_iter(params.iter().map(|p| p.as_ref())))
-				.map_err(|e| {
-					error!("Unexpected error bulk recording user trophies: {}", e);
-					DbError::Internal
-				})?;
+			self.conn.execute(&sql, rusqlite::params_from_iter(params.iter().map(|p| p.as_ref()))).map_err(|e| {
+				error!("Unexpected error bulk recording user trophies: {}", e);
+				DbError::Internal
+			})?;
 		}
 
 		Ok(())
@@ -159,12 +149,10 @@ impl Database {
 				DbError::Internal
 			})?;
 
-		let rows = stmt
-			.query_map(rusqlite::params![communication_id], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, i64>(1)?)))
-			.map_err(|e| {
-				error!("Failed to query trophy earner counts for {}: {}", communication_id, e);
-				DbError::Internal
-			})?;
+		let rows = stmt.query_map(rusqlite::params![communication_id], |r| Ok((r.get::<_, i32>(0)?, r.get::<_, i64>(1)?))).map_err(|e| {
+			error!("Failed to query trophy earner counts for {}: {}", communication_id, e);
+			DbError::Internal
+		})?;
 
 		let mut result = Vec::new();
 		for row in rows {

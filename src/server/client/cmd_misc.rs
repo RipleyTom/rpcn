@@ -1,4 +1,5 @@
 use std::io::Cursor;
+use tokio::fs;
 
 use crate::server::client::*;
 
@@ -235,6 +236,38 @@ impl Client {
 		}
 
 		Ok(ErrorType::NoError)
+	}
+
+	pub async fn get_tss(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
+		let com_id = data.get_com_id();
+		let tss_slot_id = data.get::<i32>();
+
+		if data.error() {
+			warn!("Error while extracting data from GetTss command");
+			return Err(ErrorType::Malformed);
+		}
+
+		if tss_slot_id < 0 || tss_slot_id > 15 {
+			warn!("Invalid tss_slot_id in GetTss command: {}", tss_slot_id);
+			return Err(ErrorType::Malformed);
+		}
+
+		const TSS_DATA_DIRECTORY: &str = "tss_data";
+		const TSS_FILE_EXTENSION: &str = "tss";
+
+		let path = format!("{}/{}-{}.{}", TSS_DATA_DIRECTORY, com_id_to_string(&com_id), tss_slot_id, TSS_FILE_EXTENSION);
+		let file_data = fs::read(&path).await;
+
+		match file_data {
+			Ok(file_data) => {
+				Client::add_data_packet(reply, &file_data);
+				Ok(ErrorType::NoError)
+			}
+			Err(e) => {
+				info!("Failed to read tss file {}: {}", &path, e);
+				Ok(ErrorType::NotFound)
+			}
+		}
 	}
 
 	pub async fn reset_state(&mut self) -> Result<ErrorType, ErrorType> {

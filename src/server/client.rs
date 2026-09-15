@@ -7,8 +7,8 @@ mod cmd_room_gui;
 mod cmd_score;
 mod cmd_server;
 mod cmd_session;
-pub mod cmd_tus;
 mod cmd_trophy;
+pub mod cmd_tus;
 
 mod ticket;
 
@@ -32,10 +32,10 @@ use tokio_rustls::server::TlsStream;
 use tracing::{Instrument, error, error_span, info, trace, warn};
 
 use crate::Config;
+use crate::server::cleaners;
 use crate::server::client::cmd_session::ClientSharedSessionInfo;
 use crate::server::client::notifications::NotificationType;
 use crate::server::client::ticket::Ticket;
-use crate::server::cleaners;
 use crate::server::database::Database;
 use crate::server::game_tracker::GameTracker;
 use crate::server::gui_room_manager::GuiRoomManager;
@@ -269,6 +269,7 @@ enum CommandType {
 	UnlockTrophy,
 	SyncTrophies,
 	DeleteTrophies,
+	GetTss,
 	UpdateDomainBans = 0x0100,
 	TerminateServer,
 	UpdateServersCfg,
@@ -739,6 +740,7 @@ impl Client {
 			CommandType::UnlockTrophy => self.req_unlock_trophy(data, reply),
 			CommandType::SyncTrophies => self.req_sync_trophies(data, reply),
 			CommandType::DeleteTrophies => self.delete_trophies(data),
+			CommandType::GetTss => self.get_tss(data, reply).await,
 			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
 			CommandType::TerminateServer => self.req_admin_terminate_server(),
 			CommandType::UpdateServersCfg => self.req_admin_update_servers_cfg(),

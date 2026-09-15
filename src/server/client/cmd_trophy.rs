@@ -52,11 +52,10 @@ impl Client {
 
 		let db = Database::new(self.get_database_connection()?);
 
-		db.record_user_trophy(self.client_info.user_id, &communication_id, trophy_id, timestamp as i64)
-			.map_err(|e| {
-				error!("UnlockTrophy: db error: {:?}", e);
-				ErrorType::DbFail
-			})?;
+		db.record_user_trophy(self.client_info.user_id, &communication_id, trophy_id, timestamp as i64).map_err(|e| {
+			error!("UnlockTrophy: db error: {:?}", e);
+			ErrorType::DbFail
+		})?;
 
 		Ok(ErrorType::NoError)
 	}
@@ -95,11 +94,10 @@ impl Client {
 
 		let db = Database::new(self.get_database_connection()?);
 
-		db.record_user_trophies_bulk(self.client_info.user_id, &communication_id, &local_trophies)
-			.map_err(|e| {
-				error!("SyncTrophies: failed to bulk record trophies: {:?}", e);
-				ErrorType::DbFail
-			})?;
+		db.record_user_trophies_bulk(self.client_info.user_id, &communication_id, &local_trophies).map_err(|e| {
+			error!("SyncTrophies: failed to bulk record trophies: {:?}", e);
+			ErrorType::DbFail
+		})?;
 
 		let server_trophies = db.get_user_trophies(self.client_info.user_id, &communication_id).map_err(|e| {
 			error!("SyncTrophies: failed to query server trophies: {:?}", e);
