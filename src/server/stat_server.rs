@@ -105,16 +105,14 @@ impl Server {
 
 		if let Some((host, port)) = &bind_addr {
 			let str_addr = host.to_owned() + ":" + port;
-			let mut addr = str_addr
-				.to_socket_addrs()
-				.map_err(|e| io::Error::new(e.kind(), format!("Stat: {} is not a valid address", &str_addr)))?;
+			let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("Stat: {} is not a valid address", str_addr)))?;
 			let addr = addr
 				.next()
-				.ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("Stat: {} is not a valid address", &str_addr)))?;
+				.ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("Stat: {} is not a valid address", str_addr)))?;
 
 			let listener = TcpListener::bind(addr)
 				.await
-				.map_err(|e| io::Error::new(e.kind(), format!("Stat: error binding to <{}>: {}", &addr, e)))?;
+				.map_err(|e| io::Error::new(e.kind(), format!("Stat: error binding to <{}>: {}", addr, e)))?;
 
 			info!("Stat server now waiting for connections on {}", str_addr);
 
@@ -130,7 +128,15 @@ impl Server {
 }
 
 impl StatServer {
-	fn new(listener: TcpListener, term_watch: TerminateWatch, path: String, cache_life: u32, game_tracker: Arc<GameTracker>, score_cache: Arc<ScoresCache>, db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>) -> StatServer {
+	fn new(
+		listener: TcpListener,
+		term_watch: TerminateWatch,
+		path: String,
+		cache_life: u32,
+		game_tracker: Arc<GameTracker>,
+		score_cache: Arc<ScoresCache>,
+		db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
+	) -> StatServer {
 		StatServer {
 			listener,
 			term_watch,
@@ -422,19 +428,19 @@ impl StatServer {
 
 		// /user/{npid}/trophies
 		let user_prefix = format!("{}/user/", path);
-		if let Some(rest) = req_path.strip_prefix(&user_prefix) {
-			if let Some(npid) = rest.strip_suffix("/trophies") {
-				if !npid.is_empty() && npid.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_') {
-					return StatServer::handle_all_user_trophies_req(&db_pool, npid);
-				}
-			}
+		if let Some(rest) = req_path.strip_prefix(&user_prefix)
+			&& let Some(npid) = rest.strip_suffix("/trophies")
+			&& !npid.is_empty()
+			&& npid.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+		{
+			return StatServer::handle_all_user_trophies_req(&db_pool, npid);
 		}
 
 		// /trophy/{comm_id}
-		if let Some(com_id_str) = req_path.strip_prefix(&trophy_prefix) {
-			if is_valid_com_id_str(com_id_str) {
-				return StatServer::handle_trophy_req(cache_life, &db_pool, &json_cache, com_id_str);
-			}
+		if let Some(com_id_str) = req_path.strip_prefix(&trophy_prefix)
+			&& is_valid_com_id_str(com_id_str)
+		{
+			return StatServer::handle_trophy_req(cache_life, &db_pool, &json_cache, com_id_str);
 		}
 
 		Ok(Response::new("".to_owned()))

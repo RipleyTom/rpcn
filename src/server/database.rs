@@ -11,8 +11,8 @@ use crate::server::Server;
 use crate::server::client::*;
 
 pub mod db_score;
-pub mod db_tus;
 pub mod db_trophy;
+pub mod db_tus;
 
 pub struct Database {
 	conn: r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>,

@@ -39,7 +39,7 @@ use crate::server::database::Database;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 32;
+const PROTOCOL_VERSION: u32 = 33;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
@@ -157,10 +157,10 @@ impl Server {
 	pub fn start(&mut self) -> io::Result<()> {
 		// Parse host address
 		let str_addr = self.config.read().get_host_ipv4().clone() + ":" + self.config.read().get_port();
-		let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("{} is not a valid address", &str_addr)))?;
+		let mut addr = str_addr.to_socket_addrs().map_err(|e| io::Error::new(e.kind(), format!("{} is not a valid address", str_addr)))?;
 		let addr = addr
 			.next()
-			.ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("{} is not a valid address", &str_addr)))?;
+			.ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("{} is not a valid address", str_addr)))?;
 
 		let server_config = Server::load_certificate().inspect_err(|_| {
 			println!("A certificate error occurred. To generate a certificate, run:");
@@ -192,7 +192,7 @@ impl Server {
 			self.start_cleaner_task(term_watch.clone(), self.db_pool.clone(), self.client_infos.clone()).await;
 			self.start_filecleaner_task(term_watch.clone(), filecleaner_recv).await;
 
-			let listener = TcpListener::bind(&addr).await.map_err(|e| io::Error::new(e.kind(), format!("Error binding to <{}>: {}", &addr, e)))?;
+			let listener = TcpListener::bind(&addr).await.map_err(|e| io::Error::new(e.kind(), format!("Error binding to <{}>: {}", addr, e)))?;
 			info!("Now waiting for connections on <{}>", &addr);
 
 			'main_loop: loop {

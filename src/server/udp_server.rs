@@ -73,7 +73,7 @@ impl UdpServer {
 				warn!("Failed to bind to IPv6({}): {}", bind_addr_ipv6, e);
 				UdpSocket::bind(&bind_addr_ipv4)
 					.await
-					.map_err(|e| io::Error::new(e.kind(), format!("Error binding udp server to IPv4({}): {}", &bind_addr_ipv4, e)))?
+					.map_err(|e| io::Error::new(e.kind(), format!("Error binding udp server to IPv4({}): {}", bind_addr_ipv4, e)))?
 			} else {
 				sock_res.unwrap()
 			}
