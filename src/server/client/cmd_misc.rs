@@ -241,6 +241,7 @@ impl Client {
 	pub async fn get_tss(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let com_id = data.get_com_id();
 		let tss_slot_id = data.get::<i32>();
+		let timestamp = data.get::<u64>();
 
 		if data.error() {
 			warn!("Error while extracting data from GetTss command");
@@ -256,10 +257,24 @@ impl Client {
 		const TSS_FILE_EXTENSION: &str = "tss";
 
 		let path = format!("{}/{}-{}.{}", TSS_DATA_DIRECTORY, com_id_to_string(&com_id), tss_slot_id, TSS_FILE_EXTENSION);
+
+		let mtime = match fs::metadata(&path).await.and_then(|m| m.modified()) {
+			Ok(mtime) => Client::to_psn_timestamp(mtime),
+			Err(e) => {
+				info!("Failed to get mtime of tss file {}: {}", &path, e);
+				return Ok(ErrorType::NotFound);
+			}
+		};
+
+		if timestamp != 0 && mtime <= timestamp {
+			return Ok(ErrorType::CondFail);
+		}
+
 		let file_data = fs::read(&path).await;
 
 		match file_data {
 			Ok(file_data) => {
+				reply.extend(mtime.to_le_bytes());
 				Client::add_data_packet(reply, &file_data);
 				Ok(ErrorType::NoError)
 			}
