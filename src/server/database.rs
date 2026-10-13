@@ -1,11 +1,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
-use std::fs::File;
-use std::io::Read;
 use std::{fs, io};
 
 use rand::prelude::*;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 
 use crate::server::Server;
 use crate::server::client::*;
@@ -102,7 +100,7 @@ struct MigrationData {
 
 static DATABASE_PATH: &str = "db/rpcn.db";
 
-static DATABASE_MIGRATIONS: [MigrationData; 12] = [
+static DATABASE_MIGRATIONS: [MigrationData; 13] = [
 	MigrationData {
 		version: 1,
 		text: "Initial setup",
@@ -162,6 +160,11 @@ static DATABASE_MIGRATIONS: [MigrationData; 12] = [
 		version: 12,
 		text: "Adding tables for trophies",
 		function: add_trophy_tables,
+	},
+	MigrationData {
+		version: 13,
+		text: "Removing server, world and lobby tables",
+		function: remove_server_world_lobby_tables,
 	},
 ];
 
@@ -537,6 +540,15 @@ fn add_trophy_tables(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnection
 	Ok(())
 }
 
+fn remove_server_world_lobby_tables(conn: &r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Result<(), String> {
+	for table in ["lobby", "world", "server"] {
+		let query = format!("DROP TABLE IF EXISTS {}", table);
+		conn.execute(&query, []).map_err(|e| format!("Failed to drop {} table: {}", table, e))?;
+	}
+
+	Ok(())
+}
+
 impl Server {
 	pub fn initialize_database(admin_list: &[String]) -> Result<r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>, String> {
 		match fs::create_dir("db") {
@@ -601,14 +613,6 @@ impl Server {
 			let _ = conn.execute(&set_admin_cmd, []);
 		}
 
-		// Load presets for game servers configurations
-		{
-			let db = Database::new(conn);
-			if let Err(e) = db.update_servers_cfg() {
-				println!("Failed to load servers.cfg: {}!", e);
-			}
-		}
-
 		Ok(pool)
 	}
 }
@@ -655,60 +659,6 @@ fn generate_string_from_slot_list(slot_list: &[i32]) -> String {
 impl Database {
 	pub fn new(conn: r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>) -> Database {
 		Database { conn }
-	}
-
-	pub fn update_servers_cfg(&self) -> Result<(), DbError> {
-		let mut file = File::open("servers.cfg").map_err(|_| DbError::Internal)?;
-
-		let mut buf_file = String::new();
-		file.read_to_string(&mut buf_file).map_err(|_| DbError::Internal)?;
-
-		let config_servers: Vec<(String, u16, u32, Vec<u64>)> = buf_file
-			.lines()
-			.filter_map(|l| {
-				if l.trim().is_empty() || l.trim().chars().nth(0).unwrap() == '#' {
-					return None;
-				}
-
-				let servers_infos: Vec<&str> = l.trim().split('|').map(|v| v.trim()).collect();
-				if servers_infos.len() != 4 || servers_infos[0].len() != COMMUNICATION_ID_SIZE {
-					println!("servers.cfg: line({}) was considered invalid and was skipped", l);
-					return None;
-				}
-
-				let com_id = servers_infos[0].to_owned();
-				let server = servers_infos[1].parse::<u16>();
-				let world = servers_infos[2].parse::<u32>();
-				let lobbies: Result<Vec<u64>, _> = if servers_infos[3].trim().is_empty() {
-					Ok(Vec::new())
-				} else {
-					servers_infos[3].trim().split(',').map(|s| s.parse::<u64>()).collect()
-				};
-
-				if server.is_err() || world.is_err() || lobbies.is_err() {
-					println!("servers.cfg: line({}) couldn't be parsed and was skipped", l);
-					return None;
-				}
-
-				Some((com_id, server.unwrap(), world.unwrap(), lobbies.unwrap()))
-			})
-			.collect();
-
-		for (com_id, server, world, lobbies) in &config_servers {
-			let _ = self
-				.conn
-				.execute("INSERT INTO server ( communication_id, server_id ) VALUES (?1, ?2)", rusqlite::params![com_id, server]);
-			let _ = self.conn.execute(
-				"INSERT INTO world ( communication_id, server_id, world_id ) VALUES (?1, ?2, ?3)",
-				rusqlite::params![com_id, server, world],
-			);
-			for lobby in lobbies {
-				let _ = self
-					.conn
-					.execute("INSERT INTO lobby (communication_id, world_id, lobby_id) VALUES (?1, ?2, ?3)", rusqlite::params![com_id, world, lobby]);
-			}
-		}
-		Ok(())
 	}
 
 	pub fn cleanup_expired_hashes(&self) -> Result<(u64, u64), DbError> {
@@ -1130,135 +1080,6 @@ impl Database {
 		Ok(vec_user_infos)
 	}
 
-	pub fn create_server(&self, com_id: &ComId, server_id: u16) -> Result<(), DbError> {
-		let com_id_str = com_id_to_string(com_id);
-
-		if server_id != 1 {
-			warn!("Attempted to create an invalid server({}) for {}", server_id, com_id_str);
-			return Err(DbError::Internal);
-		}
-
-		info!("Creating server {} for {}", server_id, com_id_str);
-		if let Err(e) = self
-			.conn
-			.execute("INSERT INTO server ( communication_id, server_id ) VALUES (?1, ?2)", rusqlite::params![com_id_str, server_id])
-		{
-			error!("Unexpected error creating server({}:{}): {}", &com_id_str, server_id, e);
-			return Err(DbError::Internal);
-		}
-
-		Ok(())
-	}
-
-	pub fn get_server_list(&self, com_id: &ComId, create_missing: bool) -> Result<Vec<u16>, DbError> {
-		let com_id_str = com_id_to_string(com_id);
-		let mut list_servers = Vec::new();
-		{
-			let mut stmt = self.conn.prepare("SELECT server_id FROM server WHERE communication_id = ?1").unwrap();
-			let server_iter = stmt.query_map(rusqlite::params![com_id_str], |r| r.get(0)).expect("Server query failed!");
-
-			for sid in server_iter {
-				list_servers.push(sid.unwrap());
-			}
-		}
-
-		if list_servers.is_empty() && create_missing {
-			// Creates a server so the server list is not empty
-			self.create_server(com_id, 1)?;
-			return self.get_server_list(com_id, false);
-		}
-
-		Ok(list_servers)
-	}
-	pub fn get_world_list(&self, com_id: &ComId, server_id: u16, create_missing: bool) -> Result<Vec<u32>, DbError> {
-		let com_id_str = com_id_to_string(com_id);
-		// Ensures server exists
-		{
-			let count: rusqlite::Result<i64> = self.conn.query_row(
-				"SELECT COUNT(*) FROM server WHERE communication_id = ?1 AND server_id = ?2",
-				rusqlite::params![com_id_str, server_id],
-				|r| r.get(0),
-			);
-			if let Err(e) = count {
-				error!("Unexpected error querying for server existence: {}", e);
-				return Err(DbError::Internal);
-			}
-
-			if count.unwrap() == 0 {
-				warn!("Attempted to query world list on a non-existing server({}:{})", &com_id_str, server_id);
-				return Err(DbError::Empty);
-
-				// This was initially assumed that some games would hardcode those but this doesn't seem to be the case
-				// The few cases where it has happened seems to mostly have been client sending an uninitialized value
-
-				// // Some games request a specifically hardcoded server, just create it for them
-				// if create_missing {
-				// 	self.create_server(com_id, server_id)?;
-				// 	return self.get_world_list(com_id, server_id, false);
-				// } else {
-				// 	warn!("Attempted to query world list on an unexisting server({}:{})", &com_id_str, server_id);
-				// 	return Err(DbError::Empty);
-				// }
-			}
-		}
-
-		let mut list_worlds = Vec::new();
-		{
-			let mut stmt = self.conn.prepare("SELECT world_id FROM world WHERE communication_id = ?1 AND server_id = ?2").unwrap();
-			let world_iter = stmt.query_map(rusqlite::params![com_id_str, server_id], |r| r.get(0)).expect("World query failed!");
-
-			for wid in world_iter {
-				list_worlds.push(wid.unwrap());
-			}
-		}
-
-		if list_worlds.is_empty() && create_missing {
-			// Create a world so that the list is not empty
-			let cur_max_res: rusqlite::Result<u32> = self
-				.conn
-				.query_row("SELECT MAX(world_id) FROM world WHERE communication_id = ?1", rusqlite::params![com_id_str], |r| r.get(0));
-
-			let new_wid = if let Ok(cur_max_res) = cur_max_res { cur_max_res + 1 } else { 65537 };
-
-			info!("Creating world {} for server {}:{}", new_wid, &com_id_str, server_id);
-			if let Err(e) = self.conn.execute(
-				"INSERT INTO world ( communication_id, server_id, world_id ) VALUES (?1, ?2, ?3)",
-				rusqlite::params![com_id_str, server_id, new_wid],
-			) {
-				error!("Unexpected error inserting a world: {}", e);
-				return Err(DbError::Internal);
-			}
-			return self.get_world_list(com_id, server_id, false);
-		}
-
-		Ok(list_worlds)
-	}
-	pub fn get_corresponding_server(&self, com_id: &ComId, world_id: u32, lobby_id: u64) -> Result<u16, rusqlite::Error> {
-		let com_id_str = com_id_to_string(com_id);
-
-		if world_id == 0 && lobby_id == 0 {
-			warn!("Attempted to get server for com_id {} from world(0) and lobby(0)", &com_id_str);
-			return Err(rusqlite::Error::InvalidQuery);
-		}
-
-		let mut world_id = world_id;
-
-		if world_id == 0 {
-			world_id = self.conn.query_row(
-				"SELECT world_id FROM lobby WHERE communication_id = ?1 AND lobby_id = ?2",
-				rusqlite::params![com_id_str, lobby_id as i64],
-				|r| r.get(0),
-			)?;
-		}
-
-		let serv: rusqlite::Result<u16> = self.conn.query_row(
-			"SELECT server_id FROM world WHERE communication_id = ?1 AND world_id = ?2",
-			rusqlite::params![com_id_str, world_id],
-			|r| r.get(0),
-		);
-
-		serv
-	}
 	fn get_ordered_userids(user_id_1: i64, user_id_2: i64) -> (i64, i64, bool) {
 		if user_id_1 < user_id_2 { (user_id_1, user_id_2, false) } else { (user_id_2, user_id_1, true) }
 	}

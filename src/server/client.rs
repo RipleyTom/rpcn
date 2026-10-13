@@ -37,6 +37,7 @@ use crate::server::client::cmd_session::ClientSharedSessionInfo;
 use crate::server::client::notifications::NotificationType;
 use crate::server::client::ticket::Ticket;
 use crate::server::database::Database;
+use crate::server::game_infos::GameInfos;
 use crate::server::game_tracker::GameTracker;
 use crate::server::gui_room_manager::GuiRoomManager;
 use crate::server::room_manager::RoomManager;
@@ -176,6 +177,7 @@ pub struct SharedData {
 	score_cache: Arc<ScoresCache>,
 	game_tracker: Arc<GameTracker>,
 	cleanup_duty: Arc<RwLock<HashSet<i64>>>,
+	game_infos: Arc<RwLock<GameInfos>>,
 }
 
 #[derive(Clone)]
@@ -354,6 +356,7 @@ impl SharedData {
 		score_cache: Arc<ScoresCache>,
 		game_tracker: Arc<GameTracker>,
 		cleanup_duty: Arc<RwLock<HashSet<i64>>>,
+		game_infos: Arc<RwLock<GameInfos>>,
 	) -> SharedData {
 		SharedData {
 			gui_room_manager,
@@ -362,6 +365,7 @@ impl SharedData {
 			score_cache,
 			game_tracker,
 			cleanup_duty,
+			game_infos,
 		}
 	}
 }
@@ -765,7 +769,10 @@ impl Client {
 		Client::get_timestamp_seconds() / (60 * 60 * 24)
 	}
 	pub fn get_psn_timestamp() -> u64 {
-		(SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_micros() + (62_135_596_800 * 1000 * 1000)) as u64
+		Client::to_psn_timestamp(SystemTime::now())
+	}
+	pub fn to_psn_timestamp(time: SystemTime) -> u64 {
+		(time.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_micros() + (62_135_596_800 * 1000 * 1000)) as u64
 	}
 
 	fn get_database_connection(&self) -> Result<r2d2::PooledConnection<r2d2_sqlite::SqliteConnectionManager>, ErrorType> {

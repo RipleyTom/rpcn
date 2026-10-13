@@ -1,5 +1,7 @@
 // Server/World Commands
 
+use parking_lot::RwLockUpgradableReadGuard;
+
 use crate::server::client::*;
 
 impl Client {
@@ -11,11 +13,15 @@ impl Client {
 			return Err(ErrorType::Malformed);
 		}
 
-		let servs = Database::new(self.get_database_connection()?).get_server_list(&com_id, self.config.read().is_create_missing());
-		if servs.is_err() {
-			return Err(ErrorType::DbFail);
-		}
-		let servs = servs.unwrap();
+		let servs = {
+			let game_infos = self.shared.game_infos.upgradable_read();
+			let servs = game_infos.get_server_list(&com_id);
+			if servs.is_empty() && self.config.read().is_create_missing() {
+				RwLockUpgradableReadGuard::upgrade(game_infos).create_default_server(&com_id)
+			} else {
+				servs
+			}
+		};
 
 		let num_servs = servs.len() as u16;
 		reply.extend(&num_servs.to_le_bytes());
@@ -36,11 +42,16 @@ impl Client {
 			return Err(ErrorType::Malformed);
 		}
 
-		let worlds = Database::new(self.get_database_connection()?).get_world_list(&com_id, server_id, self.config.read().is_create_missing());
-		if worlds.is_err() {
-			return Err(ErrorType::DbFail);
-		}
-		let worlds = worlds.unwrap();
+		let worlds = {
+			let game_infos = self.shared.game_infos.upgradable_read();
+			match game_infos.get_world_list(&com_id, server_id) {
+				None => return Err(ErrorType::DbFail),
+				Some(worlds) if worlds.is_empty() && self.config.read().is_create_missing() => {
+					RwLockUpgradableReadGuard::upgrade(game_infos).create_default_world(&com_id, server_id).ok_or(ErrorType::DbFail)?
+				}
+				Some(worlds) => worlds,
+			}
+		};
 
 		let num_worlds = worlds.len() as u32;
 		reply.extend(&num_worlds.to_le_bytes());

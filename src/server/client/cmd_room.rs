@@ -9,9 +9,12 @@ impl Client {
 	pub fn req_create_room(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
 		let (com_id, create_req) = self.get_com_and_pb::<CreateJoinRoomRequest>(data)?;
 
-		let server_id = Database::new(self.get_database_connection()?)
+		let server_id = self
+			.shared
+			.game_infos
+			.read()
 			.get_corresponding_server(&com_id, create_req.world_id, create_req.lobby_id)
-			.map_err(|_| {
+			.ok_or_else(|| {
 				warn!(
 					"Attempted to use invalid worldId/lobbyId for comId {}: {}/{}",
 					&com_id_to_string(&com_id),

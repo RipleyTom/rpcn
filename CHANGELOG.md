@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-10-20
+### Added
+
+- Added certificate hot-reload through SIGUSR1 signal ( you can use 'docker kill -s USR1 rpcn' or 'killall -s USR1 rpcn' to hotswap the certificate)
+- Added a GameInfos structure that holds the servers/worlds/lobbies information instead of storing them in the database
+
+### Changed
+
+- Added 'restart: unless-stopped' to docker-compose.yml
+- Modified GetTss command to support/return timestamp
+
+### Misc
+
+- Updated dependencies
+
+
 ## [1.11.0] - 2026-09-15
 ### Added
 

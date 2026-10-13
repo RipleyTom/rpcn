@@ -30,11 +30,7 @@ impl Client {
 	pub fn req_admin_update_servers_cfg(&self) -> Result<ErrorType, ErrorType> {
 		self.check_admin("UpdateServersCfg")?;
 
-		if let Err(e) = Database::new(self.get_database_connection()?).update_servers_cfg() {
-			error!("Failed to update servers config: {}", e);
-			return Ok(ErrorType::DbFail);
-		}
-
+		*self.shared.game_infos.write() = GameInfos::new();
 		Ok(ErrorType::NoError)
 	}
 

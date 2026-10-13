@@ -11,7 +11,9 @@ use tokio::runtime;
 use tokio::sync::{mpsc, watch};
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
-use tokio_rustls::rustls::server::ServerConfig;
+use tokio_rustls::rustls::crypto::CryptoProvider;
+use tokio_rustls::rustls::server::{ClientHello, ResolvesServerCert, ServerConfig};
+use tokio_rustls::rustls::sign::CertifiedKey;
 use tracing::{error, info, warn};
 
 use parking_lot::RwLock;
@@ -21,6 +23,8 @@ use socket2::{SockRef, TcpKeepalive};
 pub mod client;
 use client::{Client, ClientSharedInfo, HEADER_SIZE, PacketType, SharedData, TerminateWatch};
 mod database;
+mod game_infos;
+use game_infos::GameInfos;
 mod game_tracker;
 use game_tracker::GameTracker;
 mod gui_room_manager;
@@ -39,7 +43,7 @@ use crate::server::database::Database;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 33;
+const PROTOCOL_VERSION: u32 = 34;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
@@ -50,6 +54,63 @@ pub struct Server {
 	score_cache: Arc<ScoresCache>,
 	game_tracker: Arc<GameTracker>,
 	cleanup_duty: Arc<RwLock<HashSet<i64>>>,
+	game_infos: Arc<RwLock<GameInfos>>,
+}
+
+#[derive(Debug)]
+struct CertResolver {
+	crypto_provider: Arc<CryptoProvider>,
+	certified_key: RwLock<Arc<CertifiedKey>>,
+}
+
+impl CertResolver {
+	fn new(crypto_provider: Arc<CryptoProvider>) -> io::Result<CertResolver> {
+		let certified_key = RwLock::new(Arc::new(CertResolver::load_certificate(&crypto_provider)?));
+		Ok(CertResolver { crypto_provider, certified_key })
+	}
+
+	fn load_certificate(crypto_provider: &CryptoProvider) -> io::Result<CertifiedKey> {
+		let f_cert = File::open("cert.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open certificate cert.pem"))?;
+		let f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
+		let certif = certs(&mut BufReader::new(&f_cert))
+			.collect::<Result<Vec<CertificateDer<'static>>, io::Error>>()
+			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
+		let mut private_key = pkcs8_private_keys(&mut BufReader::new(&f_key))
+			.collect::<Result<Vec<PrivatePkcs8KeyDer<'static>>, io::Error>>()
+			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "key.pem is invalid"))?;
+		if certif.is_empty() || private_key.is_empty() {
+			return Err(io::Error::new(io::ErrorKind::InvalidInput, "key.pem doesn't contain a PKCS8 encoded private key!"));
+		}
+
+		CertifiedKey::from_der(certif, private_key.remove(0).into(), crypto_provider)
+			.map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("Failed to setup certificate: {}", e)))
+	}
+
+	fn reload(&self) -> io::Result<()> {
+		let certified_key = Arc::new(CertResolver::load_certificate(&self.crypto_provider)?);
+		*self.certified_key.write() = certified_key;
+		Ok(())
+	}
+}
+
+impl ResolvesServerCert for CertResolver {
+	fn resolve(&self, _client_hello: ClientHello<'_>) -> Option<Arc<CertifiedKey>> {
+		Some(self.certified_key.read().clone())
+	}
+}
+
+#[cfg(unix)]
+fn install_cert_reload_handler(cert_resolver: Arc<CertResolver>) {
+	tokio::spawn(async move {
+		let mut sigusr1 = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::user_defined1()).expect("Failed to register SIGUSR1 handler");
+		while sigusr1.recv().await.is_some() {
+			info!("SIGUSR1 received, reloading certificate");
+			match cert_resolver.reload() {
+				Ok(()) => info!("Certificate reloaded"),
+				Err(e) => error!("Failed to reload certificate, keeping the current one: {}", e),
+			}
+		}
+	});
 }
 
 fn install_signal_handlers(term_watch: &TerminateWatch) {
@@ -94,6 +155,7 @@ impl Server {
 		let client_infos = Arc::new(RwLock::new(HashMap::new()));
 		let game_tracker = Arc::new(GameTracker::new());
 		let cleanup_duty = Arc::new(RwLock::new(HashSet::new()));
+		let game_infos = Arc::new(RwLock::new(GameInfos::new()));
 
 		Ok(Server {
 			config,
@@ -104,6 +166,7 @@ impl Server {
 			score_cache,
 			game_tracker,
 			cleanup_duty,
+			game_infos,
 		})
 	}
 
@@ -134,26 +197,6 @@ impl Server {
 		socket_ref.set_tcp_keepalive(&TcpKeepalive::new().with_time(std::time::Duration::new(30, 0)).with_interval(std::time::Duration::new(30, 0)))
 	}
 
-	fn load_certificate() -> io::Result<ServerConfig> {
-		// Setup TLS
-		let f_cert = File::open("cert.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open certificate cert.pem"))?;
-		let f_key = std::fs::File::open("key.pem").map_err(|e| io::Error::new(e.kind(), "Failed to open private key key.pem"))?;
-		let certif = certs(&mut BufReader::new(&f_cert))
-			.collect::<Result<Vec<CertificateDer<'static>>, io::Error>>()
-			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "cert.pem is invalid"))?;
-		let mut private_key = pkcs8_private_keys(&mut BufReader::new(&f_key))
-			.collect::<Result<Vec<PrivatePkcs8KeyDer<'static>>, io::Error>>()
-			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "key.pem is invalid"))?;
-		if certif.is_empty() || private_key.is_empty() {
-			return Err(io::Error::new(io::ErrorKind::InvalidInput, "key.pem doesn't contain a PKCS8 encoded private key!"));
-		}
-
-		ServerConfig::builder()
-			.with_no_client_auth()
-			.with_single_cert(certif, private_key.remove(0).into())
-			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Failed to setup certificate"))
-	}
-
 	pub fn start(&mut self) -> io::Result<()> {
 		// Parse host address
 		let str_addr = self.config.read().get_host_ipv4().clone() + ":" + self.config.read().get_port();
@@ -162,11 +205,14 @@ impl Server {
 			.next()
 			.ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, format!("{} is not a valid address", str_addr)))?;
 
-		let server_config = Server::load_certificate().inspect_err(|_| {
+		// Setup TLS
+		let config_builder = ServerConfig::builder();
+		let cert_resolver = Arc::new(CertResolver::new(config_builder.crypto_provider().clone()).inspect_err(|_| {
 			println!("A certificate error occurred. To generate a certificate, run:");
 			let exe_path = crate::env::args().next().unwrap_or(String::from("rpcn"));
 			println!("{} --cert-gen", exe_path);
-		})?;
+		})?);
+		let server_config = config_builder.with_no_client_auth().with_cert_resolver(cert_resolver.clone());
 
 		// Setup Tokio
 		let runtime = runtime::Builder::new_multi_thread().enable_all().build()?;
@@ -186,6 +232,8 @@ impl Server {
 			let mut term_watch = TerminateWatch::new(term_recv, term_send);
 
 			install_signal_handlers(&term_watch);
+			#[cfg(unix)]
+			install_cert_reload_handler(cert_resolver.clone());
 
 			self.start_udp_server(term_watch.clone()).await?;
 			self.start_stat_server(term_watch.clone(), self.game_tracker.clone()).await?;
@@ -214,7 +262,7 @@ impl Server {
 						let acceptor = acceptor.clone();
 						let config = self.config.clone();
 						let db_pool = self.db_pool.clone();
-						let shared = SharedData::new(self.gui_room_manager.clone(), self.room_manager.clone(), self.client_infos.clone(), self.score_cache.clone(), self.game_tracker.clone(), self.cleanup_duty.clone());
+						let shared = SharedData::new(self.gui_room_manager.clone(), self.room_manager.clone(), self.client_infos.clone(), self.score_cache.clone(), self.game_tracker.clone(), self.cleanup_duty.clone(), self.game_infos.clone());
 						let servinfo_vec = servinfo_vec.clone();
 						let term_watch = term_watch.clone();
 						let filecleaner_send = filecleaner_send.clone();
