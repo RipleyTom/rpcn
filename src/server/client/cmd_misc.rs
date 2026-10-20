@@ -248,7 +248,7 @@ impl Client {
 			return Err(ErrorType::Malformed);
 		}
 
-		if tss_slot_id < 0 || tss_slot_id > 15 {
+		if tss_slot_id < 0 {
 			warn!("Invalid tss_slot_id in GetTss command: {}", tss_slot_id);
 			return Err(ErrorType::Malformed);
 		}
