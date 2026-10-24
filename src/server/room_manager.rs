@@ -60,9 +60,13 @@ enum SceNpMatching2FlagAttr {
 	SCE_NP_MATCHING2_ROOM_FLAG_ATTR_PROHIBITIVE_MODE = 0x02000000,
 }
 
-const PROTECTED_ROOM_FLAGS: u32 = SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32;
+const PROTECTED_ROOM_FLAGS: u32 = (SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32) | (SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32);
 
 const SCE_NP_MATCHING2_ROOMMEMBER_FLAG_ATTR_OWNER: u32 = 0x80000000;
+
+fn sanitize_room_flag_attr(flag_attr: u32) -> u32 {
+	flag_attr & !PROTECTED_ROOM_FLAGS
+}
 
 const SCE_NP_MATCHING2_ROLE_MEMBER: u8 = 1;
 const SCE_NP_MATCHING2_ROLE_OWNER: u8 = 2;
@@ -451,7 +455,7 @@ impl Room {
 		let world_id = pb.world_id;
 		let lobby_id = pb.lobby_id;
 		let max_slot = pb.max_slot as u16;
-		let flag_attr = pb.flag_attr & !PROTECTED_ROOM_FLAGS;
+		let flag_attr = sanitize_room_flag_attr(pb.flag_attr);
 		let mut bin_attr_internal: [RoomBinAttrInternal; 2] = [
 			RoomBinAttrInternal::with_id(SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_1_ID),
 			RoomBinAttrInternal::with_id(SCE_NP_MATCHING2_ROOM_BIN_ATTR_INTERNAL_2_ID),
@@ -736,12 +740,8 @@ impl Room {
 			return Ok(false);
 		}
 
-		let mut flag_filter = req.flag_filter;
-		let mut flag_attr = req.flag_attr;
-
-		// We ignore the SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION attribute as it is pretty irrelevant to rpcs3 and caused issue with top spin search
-		flag_filter &= !(SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32);
-		flag_attr &= !(SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32);
+		let mut flag_filter = sanitize_room_flag_attr(req.flag_filter);
+		let mut flag_attr = sanitize_room_flag_attr(req.flag_attr);
 
 		if (self.flag_attr & flag_filter) != flag_attr {
 			return Ok(false);
@@ -1570,8 +1570,8 @@ impl RoomManager {
 		let mut vec_new_groups: Vec<u8> = Vec::new();
 
 		if is_room_owner {
-			let flag_filter = req.flag_filter & !PROTECTED_ROOM_FLAGS;
-			let flag_attr = req.flag_attr & !PROTECTED_ROOM_FLAGS;
+			let flag_filter = sanitize_room_flag_attr(req.flag_filter);
+			let flag_attr = sanitize_room_flag_attr(req.flag_attr);
 			let new_room_flag_attr = (flag_attr & flag_filter) | (room.flag_attr & !flag_filter);
 
 			if new_room_flag_attr != room.flag_attr {
@@ -1742,5 +1742,46 @@ impl RoomManager {
 		}
 
 		Some(self.user_rooms.get(&user).unwrap().clone())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn strips_incompatible_room_flags_from_new_rooms() {
+		let req = CreateJoinRoomRequest {
+			world_id: 1,
+			lobby_id: 2,
+			max_slot: 4,
+			flag_attr: (SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32) | (SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32) | 0x1234,
+			..Default::default()
+		};
+
+		let room = Room::from_protobuf(&req).unwrap();
+		assert_eq!(room.flag_attr & (SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32), 0);
+		assert_eq!(room.flag_attr & (SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_FULL as u32), 0);
+		assert_eq!(room.flag_attr & 0x1234, 0x1234);
+	}
+
+	#[test]
+	fn ignores_nat_restriction_flag_during_search_matching() {
+		let room = Room::from_protobuf(&CreateJoinRoomRequest {
+			world_id: 1,
+			max_slot: 4,
+			flag_attr: SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32,
+			..Default::default()
+		})
+		.unwrap();
+
+		let search = SearchRoomRequest {
+			world_id: 1,
+			flag_filter: SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32,
+			flag_attr: SceNpMatching2FlagAttr::SCE_NP_MATCHING2_ROOM_FLAG_ATTR_NAT_TYPE_RESTRICTION as u32,
+			..Default::default()
+		};
+
+		assert!(room.is_match(&search).unwrap());
 	}
 }
