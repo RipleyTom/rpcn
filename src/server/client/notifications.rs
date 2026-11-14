@@ -22,6 +22,11 @@ pub enum NotificationType {
 	RoomOwnerChangedGUI,
 	_UserKickedGUI,
 	QuickMatchCompleteGUI,
+	MemberJoinedLobby = 0x0200,
+	MemberLeftLobby,
+	UpdatedLobbyMemberDataInternal,
+	LobbyMessageReceived,
+	LobbyInvitationReceived,
 }
 
 impl Client {

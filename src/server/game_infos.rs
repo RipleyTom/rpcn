@@ -9,9 +9,37 @@ use crate::server::client::{COMMUNICATION_ID_SIZE, ComId, com_id_to_string};
 
 #[derive(Default)]
 struct GameInfo {
-	servers: BTreeMap<u16, BTreeSet<u32>>, // server_id -> world_ids
-	worlds: HashMap<u32, u16>,             // world_id -> server_id
-	lobbies: HashMap<u64, u32>,            // lobby_id -> world_id
+	servers: BTreeMap<u16, BTreeSet<u32>>,      // server_id -> world_ids
+	worlds: HashMap<u32, u16>,                  // world_id -> server_id
+	lobbies: HashMap<u64, u32>,                 // lobby_id -> world_id
+	world_lobbies: HashMap<u32, BTreeSet<u64>>, // world_id -> lobby_ids
+}
+
+// Maximum number of lobbies a single range in servers.cfg or the default lobby creation can produce
+pub const MAX_LOBBIES_PER_RANGE: u64 = 4096;
+
+// Lobbies are separated by commas, a-b describes an inclusive range
+fn parse_lobbies(lobbies: &str) -> Result<Vec<u64>, ()> {
+	if lobbies.is_empty() {
+		return Ok(Vec::new());
+	}
+
+	lobbies
+		.split(',')
+		.map(|s| {
+			let s = s.trim();
+			if let Some((first, last)) = s.split_once('-') {
+				let (first, last) = (first.trim().parse::<u64>().map_err(|_| ())?, last.trim().parse::<u64>().map_err(|_| ())?);
+				if first > last || last - first >= MAX_LOBBIES_PER_RANGE {
+					return Err(());
+				}
+				Ok((first..=last).collect())
+			} else {
+				s.parse::<u64>().map(|v| vec![v]).map_err(|_| ())
+			}
+		})
+		.collect::<Result<Vec<Vec<u64>>, ()>>()
+		.map(|v| v.concat())
 }
 
 impl GameInfo {
@@ -35,7 +63,19 @@ impl GameInfo {
 		}
 
 		self.lobbies.insert(lobby_id, world_id);
+		self.world_lobbies.entry(world_id).or_default().insert(lobby_id);
 		true
+	}
+
+	// Returns (server_id, lobby_id) for every lobby of the world, sorted by lobby id
+	fn get_lobby_list(&self, world_id: u32) -> Option<Vec<(u16, u64)>> {
+		let server_id = *self.worlds.get(&world_id)?;
+		Some(
+			self.world_lobbies
+				.get(&world_id)
+				.map(|lobbies| lobbies.iter().map(|lobby_id| (server_id, *lobby_id)).collect())
+				.unwrap_or_default(),
+		)
 	}
 }
 
@@ -70,11 +110,7 @@ impl GameInfos {
 			let com_id: ComId = servers_infos[0].as_bytes().try_into().unwrap();
 			let server = servers_infos[1].parse::<u16>();
 			let world = servers_infos[2].parse::<u32>();
-			let lobbies: Result<Vec<u64>, _> = if servers_infos[3].is_empty() {
-				Ok(Vec::new())
-			} else {
-				servers_infos[3].split(',').map(|s| s.trim().parse::<u64>()).collect()
-			};
+			let lobbies = parse_lobbies(servers_infos[3]);
 
 			let (Ok(server), Ok(world), Ok(lobbies)) = (server, world, lobbies) else {
 				println!("servers.cfg: line({}) couldn't be parsed and was skipped", l);
@@ -143,5 +179,41 @@ impl GameInfos {
 		let game = self.games.get(com_id)?;
 		let world_id = if world_id == 0 { *game.lobbies.get(&lobby_id)? } else { world_id };
 		game.worlds.get(&world_id).copied()
+	}
+
+	// Returns None if the world doesn't exist
+	pub fn get_lobby_list(&self, com_id: &ComId, world_id: u32) -> Option<Vec<(u16, u64)>> {
+		self.games.get(com_id)?.get_lobby_list(world_id)
+	}
+
+	// Creates lobbies so that the lobby list of a world is not empty, some games wait for a minimum number of lobbies
+	// Lobby ids are unique per communication id so the new ones follow the highest existing id
+	pub fn create_default_lobbies(&mut self, com_id: &ComId, world_id: u32, count: u32) -> Option<Vec<(u16, u64)>> {
+		let game = self.games.get_mut(com_id)?;
+		if !game.worlds.contains_key(&world_id) {
+			warn!("Attempted to create lobbies for a non-existing world({}:{})", com_id_to_string(com_id), world_id);
+			return None;
+		}
+
+		// Another client may have created them between the read and the write lock
+		if game.world_lobbies.get(&world_id).is_some_and(|lobbies| !lobbies.is_empty()) {
+			return game.get_lobby_list(world_id);
+		}
+
+		let count = (count as u64).min(MAX_LOBBIES_PER_RANGE);
+		let first = game.lobbies.keys().max().map_or(1, |max| max + 1);
+		info!("Creating {} lobbies for world {}:{}", count, com_id_to_string(com_id), world_id);
+		for lobby_id in first..first + count {
+			game.add_lobby(world_id, lobby_id);
+		}
+
+		game.get_lobby_list(world_id)
+	}
+
+	// Returns (server_id, world_id) of the lobby
+	pub fn get_lobby_location(&self, com_id: &ComId, lobby_id: u64) -> Option<(u16, u32)> {
+		let game = self.games.get(com_id)?;
+		let world_id = *game.lobbies.get(&lobby_id)?;
+		Some((*game.worlds.get(&world_id)?, world_id))
 	}
 }

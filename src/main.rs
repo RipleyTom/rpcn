@@ -24,6 +24,7 @@ pub struct TicketSignInfo {
 
 pub struct Config {
 	create_missing: bool, // Creates servers/worlds/lobbies if the client queries for ones but there are none or specific id queries
+	default_lobbies: u32, // Number of lobbies created for a world without any when create_missing is set
 	verbosity: tracing::Level,
 	host_ipv4: String,
 	host_ipv6: String,
@@ -42,6 +43,7 @@ impl Config {
 	pub fn new() -> Config {
 		Config {
 			create_missing: true,
+			default_lobbies: 130,
 			verbosity: tracing::Level::INFO,
 			host_ipv4: "0.0.0.0".to_string(),
 			host_ipv6: "0:0:0:0:0:0:0:0".to_string(),
@@ -139,6 +141,8 @@ impl Config {
 		};
 
 		set_bool("CreateMissing", &mut self.create_missing);
+		set_u32("DefaultLobbiesPerWorld", &mut self.default_lobbies);
+		self.default_lobbies = self.default_lobbies.min(4096);
 		set_verbosity(&mut self.verbosity);
 		set_string("Host", &mut self.host_ipv4);
 		set_string("HostIPv6", &mut self.host_ipv6);
@@ -207,6 +211,10 @@ impl Config {
 
 	pub fn is_create_missing(&self) -> bool {
 		self.create_missing
+	}
+
+	pub fn get_default_lobbies(&self) -> u32 {
+		self.default_lobbies
 	}
 
 	pub fn is_email_validated(&self) -> bool {
