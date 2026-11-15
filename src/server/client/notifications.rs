@@ -22,7 +22,7 @@ pub enum NotificationType {
 	RoomOwnerChangedGUI,
 	_UserKickedGUI,
 	QuickMatchCompleteGUI,
-	MemberJoinedLobby = 0x0200,
+	MemberJoinedLobby,
 	MemberLeftLobby,
 	UpdatedLobbyMemberDataInternal,
 	LobbyMessageReceived,

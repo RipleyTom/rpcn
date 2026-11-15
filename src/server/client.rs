@@ -275,18 +275,18 @@ enum CommandType {
 	SyncTrophies,
 	DeleteTrophies,
 	GetTss,
-	UpdateDomainBans = 0x0100,
-	TerminateServer,
-	UpdateServersCfg,
-	BanUser,
-	DelUser,
-	GetLobbyInfoList = 0x0200,
+	GetLobbyInfoList,
 	JoinLobby,
 	LeaveLobby,
 	SetLobbyMemberDataInternal,
 	GetLobbyMemberDataInternalList,
 	SendLobbyChatMessage,
 	SendLobbyInvitation,
+	UpdateDomainBans = 0x0100,
+	TerminateServer,
+	UpdateServersCfg,
+	BanUser,
+	DelUser
 }
 
 #[repr(u8)]

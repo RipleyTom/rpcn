@@ -43,7 +43,7 @@ impl Config {
 	pub fn new() -> Config {
 		Config {
 			create_missing: true,
-			default_lobbies: 130,
+			default_lobbies: 64,
 			verbosity: tracing::Level::INFO,
 			host_ipv4: "0.0.0.0".to_string(),
 			host_ipv6: "0:0:0:0:0:0:0:0".to_string(),
