@@ -15,7 +15,19 @@ impl Client {
 		let join_req = self.get_pb::<MatchingGuiRoomId>(data)?;
 
 		let room_id = GuiRoomManager::pb_vec_to_room_id(&join_req.id)?;
-		let res = self.shared.gui_room_manager.write().join_room_gui(&room_id, &self.client_info);
+		self.join_room_gui_common(&room_id, false, reply).await
+	}
+
+	pub async fn req_accept_invitation_gui(&mut self, data: &mut StreamExtractor, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
+		let private_slot = data.get::<u8>() != 0;
+		let join_req = self.get_pb::<MatchingGuiRoomId>(data)?;
+
+		let room_id = GuiRoomManager::pb_vec_to_room_id(&join_req.id)?;
+		self.join_room_gui_common(&room_id, private_slot, reply).await
+	}
+
+	async fn join_room_gui_common(&mut self, room_id: &GuiRoomId, private_slot: bool, reply: &mut Vec<u8>) -> Result<ErrorType, ErrorType> {
+		let res = self.shared.gui_room_manager.write().join_room_gui(room_id, &self.client_info, private_slot);
 		match res {
 			Ok((resp, notif_users, notif_data)) => {
 				let mut n_msg: Vec<u8> = Vec::with_capacity(notif_data.len() + size_of::<u32>());

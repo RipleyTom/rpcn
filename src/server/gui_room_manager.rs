@@ -76,6 +76,7 @@ pub struct GuiRoomMember {
 	online_name: String,
 	avatar_url: String,
 	owner: bool,
+	private_slot: bool,
 }
 
 impl GuiRoomMember {
@@ -85,6 +86,7 @@ impl GuiRoomMember {
 			online_name: cinfo.online_name.clone(),
 			avatar_url: cinfo.avatar_url.clone(),
 			owner,
+			private_slot: false,
 		}
 	}
 
@@ -194,6 +196,14 @@ impl GuiRoom {
 		self.members.insert(cinfo.user_id, GuiRoomMember::from_clientinfo(cinfo, owner));
 	}
 
+	fn count_members(&self, private_slot: bool) -> u32 {
+		self.members.values().filter(|member| member.private_slot == private_slot).count() as u32
+	}
+
+	fn is_public_full(&self) -> bool {
+		self.count_members(false) >= self.total_slots.saturating_sub(self.private_slots)
+	}
+
 	fn gen_MatchingRoomStatus(&self, id: &GuiRoomId, member_filter: Option<i64>, extra_member: Option<&GuiRoomMember>) -> MatchingRoomStatus {
 		let mut members = Vec::new();
 
@@ -228,8 +238,8 @@ impl GuiRoom {
 					SCE_NP_MATCHING_ROOM_ATTR_ID_TOTAL_SLOT => self.total_slots,
 					SCE_NP_MATCHING_ROOM_ATTR_ID_PRIVATE_SLOT => self.private_slots,
 					SCE_NP_MATCHING_ROOM_ATTR_ID_CUR_TOTAL_NUM => self.members.len() as u32,
-					SCE_NP_MATCHING_ROOM_ATTR_ID_CUR_PUBLIC_NUM => self.members.len() as u32,
-					SCE_NP_MATCHING_ROOM_ATTR_ID_CUR_PRIVATE_NUM => 0, // TODO?
+					SCE_NP_MATCHING_ROOM_ATTR_ID_CUR_PUBLIC_NUM => self.count_members(false),
+					SCE_NP_MATCHING_ROOM_ATTR_ID_CUR_PRIVATE_NUM => self.count_members(true),
 					SCE_NP_MATCHING_ROOM_ATTR_ID_PRIVILEGE_TYPE => {
 						if self.privilege_grant {
 							1
@@ -322,7 +332,7 @@ impl GuiRoom {
 			return false;
 		}
 
-		if check_full && self.members.len() == self.total_slots as usize {
+		if check_full && (self.members.len() == self.total_slots as usize || self.is_public_full()) {
 			return false;
 		}
 
@@ -472,7 +482,7 @@ impl<'a> GuiRoomManager {
 		room_data.encode_to_vec()
 	}
 
-	pub fn join_room_gui(&mut self, room_id: &GuiRoomId, cinfo: &ClientInfo) -> Result<(Vec<u8>, HashSet<i64>, Vec<u8>), ErrorType> {
+	pub fn join_room_gui(&mut self, room_id: &GuiRoomId, cinfo: &ClientInfo, private_slot: bool) -> Result<(Vec<u8>, HashSet<i64>, Vec<u8>), ErrorType> {
 		let room = self.rooms.get_mut(room_id).ok_or(ErrorType::RoomMissing)?;
 
 		if room.members.len() == room.total_slots as usize {
@@ -483,8 +493,14 @@ impl<'a> GuiRoomManager {
 			return Err(ErrorType::RoomAlreadyJoined);
 		}
 
+		let use_private_slot = private_slot && room.count_members(true) < room.private_slots;
+		if !use_private_slot && room.is_public_full() {
+			return Err(ErrorType::RoomFull);
+		}
+
 		let member_ids: HashSet<i64> = room.members.keys().copied().collect();
 		GuiRoomManager::add_member_to_room(&mut self.user_rooms, room_id, cinfo, false, room);
+		room.members.get_mut(&cinfo.user_id).unwrap().private_slot = use_private_slot;
 
 		let reply = room.gen_MatchingRoomStatus(room_id, Some(0), None).encode_to_vec();
 		let notif = room.gen_MatchingRoomStatus(room_id, Some(cinfo.user_id), None).encode_to_vec();

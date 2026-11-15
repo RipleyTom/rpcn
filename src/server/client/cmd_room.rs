@@ -302,7 +302,21 @@ impl Client {
 	}
 
 	pub async fn req_send_room_message(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
+		self.send_room_message_generic(data, NotificationType::RoomMessageReceived).await
+	}
+
+	pub async fn req_send_room_chat_message(&mut self, data: &mut StreamExtractor) -> Result<ErrorType, ErrorType> {
+		self.send_room_message_generic(data, NotificationType::RoomChatMessageReceived).await
+	}
+
+	async fn send_room_message_generic(&mut self, data: &mut StreamExtractor, notif_type: NotificationType) -> Result<ErrorType, ErrorType> {
 		let (com_id, msg_req) = self.get_com_and_pb::<SendRoomMessageRequest>(data)?;
+
+		// SCE_NP_MATCHING2_CHAT_MSG_MAX_SIZE
+		if matches!(notif_type, NotificationType::RoomChatMessageReceived) && msg_req.msg.len() > 1024 {
+			warn!("User tried to send a room chat message that is too big!");
+			return Ok(ErrorType::InvalidInput);
+		}
 
 		let room_id = msg_req.room_id;
 		let (notif, member_id, users);
@@ -365,7 +379,7 @@ impl Client {
 			n_msg.extend(&room_id.to_le_bytes());
 			n_msg.extend(&member_id.to_le_bytes());
 			Client::add_data_packet(&mut n_msg, &finished_data);
-			notif = Client::create_notification(NotificationType::RoomMessageReceived, &n_msg);
+			notif = Client::create_notification(notif_type, &n_msg);
 		}
 
 		let cast_type = msg_req.cast_type.get_verified()?;
