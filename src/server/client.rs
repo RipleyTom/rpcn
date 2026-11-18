@@ -1,6 +1,7 @@
 mod cmd_account;
 mod cmd_admin;
 mod cmd_friend;
+mod cmd_lobby;
 mod cmd_misc;
 mod cmd_room;
 mod cmd_room_gui;
@@ -40,6 +41,7 @@ use crate::server::database::Database;
 use crate::server::game_infos::GameInfos;
 use crate::server::game_tracker::GameTracker;
 use crate::server::gui_room_manager::GuiRoomManager;
+use crate::server::lobby_manager::LobbyManager;
 use crate::server::room_manager::RoomManager;
 use crate::server::score_cache::ScoresCache;
 use crate::server::stream_extractor::StreamExtractor;
@@ -173,6 +175,7 @@ impl TerminateWatch {
 pub struct SharedData {
 	gui_room_manager: Arc<RwLock<GuiRoomManager>>,
 	room_manager: Arc<RwLock<RoomManager>>,
+	lobby_manager: Arc<RwLock<LobbyManager>>,
 	client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
 	score_cache: Arc<ScoresCache>,
 	game_tracker: Arc<GameTracker>,
@@ -272,11 +275,18 @@ enum CommandType {
 	SyncTrophies,
 	DeleteTrophies,
 	GetTss,
+	GetLobbyInfoList,
+	JoinLobby,
+	LeaveLobby,
+	SetLobbyMemberDataInternal,
+	GetLobbyMemberDataInternalList,
+	SendLobbyChatMessage,
+	SendLobbyInvitation,
 	UpdateDomainBans = 0x0100,
 	TerminateServer,
 	UpdateServersCfg,
 	BanUser,
-	DelUser,
+	DelUser
 }
 
 #[repr(u8)]
@@ -352,6 +362,7 @@ impl SharedData {
 	pub fn new(
 		gui_room_manager: Arc<RwLock<GuiRoomManager>>,
 		room_manager: Arc<RwLock<RoomManager>>,
+		lobby_manager: Arc<RwLock<LobbyManager>>,
 		client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
 		score_cache: Arc<ScoresCache>,
 		game_tracker: Arc<GameTracker>,
@@ -361,6 +372,7 @@ impl SharedData {
 		SharedData {
 			gui_room_manager,
 			room_manager,
+			lobby_manager,
 			client_infos,
 			score_cache,
 			game_tracker,
@@ -461,6 +473,14 @@ impl Client {
 		if let Some(rooms) = rooms {
 			for (com_id, room_id) in rooms {
 				client.leave_room(&com_id, room_id, None, EventCause::MemberDisappeared).await;
+			}
+		}
+
+		let lobbies = client.shared.lobby_manager.read().get_lobbies_by_user(client.client_info.user_id);
+
+		if let Some(lobbies) = lobbies {
+			for (com_id, lobby_id) in lobbies {
+				client.leave_lobby(&com_id, lobby_id, None, EventCause::MemberDisappeared).await;
 			}
 		}
 
@@ -745,6 +765,13 @@ impl Client {
 			CommandType::SyncTrophies => self.req_sync_trophies(data, reply),
 			CommandType::DeleteTrophies => self.delete_trophies(data),
 			CommandType::GetTss => self.get_tss(data, reply).await,
+			CommandType::GetLobbyInfoList => self.req_get_lobby_info_list(data, reply),
+			CommandType::JoinLobby => self.req_join_lobby(data, reply).await,
+			CommandType::LeaveLobby => self.req_leave_lobby(data, reply).await,
+			CommandType::SetLobbyMemberDataInternal => self.req_set_lobby_member_data_internal(data).await,
+			CommandType::GetLobbyMemberDataInternalList => self.req_get_lobby_member_data_internal_list(data, reply),
+			CommandType::SendLobbyChatMessage => self.req_send_lobby_chat_message(data).await,
+			CommandType::SendLobbyInvitation => self.req_send_lobby_invitation(data).await,
 			CommandType::UpdateDomainBans => self.req_admin_update_domain_bans(),
 			CommandType::TerminateServer => self.req_admin_terminate_server(),
 			CommandType::UpdateServersCfg => self.req_admin_update_servers_cfg(),

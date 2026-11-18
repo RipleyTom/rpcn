@@ -10,8 +10,8 @@ use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio::sync::{mpsc, watch};
 use tokio_rustls::TlsAcceptor;
-use tokio_rustls::rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use tokio_rustls::rustls::crypto::CryptoProvider;
+use tokio_rustls::rustls::pki_types::{CertificateDer, PrivatePkcs8KeyDer};
 use tokio_rustls::rustls::server::{ClientHello, ResolvesServerCert, ServerConfig};
 use tokio_rustls::rustls::sign::CertifiedKey;
 use tracing::{error, info, warn};
@@ -29,6 +29,8 @@ mod game_tracker;
 use game_tracker::GameTracker;
 mod gui_room_manager;
 use gui_room_manager::GuiRoomManager;
+mod lobby_manager;
+use lobby_manager::LobbyManager;
 mod room_manager;
 use room_manager::RoomManager;
 mod score_cache;
@@ -43,13 +45,14 @@ use crate::server::database::Database;
 #[allow(non_snake_case, dead_code)]
 mod stream_extractor;
 
-const PROTOCOL_VERSION: u32 = 34;
+const PROTOCOL_VERSION: u32 = 36;
 
 pub struct Server {
 	config: Arc<RwLock<Config>>,
 	db_pool: r2d2::Pool<r2d2_sqlite::SqliteConnectionManager>,
 	gui_room_manager: Arc<RwLock<GuiRoomManager>>,
 	room_manager: Arc<RwLock<RoomManager>>,
+	lobby_manager: Arc<RwLock<LobbyManager>>,
 	client_infos: Arc<RwLock<HashMap<i64, ClientSharedInfo>>>,
 	score_cache: Arc<ScoresCache>,
 	game_tracker: Arc<GameTracker>,
@@ -82,8 +85,7 @@ impl CertResolver {
 			return Err(io::Error::new(io::ErrorKind::InvalidInput, "key.pem doesn't contain a PKCS8 encoded private key!"));
 		}
 
-		CertifiedKey::from_der(certif, private_key.remove(0).into(), crypto_provider)
-			.map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("Failed to setup certificate: {}", e)))
+		CertifiedKey::from_der(certif, private_key.remove(0).into(), crypto_provider).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("Failed to setup certificate: {}", e)))
 	}
 
 	fn reload(&self) -> io::Result<()> {
@@ -152,6 +154,7 @@ impl Server {
 
 		let gui_room_manager = Arc::new(RwLock::new(GuiRoomManager::new()));
 		let room_manager = Arc::new(RwLock::new(RoomManager::new()));
+		let lobby_manager = Arc::new(RwLock::new(LobbyManager::new()));
 		let client_infos = Arc::new(RwLock::new(HashMap::new()));
 		let game_tracker = Arc::new(GameTracker::new());
 		let cleanup_duty = Arc::new(RwLock::new(HashSet::new()));
@@ -162,6 +165,7 @@ impl Server {
 			db_pool,
 			gui_room_manager,
 			room_manager,
+			lobby_manager,
 			client_infos,
 			score_cache,
 			game_tracker,
@@ -262,7 +266,7 @@ impl Server {
 						let acceptor = acceptor.clone();
 						let config = self.config.clone();
 						let db_pool = self.db_pool.clone();
-						let shared = SharedData::new(self.gui_room_manager.clone(), self.room_manager.clone(), self.client_infos.clone(), self.score_cache.clone(), self.game_tracker.clone(), self.cleanup_duty.clone(), self.game_infos.clone());
+						let shared = SharedData::new(self.gui_room_manager.clone(), self.room_manager.clone(), self.lobby_manager.clone(), self.client_infos.clone(), self.score_cache.clone(), self.game_tracker.clone(), self.cleanup_duty.clone(), self.game_infos.clone());
 						let servinfo_vec = servinfo_vec.clone();
 						let term_watch = term_watch.clone();
 						let filecleaner_send = filecleaner_send.clone();
